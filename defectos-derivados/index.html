@@ -1,0 +1,1440 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>LIVES — Defectos y Derivados por Taller</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+:root{
+  --teal:#009999;
+  --teal-dark:#0f6f6f;
+  --teal-darker:#0a4d4d;
+  --teal-pale:#e6f5f5;
+  --orange:#ff9933;
+  --orange-dark:#e07b00;
+  --coral:#e76f51;
+  --coral-dark:#c1502f;
+  --coral-pale:#fdece6;
+  --ink:#2b2b2b;
+  --gray:#6b7580;
+  --gray-light:#98a1a8;
+  --line:#e2e8e8;
+  --bg-soft:#f4faf9;
+  --bg:#ffffff;
+  --shadow:0 2px 18px rgba(10,60,60,0.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{font-family:'Barlow',Arial,sans-serif;background:var(--bg-soft);color:var(--ink);font-size:14px;line-height:1.45}
+h1,h2,h3,h4{font-family:'Barlow Condensed',Arial,sans-serif;font-weight:600;color:var(--teal-darker)}
+button{font-family:inherit;cursor:pointer}
+.hidden{display:none !important}
+
+/* ============ HEADER ============ */
+.top-header{
+  background:linear-gradient(100deg,var(--teal) 0%,var(--teal-dark) 100%);
+  padding:16px 28px;
+  display:flex;align-items:center;justify-content:space-between;
+  color:#fff;
+  box-shadow:0 2px 10px rgba(0,60,60,0.15);
+  flex-wrap:wrap;gap:12px;
+}
+.brand{display:flex;align-items:center;gap:14px}
+.brand svg{display:block}
+.brand .txt .t1{
+  font-family:'Barlow Condensed',Arial,sans-serif;
+  font-size:20px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:#fff;line-height:1.1;
+}
+.brand .txt .t2{
+  font-size:12px;color:#d6f2f0;letter-spacing:0.05em;text-transform:uppercase;margin-top:2px;
+}
+.header-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.btn{
+  border:1.5px solid rgba(255,255,255,0.55);
+  background:rgba(255,255,255,0.08);
+  color:#fff;
+  padding:8px 14px;
+  border-radius:20px;
+  font-size:12.5px;
+  font-weight:600;
+  letter-spacing:0.02em;
+  display:inline-flex;align-items:center;gap:6px;
+  transition:all .15s;
+}
+.btn:hover{background:rgba(255,255,255,0.22)}
+.btn.solid{background:var(--orange);border-color:var(--orange);color:#fff}
+.btn.solid:hover{background:var(--orange-dark)}
+.btn.ghost-dark{border-color:var(--line);background:#fff;color:var(--teal-dark)}
+.btn.ghost-dark:hover{background:var(--teal-pale)}
+.btn.small{padding:5px 10px;font-size:11px;border-radius:14px}
+
+/* ============ UPLOAD SCREEN ============ */
+.upload-wrap{
+  min-height:calc(100vh - 72px);
+  display:flex;align-items:center;justify-content:center;
+  padding:40px 20px;
+}
+.upload-card{
+  background:#fff;border-radius:20px;box-shadow:var(--shadow);
+  max-width:620px;width:100%;padding:44px 40px;text-align:center;
+  border:1px solid var(--line);
+}
+.upload-card .icon-big{margin-bottom:18px}
+.upload-card h2{font-size:26px;letter-spacing:0.01em;margin-bottom:8px}
+.upload-card p{color:var(--gray);font-size:13.5px;margin-bottom:26px}
+.dropzone{
+  border:2px dashed #b9d9d6;
+  border-radius:14px;
+  padding:34px 20px;
+  background:var(--bg-soft);
+  transition:all .15s;
+  cursor:pointer;
+}
+.dropzone:hover, .dropzone.drag{border-color:var(--teal);background:var(--teal-pale)}
+.dropzone .dz-title{font-size:15px;font-weight:600;color:var(--teal-dark);margin-bottom:4px}
+.dropzone .dz-sub{font-size:12px;color:var(--gray-light)}
+#fileInput{display:none}
+.upload-note{
+  margin-top:22px;text-align:left;background:var(--bg-soft);
+  border-left:3px solid var(--orange);border-radius:6px;
+  padding:12px 14px;font-size:12px;color:var(--gray);
+}
+.upload-note b{color:var(--ink)}
+.upload-error{
+  margin-top:16px;background:var(--coral-pale);border:1px solid var(--coral);
+  color:var(--coral-dark);padding:10px 14px;border-radius:8px;font-size:12.5px;text-align:left;
+}
+.spinner{
+  width:34px;height:34px;border-radius:50%;
+  border:3px solid var(--teal-pale);border-top-color:var(--teal);
+  animation:spin 0.8s linear infinite;margin:0 auto 14px;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ============ FILTERS BAR ============ */
+.filters-bar{
+  background:#fff;border-bottom:1px solid var(--line);
+  padding:14px 28px;display:flex;gap:22px;flex-wrap:wrap;align-items:flex-end;
+  position:sticky;top:0;z-index:50;
+  box-shadow:0 1px 6px rgba(0,0,0,0.03);
+}
+.f-group{display:flex;flex-direction:column;gap:6px}
+.f-label{font-size:10.5px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--gray-light)}
+.chip-row{display:flex;gap:6px;flex-wrap:wrap}
+.chip{
+  padding:5px 13px;border-radius:14px;border:1.3px solid var(--line);
+  background:#fff;color:var(--gray);font-size:12.5px;font-weight:600;
+  user-select:none;transition:all .12s;
+}
+.chip:hover{border-color:var(--teal)}
+.chip.active{background:var(--teal);border-color:var(--teal);color:#fff}
+.date-range{display:flex;gap:6px;align-items:center}
+.date-range input{
+  border:1.3px solid var(--line);border-radius:8px;padding:5px 8px;font-size:12.5px;
+  font-family:inherit;color:var(--ink);
+}
+.date-range span{color:var(--gray-light);font-size:12px}
+.sync-toggle{display:flex;align-items:center;gap:8px;cursor:pointer}
+.switch{
+  width:36px;height:20px;border-radius:12px;background:var(--line);position:relative;transition:background .15s;flex:none;
+}
+.switch.on{background:var(--teal)}
+.switch .knob{
+  position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;
+  box-shadow:0 1px 3px rgba(0,0,0,0.3);transition:left .15s;
+}
+.switch.on .knob{left:18px}
+.sync-toggle .stx{font-size:12px;color:var(--gray);max-width:170px}
+.sync-toggle .stx b{color:var(--teal-dark)}
+
+.ms{position:relative;min-width:210px}
+.ms-btn{
+  border:1.3px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12.5px;
+  background:#fff;color:var(--ink);display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;
+}
+.ms-btn:hover{border-color:var(--teal)}
+.ms-pop{
+  position:absolute;top:calc(100% + 5px);left:0;min-width:250px;background:#fff;
+  border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);
+  max-height:290px;display:none;flex-direction:column;z-index:200;
+}
+.ms-pop.open{display:flex}
+.ms-search{border:none;border-bottom:1px solid var(--line);padding:9px 12px;font-size:12.5px;font-family:inherit;outline:none}
+.ms-list{overflow-y:auto;flex:1;padding:4px 0}
+.ms-item{padding:6px 12px;display:flex;align-items:center;gap:8px;font-size:12.5px;cursor:pointer;color:var(--ink)}
+.ms-item:hover{background:var(--bg-soft)}
+.ms-item input{accent-color:var(--teal)}
+.ms-actions{border-top:1px solid var(--line);padding:6px 10px;display:flex;justify-content:space-between}
+.ms-actions button{font-size:11px;color:var(--teal-dark);font-weight:700;letter-spacing:0.03em;background:none;border:none}
+.ms-actions button:hover{text-decoration:underline}
+
+/* ============ MAIN CONTAINER ============ */
+.container{padding:22px 28px 60px;max-width:1500px;margin:0 auto}
+
+.period-badge{
+  display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--line);
+  border-left:4px solid var(--orange);border-radius:8px;padding:10px 16px;margin-bottom:20px;
+  font-size:12.5px;color:var(--gray);flex-wrap:wrap;
+}
+.period-badge b{color:var(--teal-dark)}
+.period-badge .dot{width:7px;height:7px;border-radius:50%;background:var(--orange);flex:none}
+
+/* KPI */
+.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:22px}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px 18px;box-shadow:var(--shadow)}
+.kpi .k-label{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--gray-light);margin-bottom:8px}
+.kpi .k-val{font-size:26px;font-weight:700;color:var(--teal-dark);line-height:1}
+.kpi .k-sub{font-size:11px;color:var(--gray-light);margin-top:6px}
+.kpi.accent .k-val{color:var(--coral-dark)}
+.kpi.orange .k-val{color:var(--orange-dark)}
+
+/* TABS */
+.tabs{display:flex;gap:4px;border-bottom:2px solid var(--line);margin-bottom:22px;flex-wrap:wrap}
+.tab-btn{
+  padding:10px 18px;font-size:13px;font-weight:600;letter-spacing:0.02em;color:var(--gray);
+  border-bottom:3px solid transparent;margin-bottom:-2px;background:none;border-top:none;border-left:none;border-right:none;
+}
+.tab-btn:hover{color:var(--teal-dark)}
+.tab-btn.active{color:var(--teal-dark);border-bottom-color:var(--teal)}
+.tab-btn .tag{
+  display:inline-block;margin-left:6px;padding:1px 7px;border-radius:8px;font-size:9.5px;font-weight:700;
+  vertical-align:middle;letter-spacing:0.03em;
+}
+.tab-btn .tag.def{background:var(--teal-pale);color:var(--teal-dark)}
+.tab-btn .tag.der{background:var(--coral-pale);color:var(--coral-dark)}
+.tab-section{display:none}
+.tab-section.active{display:block}
+
+/* PANEL / CARD */
+.panel{
+  background:#fff;border:1px solid var(--line);border-radius:16px;
+  box-shadow:var(--shadow);padding:22px 24px;margin-bottom:20px;position:relative;overflow:hidden;
+}
+.panel-grid2{display:grid;grid-template-columns:1.15fr 0.85fr;gap:20px}
+@media(max-width:980px){.panel-grid2{grid-template-columns:1fr}}
+.panel-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;gap:10px;flex-wrap:wrap}
+.panel-title{}
+.panel-title .pt1{font-size:17px;font-weight:700;color:var(--teal-dark);letter-spacing:0.01em;text-transform:uppercase}
+.panel-title .pt1.der-color{color:var(--coral-dark)}
+.panel-title .pt2{font-size:11.5px;color:var(--gray-light);text-transform:uppercase;letter-spacing:0.06em;margin-top:2px}
+.period-pill{
+  border:1.3px solid var(--orange);color:var(--orange-dark);background:#fff8f0;
+  padding:4px 12px;border-radius:14px;font-size:11px;font-weight:700;white-space:nowrap;
+}
+.chart-wrap{position:relative}
+.taller-select{
+  border:1.3px solid var(--line);border-radius:8px;padding:7px 10px;font-size:12.5px;font-family:inherit;
+  color:var(--ink);background:#fff;min-width:220px;
+}
+.empty-note{color:var(--gray-light);font-size:12.5px;padding:20px 4px;text-align:center}
+.footer-brand{text-align:right;color:var(--orange-dark);font-weight:700;font-size:12px;letter-spacing:0.04em;
+  text-transform:uppercase;margin-top:4px}
+
+/* Comparativo table */
+.tbl-wrap{overflow-x:auto}
+table.cmp{width:100%;border-collapse:collapse;font-size:12.5px}
+table.cmp th{
+  text-align:left;padding:9px 10px;background:var(--bg-soft);color:var(--gray);
+  font-size:10.5px;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid var(--line);
+  cursor:pointer;white-space:nowrap;
+}
+table.cmp th:hover{color:var(--teal-dark)}
+table.cmp td{padding:9px 10px;border-bottom:1px solid var(--line);color:var(--ink);white-space:nowrap}
+table.cmp tr:hover td{background:var(--bg-soft)}
+table.cmp td.num{text-align:right;font-variant-numeric:tabular-nums}
+.pct-bar{display:inline-block;height:6px;border-radius:3px;background:var(--coral);vertical-align:middle;margin-right:6px}
+.badge-int{background:var(--teal-pale);color:var(--teal-dark);padding:2px 8px;border-radius:8px;font-size:10.5px;font-weight:700}
+.badge-ext{background:var(--coral-pale);color:var(--coral-dark);padding:2px 8px;border-radius:8px;font-size:10.5px;font-weight:700}
+
+.chart-tools{display:flex;gap:6px}
+.icon-btn{
+  width:28px;height:28px;border-radius:8px;border:1.3px solid var(--line);background:#fff;
+  display:flex;align-items:center;justify-content:center;color:var(--gray);
+}
+.icon-btn:hover{border-color:var(--teal);color:var(--teal-dark)}
+
+.data-flag{
+  display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--gray-light);margin-top:10px;
+}
+
+/* ============ FICHA POR TALLER (estilo réplica de referencia) ============ */
+.ficha-controls{
+  background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px 20px;
+  margin-bottom:20px;display:flex;gap:22px;flex-wrap:wrap;align-items:flex-end;
+}
+.ficha-controls .f-group{min-width:0}
+.ficha-compare-check{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--gray);cursor:pointer;padding-bottom:6px}
+.ficha-compare-check input{accent-color:var(--teal);width:15px;height:15px}
+.ficha-quick{display:flex;gap:6px;flex-wrap:wrap}
+.ficha-quick button{
+  border:1.3px solid var(--line);background:#fff;color:var(--gray);border-radius:14px;
+  padding:5px 12px;font-size:11.5px;font-weight:600;
+}
+.ficha-quick button:hover{border-color:var(--teal);color:var(--teal-dark)}
+.ficha-quick button.active{background:var(--teal);border-color:var(--teal);color:#fff}
+
+.ficha-block{margin-bottom:32px}
+.ficha-title-big{
+  font-family:'Barlow Condensed',Arial,sans-serif;font-weight:700;font-size:23px;color:var(--ink);
+  text-align:center;letter-spacing:0.03em;margin:4px 0 16px;text-transform:uppercase;
+}
+.ficha-title-big .fsub{display:block;font-size:11.5px;font-weight:600;color:var(--gray-light);letter-spacing:0.05em;margin-top:2px;text-transform:none}
+.ficha-cards{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+@media(max-width:960px){.ficha-cards{grid-template-columns:1fr}}
+
+.ref-card{
+  background:#fff;border-radius:22px;box-shadow:0 4px 26px rgba(10,60,60,0.09);
+  border:1px solid #eef3f3;padding:20px 24px 16px;position:relative;
+}
+.ref-card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px}
+.ref-icon{flex:none;margin-top:2px}
+.ref-title{flex:1;text-align:center;padding-top:4px}
+.ref-title .rt1{font-family:'Barlow Condensed',Arial,sans-serif;font-weight:700;font-size:16.5px;color:var(--teal-dark);letter-spacing:0.01em;line-height:1.25}
+.ref-title.der .rt1{color:var(--coral-dark)}
+
+.ref-card-footer{text-align:right;color:var(--orange-dark);font-weight:700;font-size:11px;
+  text-transform:uppercase;letter-spacing:0.03em;margin-top:6px}
+.ref-card.der .ref-card-footer{color:var(--coral-dark)}
+.ref-card .ref-png{position:absolute;top:16px;right:16px}
+</style>
+</head>
+<body>
+
+<script id="embedded-data" type="application/json">/*__EMBEDDED_DATA__*/null</script>
+
+<header class="top-header">
+  <div class="brand">
+    <svg width="34" height="30" viewBox="0 0 34 30" fill="none">
+      <rect x="0" y="14" width="7" height="16" rx="1.5" fill="#FF9933"/>
+      <rect x="10" y="6" width="7" height="24" rx="1.5" fill="#FF9933"/>
+      <rect x="20" y="0" width="7" height="30" rx="1.5" fill="#FFFFFF"/>
+    </svg>
+    <div class="txt">
+      <div class="t1">LIVES · Defectos &amp; Derivados</div>
+      <div class="t2" id="headerSub">Auditoría Final — por taller</div>
+    </div>
+  </div>
+  <div class="header-actions" id="headerActions"></div>
+</header>
+
+<div id="uploadScreen" class="upload-wrap">
+  <div class="upload-card">
+    <div class="icon-big">
+      <svg width="46" height="46" viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="#009999" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <h2>Sube tu archivo de Auditoría Final</h2>
+    <p>Formato .xlsx o .xlsm, hoja "AUDITORÍA FINAL". El dashboard lee columnas por nombre, así que se adapta solo si agregas talleres, tipos de defecto o filas nuevas.</p>
+    <div class="dropzone" id="dropzone">
+      <div class="dz-title">Arrastra el archivo aquí o haz clic para elegirlo</div>
+      <div class="dz-sub">AUDITORIAS_COSTURA-ACABADOS-FINALES.xlsm · máx. ~20 MB</div>
+      <input type="file" id="fileInput" accept=".xlsx,.xlsm,.xls">
+    </div>
+    <div id="uploadStatus"></div>
+    <div class="upload-note">
+      <b>Cómo se calcula:</b> este dashboard filtra automáticamente solo talleres <b>EXTERNOS</b> con proceso <b>COSTURA</b> (columnas INT/EXT y TIPO). Los "Defectos" salen de la columna DEFECTOS. Los "Derivados" salen de la columna DERIVADOS, excluyendo automáticamente todo lo que contenga <b>SEGUNDAS</b> o <b>ESPECIAL</b> en el nombre. El período de Derivados se detecta solo (primera fecha con datos en esa columna) y se usa para igualar el período de comparación con Defectos.
+    </div>
+  </div>
+</div>
+
+<div id="dashboardScreen" class="hidden">
+
+  <div class="filters-bar">
+    <div class="f-group">
+      <div class="f-label">Resultado</div>
+      <div class="chip-row" id="chipRes">
+        <div class="chip active" data-val="TODOS">Todos</div>
+        <div class="chip" data-val="APROBADO">Aprobado</div>
+        <div class="chip" data-val="RECHAZADO">Rechazado</div>
+      </div>
+    </div>
+    <div class="f-group">
+      <div class="f-label">Talleres <span id="tallerCount" style="color:var(--gray-light);font-weight:400"></span></div>
+      <div class="ms" id="msTaller">
+        <button class="ms-btn" id="msTallerBtn"><span id="msTallerLabel">Todos los talleres</span><span>▾</span></button>
+        <div class="ms-pop" id="msTallerPop">
+          <input class="ms-search" id="msTallerSearch" placeholder="Buscar taller...">
+          <div class="ms-list" id="msTallerList"></div>
+          <div class="ms-actions">
+            <button data-act="all">Todos</button>
+            <button data-act="none">Ninguno</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="f-group">
+      <div class="f-label">Período</div>
+      <div class="date-range">
+        <input type="date" id="dateFrom"><span>—</span><input type="date" id="dateTo">
+      </div>
+    </div>
+    <div class="f-group">
+      <div class="sync-toggle" id="syncToggle">
+        <div class="switch on" id="syncSwitch"><div class="knob"></div></div>
+        <div class="stx">Igualar período de <b>Defectos</b> con el de <b>Derivados</b></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+
+    <div class="period-badge">
+      <span class="dot"></span>
+      <span>Los datos de <b>Derivados</b> comienzan en <b id="badgeDerFrom">—</b> y llegan hasta <b id="badgeDerTo">—</b>. Cuando el interruptor de arriba está activo, Defectos se muestra en ese mismo rango para que la comparación sea justa.</span>
+    </div>
+
+    <div class="kpi-row" id="kpiRow"></div>
+
+    <div class="tabs" id="tabs">
+      <button class="tab-btn active" data-tab="ficha">Ficha por Taller</button>
+      <button class="tab-btn" data-tab="extCost">Todos los talleres (apilado) <span class="tag der">TODOS</span></button>
+      <button class="tab-btn" data-tab="defGeneral">Defectos · General <span class="tag def">DEF</span></button>
+      <button class="tab-btn" data-tab="defTaller">Defectos · Por taller <span class="tag def">DEF</span></button>
+      <button class="tab-btn" data-tab="derGeneral">Derivados · General <span class="tag der">DER</span></button>
+      <button class="tab-btn" data-tab="derTaller">Derivados · Por taller <span class="tag der">DER</span></button>
+      <button class="tab-btn" data-tab="comparativo">Comparativo por taller</button>
+    </div>
+
+    <!-- TAB: Ficha por Taller -->
+    <div class="tab-section active" id="tab-ficha">
+      <div class="ficha-controls">
+        <div class="f-group">
+          <div class="f-label">Taller</div>
+          <select class="taller-select" id="selFichaA"></select>
+        </div>
+        <label class="ficha-compare-check">
+          <input type="checkbox" id="fichaCompareCheck">
+          Comparar con otro taller
+        </label>
+        <div class="f-group hidden" id="fichaBGroup">
+          <div class="f-label">Taller a comparar</div>
+          <select class="taller-select" id="selFichaB"></select>
+        </div>
+        <div class="f-group">
+          <div class="f-label">Período de la ficha</div>
+          <div class="date-range">
+            <input type="date" id="fichaDateFrom"><span>—</span><input type="date" id="fichaDateTo">
+          </div>
+        </div>
+        <div class="f-group">
+          <div class="f-label">Atajos</div>
+          <div class="ficha-quick">
+            <button data-quick="todo">Todo el período</button>
+            <button data-quick="derivados">Desde inicio de Derivados</button>
+          </div>
+        </div>
+      </div>
+      <div id="fichaContainer"></div>
+    </div>
+
+    <!-- TAB: Todos los talleres apilados -->
+    <div class="tab-section" id="tab-extCost">
+      <div class="ficha-controls">
+        <div class="f-group" style="min-width:260px">
+          <div class="f-label">Vista</div>
+          <div style="font-size:12.5px;color:var(--gray)">
+            Todos los talleres del dashboard (EXTERNO · COSTURA) uno debajo del otro ·
+            <b id="extCostCount" style="color:var(--coral-dark)">0</b> talleres encontrados, ordenados de mayor a menor volumen.
+          </div>
+        </div>
+        <div class="f-group">
+          <div class="f-label">Período</div>
+          <div class="date-range">
+            <input type="date" id="extCostDateFrom"><span>—</span><input type="date" id="extCostDateTo">
+          </div>
+        </div>
+        <div class="f-group">
+          <div class="f-label">Atajos</div>
+          <div class="ficha-quick">
+            <button data-quick="todo">Todo el período</button>
+            <button data-quick="derivados">Desde inicio de Derivados</button>
+          </div>
+        </div>
+      </div>
+      <div id="extCostContainer"></div>
+    </div>
+
+    <!-- TAB: Defectos General -->
+    <div class="tab-section" id="tab-defGeneral">
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">
+            <div class="pt1">Porcentaje de defectos encontrados</div>
+            <div class="pt2">Auditoría Final · Top 10 · columna DEFECTOS</div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <span class="period-pill" id="pillDefGeneral">—</span>
+            <div class="chart-tools"><button class="icon-btn" title="Descargar imagen" data-png="chDefGeneral">⭳</button></div>
+          </div>
+        </div>
+        <div class="chart-wrap" style="height:400px"><canvas id="chDefGeneral"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">
+            <div class="pt1">Participación de talleres en auditorías</div>
+            <div class="pt2">% de auditorías realizadas por taller</div>
+          </div>
+          <div class="chart-tools"><button class="icon-btn" title="Descargar imagen" data-png="chPartTaller">⭳</button></div>
+        </div>
+        <div class="chart-wrap" style="height:360px"><canvas id="chPartTaller"></canvas></div>
+      </div>
+    </div>
+
+    <!-- TAB: Defectos Por Taller -->
+    <div class="tab-section" id="tab-defTaller">
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">
+            <div class="pt1">Defectos por taller</div>
+            <div class="pt2">Elige un taller para ver su top 10 de defectos</div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <select class="taller-select" id="selTallerDef"></select>
+            <div class="chart-tools"><button class="icon-btn" title="Descargar imagen" data-png="chDefTaller">⭳</button></div>
+          </div>
+        </div>
+        <div class="chart-wrap" style="height:420px"><canvas id="chDefTaller"></canvas></div>
+      </div>
+    </div>
+
+    <!-- TAB: Derivados General -->
+    <div class="tab-section" id="tab-derGeneral">
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">
+            <div class="pt1 der-color">Porcentaje de derivados encontrados</div>
+            <div class="pt2">Sin Segundas ni Especiales · Top 10 · columna DERIVADOS</div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <span class="period-pill" id="pillDerGeneral">—</span>
+            <div class="chart-tools"><button class="icon-btn" title="Descargar imagen" data-png="chDerGeneral">⭳</button></div>
+          </div>
+        </div>
+        <div class="chart-wrap" style="height:400px"><canvas id="chDerGeneral"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">
+            <div class="pt1 der-color">Participación de talleres en derivados</div>
+            <div class="pt2">% de unidades derivadas (sin Segundas/Especiales) por taller</div>
+          </div>
+          <div class="chart-tools"><button class="icon-btn" title="Descargar imagen" data-png="chPartDer">⭳</button></div>
+        </div>
+        <div class="chart-wrap" style="height:360px"><canvas id="chPartDer"></canvas></div>
+      </div>
+    </div>
+
+    <!-- TAB: Derivados Por Taller -->
+    <div class="tab-section" id="tab-derTaller">
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">
+            <div class="pt1 der-color">Derivados por taller</div>
+            <div class="pt2">Elige un taller para ver su top 10 de derivados (sin Segundas/Especiales)</div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <select class="taller-select" id="selTallerDer"></select>
+            <div class="chart-tools"><button class="icon-btn" title="Descargar imagen" data-png="chDerTaller">⭳</button></div>
+          </div>
+        </div>
+        <div class="chart-wrap" style="height:420px"><canvas id="chDerTaller"></canvas></div>
+      </div>
+    </div>
+
+    <!-- TAB: Comparativo -->
+    <div class="tab-section" id="tab-comparativo">
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">
+            <div class="pt1">Comparativo por taller</div>
+            <div class="pt2">Defectos vs. Derivados · mismo período · clic en encabezado para ordenar</div>
+          </div>
+        </div>
+        <div class="tbl-wrap"><table class="cmp" id="tblComparativo"></table></div>
+      </div>
+    </div>
+
+    <div class="footer-brand">LIVES Y TALLERES</div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   LIVES — Dashboard Defectos & Derivados por Taller
+   Todo se calcula en el navegador a partir del Excel subido.
+   ============================================================ */
+
+const FONT = "'Barlow',Arial,sans-serif";
+Chart.defaults.font.family = FONT;
+Chart.defaults.font.size = 12;
+Chart.defaults.color = '#6b7580';
+Chart.defaults.borderColor = '#eef3f3';
+Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(20,45,45,0.95)';
+Chart.defaults.plugins.tooltip.padding = 10;
+Chart.defaults.plugins.tooltip.cornerRadius = 6;
+Chart.defaults.plugins.legend.display = false;
+
+const COLOR_TEAL = '#009999';
+const COLOR_TEAL_SOFT = '#5fb8b8';
+const COLOR_ORANGE = '#ff9933';
+const COLOR_CORAL = '#e76f51';
+const COLOR_CORAL_SOFT = '#ef9a83';
+
+const MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+function fmtDate(d){ if(!d) return '—'; return String(d.getDate()).padStart(2,'0')+' '+MESES[d.getMonth()]+' '+d.getFullYear(); }
+function fmtInt(n){ return Math.round(n||0).toLocaleString('es-PE'); }
+function fmtPct(n){ return (n||0).toFixed(1)+'%'; }
+function isoDate(d){ if(!d) return ''; const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),dd=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${dd}`; }
+
+/* ---------- Normalización de encabezados ---------- */
+function normHeader(h){
+  return String(h||'').trim().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+}
+function findCol(headerMap, candidates){
+  for(const c of candidates){ if(headerMap[c]) return headerMap[c]; }
+  return null;
+}
+
+/* ---------- Parsing de "NOMBRE cantidad-NOMBRE cantidad-..." ---------- */
+function parseDefectString(str){
+  if(!str) return [];
+  return String(str).split('-').map(s=>s.trim()).filter(Boolean).map(p=>{
+    let m = p.match(/^(.*\D)\s*(\d+)\s*$/);
+    if(m) return {nombre: m[1].trim().toUpperCase().replace(/\s+/g,' '), cantidad: parseInt(m[2],10)};
+    let m2 = p.match(/^(\d+)\s*$/);
+    if(m2) return {nombre:'(SIN NOMBRE)', cantidad: parseInt(m2[1],10)};
+    return {nombre: p.toUpperCase().replace(/\s+/g,' '), cantidad: 1};
+  }).filter(it=>it.cantidad>0);
+}
+function isExcludedDerivado(nombre){
+  const n = nombre.toUpperCase();
+  return n.includes('SEGUNDA') || n.includes('ESPECIAL');
+}
+
+/* ---------- Construcción del dataset a partir del workbook ---------- */
+function buildDatasetFromWorkbook(wb, fileName){
+  let sheetName = wb.SheetNames.find(n => normHeader(n).includes('AUDITORIA') && normHeader(n).includes('FINAL'));
+  if(!sheetName) sheetName = wb.SheetNames.find(n => normHeader(n).includes('AUDITORIA'));
+  if(!sheetName) sheetName = wb.SheetNames[0];
+  const ws = wb.Sheets[sheetName];
+  const raw = XLSX.utils.sheet_to_json(ws, {defval:null, raw:true});
+  if(!raw.length) throw new Error('La hoja "'+sheetName+'" no tiene filas de datos.');
+
+  const headerMap = {};
+  Object.keys(raw[0]).forEach(k=>{ headerMap[normHeader(k)] = k; });
+
+  const C_FECHA = findCol(headerMap, ['FECHA']);
+  const C_IE = findCol(headerMap, ['INT/EXT','INTEXT','INT EXT']);
+  const C_SERV = findCol(headerMap, ['SERVICIO']);
+  const C_TIPO = findCol(headerMap, ['TIPO']);
+  const C_RES = findCol(headerMap, ['RESULTADO']);
+  const C_DEF = findCol(headerMap, ['DEFECTOS']);
+  const C_DER = findCol(headerMap, ['DERIVADOS']);
+  const C_SEM = findCol(headerMap, ['SEMANA']);
+  const C_CLI = findCol(headerMap, ['CLIENTE']);
+  const C_MUESTRA = findCol(headerMap, ['MUESTRA']);
+
+  if(!C_FECHA || !C_SERV || (!C_DEF && !C_DER)){
+    throw new Error('No se encontraron las columnas esperadas (FECHA, SERVICIO, DEFECTOS/DERIVADOS) en la hoja "'+sheetName+'". Revisa que sea el archivo de Auditoría Final.');
+  }
+
+  const rows = [];
+  const talleresSet = new Set();
+  const tiposSet = new Set();
+  let minDate=null, maxDate=null, minDerivadoDate=null, maxDerivadoDate=null;
+
+  for(const r of raw){
+    let fecha = r[C_FECHA];
+    if(fecha && !(fecha instanceof Date)){
+      const asNum = Number(fecha);
+      if(!isNaN(asNum) && asNum>20000 && asNum<80000){
+        fecha = new Date(Math.round((asNum-25569)*86400*1000));
+      } else {
+        const d2 = new Date(fecha);
+        fecha = isNaN(d2.getTime()) ? null : d2;
+      }
+    }
+    const servicio = r[C_SERV] ? String(r[C_SERV]).trim().toUpperCase() : null;
+    if(!fecha || !servicio) continue;
+
+    const intExt = C_IE && r[C_IE] ? String(r[C_IE]).trim().toUpperCase() : 'SIN DATO';
+    const tipo = C_TIPO && r[C_TIPO] ? String(r[C_TIPO]).trim().toUpperCase() : 'SIN DATO';
+
+    // Alcance fijo del dashboard: solo talleres EXTERNOS con proceso COSTURA
+    if(intExt!=='EXTERNO' || tipo!=='COSTURA') continue;
+
+    const resultado = C_RES && r[C_RES] ? String(r[C_RES]).trim().toUpperCase() : 'SIN DATO';
+    const defItems = C_DEF ? parseDefectString(r[C_DEF]) : [];
+    const derItemsRaw = C_DER ? parseDefectString(r[C_DER]) : [];
+    const derItems = derItemsRaw.filter(it=>!isExcludedDerivado(it.nombre));
+
+    talleresSet.add(servicio);
+    tiposSet.add(tipo);
+    if(!minDate || fecha<minDate) minDate=fecha;
+    if(!maxDate || fecha>maxDate) maxDate=fecha;
+    if(derItemsRaw.length){
+      if(!minDerivadoDate || fecha<minDerivadoDate) minDerivadoDate=fecha;
+      if(!maxDerivadoDate || fecha>maxDerivadoDate) maxDerivadoDate=fecha;
+    }
+
+    rows.push({
+      fecha: isoDate(fecha),
+      semana: C_SEM ? r[C_SEM] : null,
+      intExt, servicio, tipo, resultado,
+      cliente: C_CLI && r[C_CLI] ? String(r[C_CLI]).trim() : null,
+      muestra: C_MUESTRA ? Number(r[C_MUESTRA])||0 : 0,
+      defItems, derItems, derItemsRaw
+    });
+  }
+
+  if(!rows.length) throw new Error('No se pudo leer ninguna fila válida (revisa columnas FECHA y SERVICIO).');
+
+  const countByTaller = {};
+  for(const r of rows) countByTaller[r.servicio] = (countByTaller[r.servicio]||0)+1;
+  const talleresByVolume = [...talleresSet].sort((a,b)=> (countByTaller[b]||0)-(countByTaller[a]||0));
+
+  return {
+    meta:{
+      fileName, sheetName, rowCount: rows.length,
+      totalRawRows: raw.length,
+      generatedAt: new Date().toISOString(),
+      minDate: isoDate(minDate), maxDate: isoDate(maxDate),
+      minDerivadoDate: isoDate(minDerivadoDate), maxDerivadoDate: isoDate(maxDerivadoDate),
+      talleres: [...talleresSet].sort(),
+      talleresByVolume,
+      tipos: [...tiposSet].sort()
+    },
+    rows
+  };
+}
+
+/* ============================================================
+   ESTADO GLOBAL
+   ============================================================ */
+let DATA = null;
+let STATE = null;
+const CHARTS = {};
+
+function defaultState(meta){
+  return {
+    intExt:'TODOS', resultado:'TODOS', tipo:'TODOS',
+    talleres: new Set(meta.talleres),
+    dateFrom: meta.minDate, dateTo: meta.maxDate,
+    syncPeriod: true,
+    tab:'ficha',
+    selTallerDef:'', selTallerDer:'',
+    ficha:{
+      tallerA: (meta.talleresByVolume && meta.talleresByVolume[0]) || meta.talleres[0] || '',
+      tallerB: (meta.talleresByVolume && meta.talleresByVolume[1]) || meta.talleres[1] || meta.talleres[0] || '',
+      compare: false,
+      dateFrom: meta.minDate, dateTo: meta.maxDate
+    },
+    extCost:{ dateFrom: meta.minDate, dateTo: meta.maxDate }
+  };
+}
+
+/* ============================================================
+   FILTRADO
+   ============================================================ */
+function passesBaseFilters(r){
+  if(STATE.intExt!=='TODOS' && r.intExt!==STATE.intExt) return false;
+  if(STATE.resultado!=='TODOS' && r.resultado!==STATE.resultado) return false;
+  if(STATE.tipo!=='TODOS' && r.tipo!==STATE.tipo) return false;
+  if(!STATE.talleres.has(r.servicio)) return false;
+  return true;
+}
+function inRange(r, from, to){
+  if(from && r.fecha < from) return false;
+  if(to && r.fecha > to) return false;
+  return true;
+}
+function effectiveDefRange(){
+  let from = STATE.dateFrom;
+  if(STATE.syncPeriod && DATA.meta.minDerivadoDate && DATA.meta.minDerivadoDate > from){
+    from = DATA.meta.minDerivadoDate;
+  }
+  return {from, to: STATE.dateTo};
+}
+function getRows(section){
+  const range = section==='def' ? effectiveDefRange() : {from:STATE.dateFrom, to:STATE.dateTo};
+  return DATA.rows.filter(r=> passesBaseFilters(r) && inRange(r, range.from, range.to));
+}
+
+/* ============================================================
+   AGREGACIONES
+   ============================================================ */
+function aggregateTop(rows, field, limit){
+  const tally = {};
+  let total = 0;
+  for(const r of rows){
+    for(const it of r[field]){ tally[it.nombre]=(tally[it.nombre]||0)+it.cantidad; total+=it.cantidad; }
+  }
+  const arr = Object.entries(tally).map(([nombre,cantidad])=>({nombre, cantidad, pct: total?cantidad/total*100:0}));
+  arr.sort((a,b)=>b.cantidad-a.cantidad);
+  return {items: limit ? arr.slice(0,limit) : arr, total, allCount: arr.length};
+}
+function aggregateParticipacionAuditorias(rows){
+  const tally = {};
+  for(const r of rows){ tally[r.servicio]=(tally[r.servicio]||0)+1; }
+  const total = rows.length;
+  const arr = Object.entries(tally).map(([servicio,n])=>({servicio, n, pct: total?n/total*100:0}));
+  arr.sort((a,b)=>b.n-a.n);
+  return arr;
+}
+function aggregateParticipacionUnidades(rows, field){
+  const tally = {};
+  let total=0;
+  for(const r of rows){
+    let sum=0; for(const it of r[field]) sum+=it.cantidad;
+    if(sum>0){ tally[r.servicio]=(tally[r.servicio]||0)+sum; total+=sum; }
+  }
+  const arr = Object.entries(tally).map(([servicio,n])=>({servicio, n, pct: total?n/total*100:0}));
+  arr.sort((a,b)=>b.n-a.n);
+  return arr;
+}
+
+/* ============================================================
+   CHART HELPERS
+   ============================================================ */
+function destroyChart(id){ if(CHARTS[id]){ CHARTS[id].destroy(); delete CHARTS[id]; } }
+
+function horizontalTopChart(canvasId, items, color){
+  destroyChart(canvasId);
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  const labels = items.map(i=>i.nombre);
+  const values = items.map(i=>+i.pct.toFixed(1));
+  CHARTS[canvasId] = new Chart(ctx, {
+    type:'bar',
+    data:{ labels, datasets:[{ data: values, backgroundColor: color, borderRadius:4, barThickness:20 }] },
+    options:{
+      indexAxis:'y',
+      responsive:true, maintainAspectRatio:false,
+      layout:{padding:{right:46}},
+      scales:{
+        x:{display:false, grid:{display:false}, max: Math.max(10, Math.ceil((Math.max(...values,0)+3)/5)*5)},
+        y:{grid:{display:false}, ticks:{color:'#2b2b2b', font:{size:12.5, weight:'600'}}}
+      },
+      plugins:{
+        tooltip:{callbacks:{label:(c)=>c.parsed.x.toFixed(1)+'%'}},
+        datalabels:false
+      },
+      animation:{duration:400}
+    },
+    plugins:[{
+      id:'valueLabels',
+      afterDatasetsDraw(chart){
+        const {ctx} = chart;
+        chart.data.datasets[0].data.forEach((v,i)=>{
+          const meta = chart.getDatasetMeta(0).data[i];
+          if(!meta) return;
+          ctx.save();
+          ctx.fillStyle = '#2b2b2b';
+          ctx.font = "700 12.5px 'Barlow',Arial,sans-serif";
+          ctx.textBaseline = 'middle';
+          ctx.fillText(v.toFixed(1)+'%', meta.x + 8, meta.y);
+          ctx.restore();
+        });
+      }
+    }]
+  });
+}
+
+function verticalParticipacionChart(canvasId, items, color){
+  destroyChart(canvasId);
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  const labels = items.map(i=>i.servicio);
+  const values = items.map(i=>+i.pct.toFixed(1));
+  CHARTS[canvasId] = new Chart(ctx, {
+    type:'bar',
+    data:{ labels, datasets:[{ data: values, backgroundColor: color, borderRadius:4, maxBarThickness:38 }] },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      layout:{padding:{top:26}},
+      scales:{
+        y:{display:false, grid:{display:false}},
+        x:{grid:{display:false}, ticks:{color:'#2b2b2b', font:{size:11.5, weight:'600'}, maxRotation:45, minRotation:0}}
+      },
+      plugins:{tooltip:{callbacks:{label:(c)=>c.parsed.y.toFixed(1)+'%'}}},
+      animation:{duration:400}
+    },
+    plugins:[{
+      id:'valueLabelsTop',
+      afterDatasetsDraw(chart){
+        const {ctx} = chart;
+        chart.data.datasets[0].data.forEach((v,i)=>{
+          const meta = chart.getDatasetMeta(0).data[i];
+          if(!meta) return;
+          ctx.save();
+          ctx.fillStyle = '#2b2b2b';
+          ctx.font = "700 11.5px 'Barlow',Arial,sans-serif";
+          ctx.textAlign = 'center';
+          ctx.fillText(v.toFixed(1)+'%', meta.x, meta.y - 8);
+          ctx.restore();
+        });
+      }
+    }]
+  });
+}
+
+/* ============================================================
+   RENDER: KPIs
+   ============================================================ */
+function renderKPIs(){
+  const defRows = getRows('def');
+  const derRows = getRows('der');
+  const allDefRows = getRows('def'); // for total audits use def-range as reference set for KPI row
+  const nAud = allDefRows.length;
+  const nRech = allDefRows.filter(r=>r.resultado==='RECHAZADO').length;
+  const pctRech = nAud ? nRech/nAud*100 : 0;
+  const tallSet = new Set(allDefRows.map(r=>r.servicio));
+  const totDef = allDefRows.reduce((a,r)=>a + r.defItems.reduce((s,i)=>s+i.cantidad,0), 0);
+  const totDer = derRows.reduce((a,r)=>a + r.derItems.reduce((s,i)=>s+i.cantidad,0), 0);
+
+  document.getElementById('kpiRow').innerHTML = `
+    <div class="kpi"><div class="k-label">Auditorías (filtro)</div><div class="k-val">${fmtInt(nAud)}</div><div class="k-sub">${STATE.talleres.size} taller(es) seleccionados</div></div>
+    <div class="kpi"><div class="k-label">% Rechazo</div><div class="k-val">${fmtPct(pctRech)}</div><div class="k-sub">${fmtInt(nRech)} rechazadas</div></div>
+    <div class="kpi"><div class="k-label">Talleres activos</div><div class="k-val">${fmtInt(tallSet.size)}</div><div class="k-sub">con auditorías en el período</div></div>
+    <div class="kpi"><div class="k-label">Unidades con defecto</div><div class="k-val">${fmtInt(totDef)}</div><div class="k-sub">columna DEFECTOS</div></div>
+    <div class="kpi accent"><div class="k-label">Unidades derivadas</div><div class="k-val">${fmtInt(totDer)}</div><div class="k-sub">sin Segundas ni Especiales</div></div>
+  `;
+}
+
+/* ============================================================
+   RENDER: Tabs
+   ============================================================ */
+function periodLabel(from,to){
+  if(!from||!to) return '—';
+  const f = new Date(from+'T00:00:00'), t = new Date(to+'T00:00:00');
+  return fmtDate(f)+' – '+fmtDate(t);
+}
+
+function renderDefGeneral(){
+  const rows = getRows('def');
+  const range = effectiveDefRange();
+  document.getElementById('pillDefGeneral').textContent = 'Período: '+periodLabel(range.from, range.to);
+  const {items, allCount} = aggregateTop(rows, 'defItems', 10);
+  if(!items.length){
+    destroyChart('chDefGeneral');
+    document.getElementById('chDefGeneral').parentElement.innerHTML = '<div class="empty-note">Sin datos de DEFECTOS para el filtro/período actual.</div>';
+  } else {
+    horizontalTopChart('chDefGeneral', items, COLOR_TEAL);
+  }
+  const part = aggregateParticipacionAuditorias(rows);
+  if(!part.length){
+    destroyChart('chPartTaller');
+    document.getElementById('chPartTaller').parentElement.innerHTML = '<div class="empty-note">Sin auditorías para el filtro/período actual.</div>';
+  } else {
+    verticalParticipacionChart('chPartTaller', part, COLOR_ORANGE);
+  }
+}
+
+function fillTallerSelect(selectId, rowsAll){
+  const sel = document.getElementById(selectId);
+  const talleres = [...new Set(rowsAll.map(r=>r.servicio))].sort();
+  const prev = STATE[selectId==='selTallerDef' ? 'selTallerDef' : 'selTallerDer'];
+  sel.innerHTML = talleres.map(t=>`<option value="${t}">${t}</option>`).join('');
+  if(talleres.length){
+    const use = talleres.includes(prev) ? prev : talleres[0];
+    sel.value = use;
+    if(selectId==='selTallerDef') STATE.selTallerDef = use; else STATE.selTallerDer = use;
+  }
+}
+
+function renderDefTaller(){
+  const rowsAll = getRows('def');
+  fillTallerSelect('selTallerDef', rowsAll);
+  const taller = STATE.selTallerDef;
+  const rows = rowsAll.filter(r=>r.servicio===taller);
+  const {items} = aggregateTop(rows, 'defItems', 10);
+  if(!items.length){
+    destroyChart('chDefTaller');
+    document.getElementById('chDefTaller').parentElement.innerHTML = '<div class="empty-note">Sin datos de DEFECTOS para este taller en el período actual.</div>';
+  } else {
+    horizontalTopChart('chDefTaller', items, COLOR_TEAL_SOFT);
+  }
+}
+
+function renderDerGeneral(){
+  const rows = getRows('der');
+  const range = {from:STATE.dateFrom, to:STATE.dateTo};
+  document.getElementById('pillDerGeneral').textContent = 'Período: '+periodLabel(range.from, range.to);
+  const {items} = aggregateTop(rows, 'derItems', 10);
+  if(!items.length){
+    destroyChart('chDerGeneral');
+    document.getElementById('chDerGeneral').parentElement.innerHTML = '<div class="empty-note">Sin datos de DERIVADOS (excluyendo Segundas/Especiales) para el filtro/período actual.</div>';
+  } else {
+    horizontalTopChart('chDerGeneral', items, COLOR_CORAL);
+  }
+  const part = aggregateParticipacionUnidades(rows, 'derItems');
+  if(!part.length){
+    destroyChart('chPartDer');
+    document.getElementById('chPartDer').parentElement.innerHTML = '<div class="empty-note">Sin unidades derivadas para el filtro/período actual.</div>';
+  } else {
+    verticalParticipacionChart('chPartDer', part, COLOR_CORAL_SOFT);
+  }
+}
+
+function renderDerTaller(){
+  const rowsAll = getRows('der').filter(r=>r.derItems.length);
+  const talleresAll = getRows('der');
+  fillTallerSelect('selTallerDer', talleresAll.length ? talleresAll : rowsAll);
+  const taller = STATE.selTallerDer;
+  const rows = getRows('der').filter(r=>r.servicio===taller);
+  const {items} = aggregateTop(rows, 'derItems', 10);
+  if(!items.length){
+    destroyChart('chDerTaller');
+    document.getElementById('chDerTaller').parentElement.innerHTML = '<div class="empty-note">Sin datos de DERIVADOS para este taller en el período actual.</div>';
+  } else {
+    horizontalTopChart('chDerTaller', items, COLOR_CORAL_SOFT);
+  }
+}
+
+/* ============================================================
+   FICHA POR TALLER (réplica del formato de referencia)
+   ============================================================ */
+function fichaRows(taller){
+  const {dateFrom, dateTo} = STATE.ficha;
+  return DATA.rows.filter(r =>
+    r.servicio===taller &&
+    (STATE.intExt==='TODOS' || r.intExt===STATE.intExt) &&
+    (STATE.resultado==='TODOS' || r.resultado===STATE.resultado) &&
+    (STATE.tipo==='TODOS' || r.tipo===STATE.tipo) &&
+    inRange(r, dateFrom, dateTo)
+  );
+}
+
+function refCardHtml(kind, taller, canvasId, subLabel, from, to){
+  const isDer = kind==='der';
+  const titleTxt = isDer ? 'PORCENTAJE DERIVADOS ENCONTRADOS' : 'PORCENTAJE DEFECTOS ENCONTRADOS';
+  return `
+  <div class="ref-card ${isDer?'der':''}">
+    <button class="icon-btn ref-png" data-png="${canvasId}" title="Descargar imagen">⭳</button>
+    <div class="ref-card-top">
+      <div class="ref-icon">
+        <svg width="26" height="22" viewBox="0 0 34 30" fill="none">
+          <rect x="0" y="14" width="7" height="16" rx="1.5" fill="#FF9933"/>
+          <rect x="10" y="6" width="7" height="24" rx="1.5" fill="${isDer?'#e76f51':'#009999'}"/>
+          <rect x="20" y="0" width="7" height="30" rx="1.5" fill="${isDer?'#c1502f':'#0f6f6f'}"/>
+        </svg>
+      </div>
+      <div class="ref-title ${isDer?'der':''}">
+        <div class="rt1">${titleTxt}</div>
+      </div>
+    </div>
+    <div class="chart-wrap" style="height:330px"><canvas id="${canvasId}"></canvas></div>
+    <div class="ref-card-footer">LIVES Y TALLERES</div>
+  </div>`;
+}
+
+function stackedTallerBlockHtml(taller, idPrefix, rows, dateFrom, dateTo, subLabel){
+  const defAgg = aggregateTop(rows, 'defItems', 10);
+  const derAgg = aggregateTop(rows, 'derItems', 10);
+  const html = `
+    <div class="ficha-block">
+      <div class="ficha-title-big">${taller}
+        <span class="fsub">${fmtInt(rows.length)} auditorías en el período · ${fmtInt(defAgg.total)} unidades con defecto · ${fmtInt(derAgg.total)} unidades derivadas</span>
+      </div>
+      <div class="ficha-cards">
+        ${refCardHtml('def', taller, idPrefix+'-def', subLabel, dateFrom, dateTo)}
+        ${refCardHtml('der', taller, idPrefix+'-der', subLabel, dateFrom, dateTo)}
+      </div>
+    </div>`;
+  return {html, defAgg, derAgg, idPrefix};
+}
+
+function renderChartsForBlocks(blocks){
+  blocks.forEach(b=>{
+    if(b.defAgg.items.length) horizontalTopChart(b.idPrefix+'-def', b.defAgg.items, COLOR_TEAL);
+    else { destroyChart(b.idPrefix+'-def'); const el=document.getElementById(b.idPrefix+'-def'); if(el) el.parentElement.innerHTML='<div class="empty-note">Sin datos de DEFECTOS para este taller en el período elegido.</div>'; }
+    if(b.derAgg.items.length) horizontalTopChart(b.idPrefix+'-der', b.derAgg.items, COLOR_CORAL);
+    else { destroyChart(b.idPrefix+'-der'); const el=document.getElementById(b.idPrefix+'-der'); if(el) el.parentElement.innerHTML='<div class="empty-note">Sin datos de DERIVADOS para este taller en el período elegido.</div>'; }
+  });
+}
+
+function renderFichaBlock(taller, idPrefix){
+  const rows = fichaRows(taller);
+  const subLabel = STATE.resultado==='TODOS' ? 'TODOS LOS RESULTADOS' : STATE.resultado;
+  const {dateFrom, dateTo} = STATE.ficha;
+  return stackedTallerBlockHtml(taller, idPrefix, rows, dateFrom, dateTo, subLabel);
+}
+
+function fillFichaSelects(){
+  const selA = document.getElementById('selFichaA');
+  const selB = document.getElementById('selFichaB');
+  const opts = DATA.meta.talleres.map(t=>`<option value="${t}">${t}</option>`).join('');
+  selA.innerHTML = opts; selB.innerHTML = opts;
+  selA.value = STATE.ficha.tallerA || DATA.meta.talleres[0];
+  selB.value = STATE.ficha.tallerB || DATA.meta.talleres[1] || DATA.meta.talleres[0];
+}
+
+function renderFicha(){
+  const container = document.getElementById('fichaContainer');
+  const blocks = [];
+  const a = renderFichaBlock(STATE.ficha.tallerA, 'fichaA');
+  blocks.push(a);
+  if(STATE.ficha.compare && STATE.ficha.tallerB && STATE.ficha.tallerB!==STATE.ficha.tallerA){
+    blocks.push(renderFichaBlock(STATE.ficha.tallerB, 'fichaB'));
+  }
+  container.innerHTML = blocks.map(b=>b.html).join('<hr style="border:none;border-top:1px solid var(--line);margin:0 0 28px">');
+  renderChartsForBlocks(blocks);
+}
+
+/* ============================================================
+   EXTERNOS · COSTURA — todos los talleres apilados en una sola vista
+   ============================================================ */
+function extCostRows(taller){
+  const {dateFrom, dateTo} = STATE.extCost;
+  return DATA.rows.filter(r =>
+    r.servicio===taller && r.intExt==='EXTERNO' && r.tipo==='COSTURA' &&
+    (STATE.resultado==='TODOS' || r.resultado===STATE.resultado) &&
+    inRange(r, dateFrom, dateTo)
+  );
+}
+function extCostTalleres(){
+  const {dateFrom, dateTo} = STATE.extCost;
+  const counts = {};
+  for(const r of DATA.rows){
+    if(r.intExt==='EXTERNO' && r.tipo==='COSTURA' &&
+       (STATE.resultado==='TODOS' || r.resultado===STATE.resultado) &&
+       inRange(r, dateFrom, dateTo)){
+      counts[r.servicio] = (counts[r.servicio]||0)+1;
+    }
+  }
+  return Object.keys(counts).sort((a,b)=>counts[b]-counts[a]);
+}
+function renderExtCost(){
+  const container = document.getElementById('extCostContainer');
+  const talleres = extCostTalleres();
+  document.getElementById('extCostCount').textContent = talleres.length;
+  if(!talleres.length){
+    container.innerHTML = '<div class="empty-note">No hay talleres EXTERNO + COSTURA con auditorías en el período elegido.</div>';
+    return;
+  }
+  const subLabel = STATE.resultado==='TODOS' ? 'TODOS LOS RESULTADOS' : STATE.resultado;
+  const {dateFrom, dateTo} = STATE.extCost;
+  const blocks = talleres.map((t,i)=> stackedTallerBlockHtml(t, 'ext'+i, extCostRows(t), dateFrom, dateTo, subLabel));
+  container.innerHTML = blocks.map(b=>b.html).join('<hr style="border:none;border-top:1px solid var(--line);margin:0 0 28px">');
+  renderChartsForBlocks(blocks);
+}
+
+
+let cmpSort = {key:'auditorias', dir:-1};
+function renderComparativo(){
+  const defRows = getRows('def');
+  const derRows = getRows('der');
+  const talleres = new Set([...defRows.map(r=>r.servicio), ...derRows.map(r=>r.servicio)]);
+  const rowsOut = [];
+  for(const t of talleres){
+    const dR = defRows.filter(r=>r.servicio===t);
+    const drR = derRows.filter(r=>r.servicio===t);
+    const nAud = dR.length;
+    const nRech = dR.filter(r=>r.resultado==='RECHAZADO').length;
+    const totDef = dR.reduce((a,r)=>a+r.defItems.reduce((s,i)=>s+i.cantidad,0),0);
+    const totDer = drR.reduce((a,r)=>a+r.derItems.reduce((s,i)=>s+i.cantidad,0),0);
+    const topDef = aggregateTop(dR,'defItems',1).items[0];
+    const topDer = aggregateTop(drR,'derItems',1).items[0];
+    const intExt = dR[0] ? dR[0].intExt : (drR[0]?drR[0].intExt:'—');
+    rowsOut.push({
+      taller:t, intExt, auditorias:nAud, pctRechazo: nAud?nRech/nAud*100:0,
+      unidadesDefecto: totDef, unidadesDerivado: totDer,
+      topDefecto: topDef ? topDef.nombre : '—',
+      topDerivado: topDer ? topDer.nombre : '—'
+    });
+  }
+  rowsOut.sort((a,b)=> cmpSort.dir * ((a[cmpSort.key]>b[cmpSort.key])?1:(a[cmpSort.key]<b[cmpSort.key]?-1:0)));
+  const maxDer = Math.max(1, ...rowsOut.map(r=>r.unidadesDerivado));
+
+  const cols = [
+    {k:'taller', l:'Taller'}, {k:'intExt', l:'Tipo'},
+    {k:'auditorias', l:'Auditorías'}, {k:'pctRechazo', l:'% Rechazo'},
+    {k:'unidadesDefecto', l:'Uds. Defecto'}, {k:'topDefecto', l:'Top defecto'},
+    {k:'unidadesDerivado', l:'Uds. Derivado'}, {k:'topDerivado', l:'Top derivado'}
+  ];
+  let thead = '<thead><tr>'+cols.map(c=>`<th data-key="${c.k}">${c.l}${cmpSort.key===c.k?(cmpSort.dir===1?' ▲':' ▼'):''}</th>`).join('')+'</tr></thead>';
+  let tbody = '<tbody>'+rowsOut.map(r=>`<tr>
+      <td><strong>${r.taller}</strong></td>
+      <td>${r.intExt==='INTERNO'?'<span class="badge-int">INTERNO</span>':(r.intExt==='EXTERNO'?'<span class="badge-ext">EXTERNO</span>':r.intExt)}</td>
+      <td class="num">${fmtInt(r.auditorias)}</td>
+      <td class="num">${fmtPct(r.pctRechazo)}</td>
+      <td class="num">${fmtInt(r.unidadesDefecto)}</td>
+      <td>${r.topDefecto}</td>
+      <td class="num"><span class="pct-bar" style="width:${Math.max(4,r.unidadesDerivado/maxDer*40)}px"></span>${fmtInt(r.unidadesDerivado)}</td>
+      <td>${r.topDerivado}</td>
+    </tr>`).join('')+'</tbody>';
+  document.getElementById('tblComparativo').innerHTML = thead+tbody;
+  document.getElementById('tblComparativo').querySelectorAll('th').forEach(th=>{
+    th.addEventListener('click', ()=>{
+      const k = th.dataset.key;
+      if(cmpSort.key===k) cmpSort.dir *= -1; else { cmpSort.key=k; cmpSort.dir = -1; }
+      renderComparativo();
+    });
+  });
+}
+
+function renderTab(){
+  if(STATE.tab==='ficha') renderFicha();
+  else if(STATE.tab==='extCost') renderExtCost();
+  else if(STATE.tab==='defGeneral') renderDefGeneral();
+  else if(STATE.tab==='defTaller') renderDefTaller();
+  else if(STATE.tab==='derGeneral') renderDerGeneral();
+  else if(STATE.tab==='derTaller') renderDerTaller();
+  else if(STATE.tab==='comparativo') renderComparativo();
+}
+function renderAll(){
+  renderKPIs();
+  renderTab();
+}
+
+/* ============================================================
+   FILTROS UI
+   ============================================================ */
+function initFilters(){
+  document.getElementById('badgeDerFrom').textContent = DATA.meta.minDerivadoDate ? fmtDate(new Date(DATA.meta.minDerivadoDate+'T00:00:00')) : 'sin datos';
+  document.getElementById('badgeDerTo').textContent = DATA.meta.maxDerivadoDate ? fmtDate(new Date(DATA.meta.maxDerivadoDate+'T00:00:00')) : 'sin datos';
+
+  document.getElementById('dateFrom').min = DATA.meta.minDate;
+  document.getElementById('dateFrom').max = DATA.meta.maxDate;
+  document.getElementById('dateTo').min = DATA.meta.minDate;
+  document.getElementById('dateTo').max = DATA.meta.maxDate;
+  document.getElementById('dateFrom').value = STATE.dateFrom;
+  document.getElementById('dateTo').value = STATE.dateTo;
+
+  // chips
+  document.querySelectorAll('#chipRes .chip').forEach(c=>c.addEventListener('click', ()=>{
+    document.querySelectorAll('#chipRes .chip').forEach(x=>x.classList.remove('active'));
+    c.classList.add('active'); STATE.resultado = c.dataset.val; renderAll();
+  }));
+
+  // date range
+  document.getElementById('dateFrom').addEventListener('change', e=>{ STATE.dateFrom = e.target.value; renderAll(); });
+  document.getElementById('dateTo').addEventListener('change', e=>{ STATE.dateTo = e.target.value; renderAll(); });
+
+  // sync toggle
+  document.getElementById('syncToggle').addEventListener('click', ()=>{
+    STATE.syncPeriod = !STATE.syncPeriod;
+    document.getElementById('syncSwitch').classList.toggle('on', STATE.syncPeriod);
+    renderAll();
+  });
+
+  // taller multiselect
+  const msList = document.getElementById('msTallerList');
+  function renderMsList(filter){
+    const f = (filter||'').toUpperCase();
+    msList.innerHTML = DATA.meta.talleres.filter(t=>t.includes(f)).map(t=>`
+      <div class="ms-item"><label style="display:flex;align-items:center;gap:8px;width:100%;cursor:pointer">
+        <input type="checkbox" data-taller="${t}" ${STATE.talleres.has(t)?'checked':''}><span>${t}</span>
+      </label></div>`).join('');
+    msList.querySelectorAll('input[type=checkbox]').forEach(cb=>{
+      cb.addEventListener('change', ()=>{
+        if(cb.checked) STATE.talleres.add(cb.dataset.taller); else STATE.talleres.delete(cb.dataset.taller);
+        updateTallerLabel(); renderAll();
+      });
+    });
+  }
+  function updateTallerLabel(){
+    const n = STATE.talleres.size, tot = DATA.meta.talleres.length;
+    document.getElementById('msTallerLabel').textContent = n===tot ? 'Todos los talleres' : (n+' de '+tot+' talleres');
+    document.getElementById('tallerCount').textContent = '('+n+'/'+tot+')';
+  }
+  renderMsList(''); updateTallerLabel();
+  document.getElementById('msTallerBtn').addEventListener('click', ()=>{
+    document.getElementById('msTallerPop').classList.toggle('open');
+  });
+  document.addEventListener('click', e=>{
+    if(!document.getElementById('msTaller').contains(e.target)) document.getElementById('msTallerPop').classList.remove('open');
+  });
+  document.getElementById('msTallerSearch').addEventListener('input', e=> renderMsList(e.target.value));
+  document.querySelector('.ms-actions').addEventListener('click', e=>{
+    const act = e.target.dataset.act;
+    if(!act) return;
+    if(act==='all') STATE.talleres = new Set(DATA.meta.talleres);
+    if(act==='none') STATE.talleres = new Set();
+    renderMsList(document.getElementById('msTallerSearch').value);
+    updateTallerLabel(); renderAll();
+  });
+
+  // tabs
+  document.querySelectorAll('.tab-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+      document.querySelectorAll('.tab-section').forEach(s=>s.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+      STATE.tab = btn.dataset.tab;
+      renderTab();
+    });
+  });
+
+  // taller selects (por taller tabs)
+  document.getElementById('selTallerDef').addEventListener('change', e=>{ STATE.selTallerDef = e.target.value; renderDefTaller(); });
+  document.getElementById('selTallerDer').addEventListener('change', e=>{ STATE.selTallerDer = e.target.value; renderDerTaller(); });
+
+  // png export buttons (delegado: incluye botones creados dinámicamente en Ficha por Taller)
+  document.body.addEventListener('click', e=>{
+    const btn = e.target.closest('[data-png]');
+    if(!btn) return;
+    const id = btn.dataset.png;
+    const chart = CHARTS[id];
+    if(!chart) return;
+    const a = document.createElement('a');
+    a.href = chart.toBase64Image('image/png',1);
+    a.download = id+'.png';
+    a.click();
+  });
+
+  // ---- Ficha por Taller: controles ----
+  fillFichaSelects();
+  document.getElementById('fichaDateFrom').value = STATE.ficha.dateFrom;
+  document.getElementById('fichaDateTo').value = STATE.ficha.dateTo;
+  document.getElementById('fichaDateFrom').min = DATA.meta.minDate;
+  document.getElementById('fichaDateFrom').max = DATA.meta.maxDate;
+  document.getElementById('fichaDateTo').min = DATA.meta.minDate;
+  document.getElementById('fichaDateTo').max = DATA.meta.maxDate;
+
+  document.getElementById('selFichaA').addEventListener('change', e=>{ STATE.ficha.tallerA = e.target.value; renderFicha(); });
+  document.getElementById('selFichaB').addEventListener('change', e=>{ STATE.ficha.tallerB = e.target.value; renderFicha(); });
+  document.getElementById('fichaCompareCheck').addEventListener('change', e=>{
+    STATE.ficha.compare = e.target.checked;
+    document.getElementById('fichaBGroup').classList.toggle('hidden', !e.target.checked);
+    renderFicha();
+  });
+  document.getElementById('fichaDateFrom').addEventListener('change', e=>{ STATE.ficha.dateFrom = e.target.value; renderFicha(); });
+  document.getElementById('fichaDateTo').addEventListener('change', e=>{ STATE.ficha.dateTo = e.target.value; renderFicha(); });
+  document.querySelectorAll('#tab-ficha .ficha-quick button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      if(btn.dataset.quick==='todo'){ STATE.ficha.dateFrom = DATA.meta.minDate; STATE.ficha.dateTo = DATA.meta.maxDate; }
+      else if(btn.dataset.quick==='derivados'){ STATE.ficha.dateFrom = DATA.meta.minDerivadoDate || DATA.meta.minDate; STATE.ficha.dateTo = DATA.meta.maxDate; }
+      document.getElementById('fichaDateFrom').value = STATE.ficha.dateFrom;
+      document.getElementById('fichaDateTo').value = STATE.ficha.dateTo;
+      renderFicha();
+    });
+  });
+
+  // ---- Externos · Costura: controles ----
+  document.getElementById('extCostDateFrom').value = STATE.extCost.dateFrom;
+  document.getElementById('extCostDateTo').value = STATE.extCost.dateTo;
+  document.getElementById('extCostDateFrom').min = DATA.meta.minDate;
+  document.getElementById('extCostDateFrom').max = DATA.meta.maxDate;
+  document.getElementById('extCostDateTo').min = DATA.meta.minDate;
+  document.getElementById('extCostDateTo').max = DATA.meta.maxDate;
+  document.getElementById('extCostDateFrom').addEventListener('change', e=>{ STATE.extCost.dateFrom = e.target.value; renderExtCost(); });
+  document.getElementById('extCostDateTo').addEventListener('change', e=>{ STATE.extCost.dateTo = e.target.value; renderExtCost(); });
+  document.querySelector('#tab-extCost .ficha-quick').addEventListener('click', e=>{
+    const btn = e.target.closest('button[data-quick]');
+    if(!btn) return;
+    if(btn.dataset.quick==='todo'){ STATE.extCost.dateFrom = DATA.meta.minDate; STATE.extCost.dateTo = DATA.meta.maxDate; }
+    else if(btn.dataset.quick==='derivados'){ STATE.extCost.dateFrom = DATA.meta.minDerivadoDate || DATA.meta.minDate; STATE.extCost.dateTo = DATA.meta.maxDate; }
+    document.getElementById('extCostDateFrom').value = STATE.extCost.dateFrom;
+    document.getElementById('extCostDateTo').value = STATE.extCost.dateTo;
+    renderExtCost();
+  });
+}
+
+/* ============================================================
+   ARRANQUE DEL DASHBOARD
+   ============================================================ */
+function showDashboard(){
+  document.getElementById('uploadScreen').classList.add('hidden');
+  document.getElementById('dashboardScreen').classList.remove('hidden');
+  document.getElementById('headerSub').textContent = DATA.meta.fileName + ' · ' + fmtInt(DATA.meta.rowCount) + ' auditorías EXTERNO+COSTURA · hoja "' + DATA.meta.sheetName + '"';
+  renderHeaderActions();
+  STATE = defaultState(DATA.meta);
+  initFilters();
+  renderAll();
+}
+function renderHeaderActions(){
+  document.getElementById('headerActions').innerHTML = `
+    <button class="btn" id="btnChangeFile">↺ Cambiar archivo</button>
+    <button class="btn solid" id="btnExport">⭳ Exportar para observadores</button>
+  `;
+  document.getElementById('btnChangeFile').addEventListener('click', ()=>{
+    document.getElementById('dashboardScreen').classList.add('hidden');
+    document.getElementById('uploadScreen').classList.remove('hidden');
+    document.getElementById('headerActions').innerHTML = '';
+    document.getElementById('headerSub').textContent = 'Auditoría Final — por taller';
+  });
+  document.getElementById('btnExport').addEventListener('click', exportForObservers);
+}
+
+/* ============================================================
+   CARGA DE ARCHIVO
+   ============================================================ */
+function showUploadError(msg){
+  document.getElementById('uploadStatus').innerHTML = `<div class="upload-error">${msg}</div>`;
+}
+function showUploadLoading(){
+  document.getElementById('uploadStatus').innerHTML = `<div style="margin-top:20px"><div class="spinner"></div><div style="color:var(--gray);font-size:13px">Leyendo y calculando…</div></div>`;
+}
+function handleFile(file){
+  if(!file) return;
+  showUploadLoading();
+  const reader = new FileReader();
+  reader.onload = (e)=>{
+    try{
+      const wb = XLSX.read(e.target.result, {type:'array', cellDates:true});
+      DATA = buildDatasetFromWorkbook(wb, file.name);
+      document.getElementById('uploadStatus').innerHTML = '';
+      showDashboard();
+    }catch(err){
+      showUploadError('No se pudo procesar el archivo: '+err.message);
+    }
+  };
+  reader.onerror = ()=> showUploadError('No se pudo leer el archivo. Intenta de nuevo.');
+  reader.readAsArrayBuffer(file);
+}
+document.getElementById('fileInput').addEventListener('change', e=> handleFile(e.target.files[0]));
+document.getElementById('dropzone').addEventListener('click', ()=> document.getElementById('fileInput').click());
+['dragenter','dragover'].forEach(ev=>{
+  document.getElementById('dropzone').addEventListener(ev, e=>{ e.preventDefault(); document.getElementById('dropzone').classList.add('drag'); });
+});
+['dragleave','drop'].forEach(ev=>{
+  document.getElementById('dropzone').addEventListener(ev, e=>{ e.preventDefault(); document.getElementById('dropzone').classList.remove('drag'); });
+});
+document.getElementById('dropzone').addEventListener('drop', e=>{
+  const f = e.dataTransfer.files[0];
+  if(f) handleFile(f);
+});
+
+/* ============================================================
+   EXPORTAR PARA OBSERVADORES
+   (genera un .html autocontenido con los datos ya incrustados,
+   sin necesidad de volver a subir el Excel)
+   ============================================================ */
+function exportForObservers(){
+  try{
+    const htmlSrc = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+    const dataJson = JSON.stringify(DATA).replace(/</g,'\\u003c');
+    const marker = /(<script id="embedded-data" type="application\/json">)[\s\S]*?(<\/script>)/;
+    const finalHtml = htmlSrc.replace(marker, `$1${dataJson}$2`);
+    const blob = new Blob([finalHtml], {type:'text/html'});
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0,10);
+    a.href = URL.createObjectURL(blob);
+    a.download = `dashboard_defectos_derivados_${stamp}.html`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }catch(err){
+    alert('No se pudo generar el archivo de exportación: '+err.message);
+  }
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+(function init(){
+  const raw = document.getElementById('embedded-data').textContent.trim();
+  let embedded = null;
+  try{ embedded = JSON.parse(raw); }catch(e){ embedded = null; }
+  if(embedded && embedded.rows && embedded.rows.length){
+    DATA = embedded;
+    showDashboard();
+  }
+})();
+</script>
+
+</body>
+</html>
