@@ -13,7 +13,7 @@
   .divider{width:1px;height:34px;background:rgba(255,255,255,.35);}
   .htitle{color:#fff;font-size:17px;font-weight:700;letter-spacing:.3px;}
   .hsub{color:#F1F6F4;font-size:12px;}
-  .wrap{max-width:1140px;margin:0 auto;padding:20px 24px 44px;}
+  .wrap{max-width:100%;margin:0;padding:20px 36px 44px;}
   .drop{border:2px dashed var(--warm);border-radius:10px;background:#fff;padding:34px 24px;text-align:center;cursor:pointer;transition:.15s;}
   .drop:hover,.drop.over{border-color:var(--sage);background:var(--warm-light);}
   .drop .big{font-size:16px;font-weight:700;color:#333;margin-bottom:4px;}
@@ -149,6 +149,14 @@
 .fk-it:hover{background:#EEF3F1;}
 .fk-it b{color:#333;}
 
+
+  .clickhint{display:flex;align-items:center;gap:12px;background:linear-gradient(90deg,var(--warm-light),#fff);border:1.5px dashed var(--sage);border-radius:10px;padding:10px 16px;margin-bottom:16px;}
+  .clickhint .ch-icon{font-size:19px;flex-shrink:0;animation:chpulse 1.8s ease-in-out infinite;}
+  .clickhint .ch-text{font-size:12.5px;color:#333;flex:1;line-height:1.4;}
+  .clickhint .ch-text b{color:var(--sage-dark);}
+  .clickhint .ch-close{background:none;border:none;color:var(--stone);font-size:14px;cursor:pointer;padding:2px 6px;flex-shrink:0;}
+  .clickhint .ch-close:hover{color:#333;}
+  @keyframes chpulse{0%,100%{transform:scale(1);opacity:1;}50%{transform:scale(1.18);opacity:.75;}}
 </style>
 </head>
 <body>
@@ -181,6 +189,7 @@
     <div id="dash">
      <div id="mainView">
       <div class="note" id="srcNote"></div>
+      <div class="clickhint" id="clickHint"><span class="ch-icon">👆</span><span class="ch-text"><b>Tip:</b> los gráficos y las filas de las tablas son interactivos — haz clic sobre una barra, fila o "DETALLE" para ver la ficha completa de ese dato.</span><button class="ch-close" type="button" onclick="document.getElementById('clickHint').style.display='none'" title="Cerrar aviso">✕</button></div>
       <div class="focos" id="focos"></div>
       <div class="kpis">
         <div class="kpi"><div class="v" id="kTot">—</div><div class="l">Auditorías</div><div class="s" id="kTotS">—</div></div>
@@ -219,8 +228,8 @@
         <div class="panel">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
             <div><div class="pt">🔍 Defectos más comunes</div>
-            <div class="ph">Top 8 defectos del período seleccionado por incidencias. <b>Clic en un defecto</b> (o el botón) para su ficha: estilos, grupos, clientes, inspectoras y líneas que más lo presentan.</div></div>
-            <button class="scopebtn" type="button" onclick="openTopDefectFicha()" style="white-space:nowrap;">📋 Ficha de defecto</button>
+            <div class="ph">Top 8 defectos del período seleccionado por incidencias. <b>Clic en un defecto</b> (o el botón) para su detalle: estilos, grupos, clientes, inspectoras y líneas que más lo presentan.</div></div>
+            <button class="scopebtn" type="button" onclick="openTopDefectFicha()" style="white-space:nowrap;">📋 Detalle de defecto</button>
           </div>
           <div class="cwrap" style="height:280px;"><canvas id="cDefectos"></canvas></div>
         </div>
@@ -235,7 +244,7 @@
       <div class="panel">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
           <div><div class="pt" id="perfTitle">Tabla de desempeño</div>
-          <div class="ph" id="perfSub">Período seleccionado · clic en «Ficha» para el detalle individual.</div></div>
+          <div class="ph" id="perfSub">Período seleccionado · clic en «DETALLE» para el detalle individual.</div></div>
           <button id="scopeBtn" class="scopebtn" type="button" onclick="togglePerfScope()">📅 Ver acumulado año</button>
         </div>
         <div class="etabs" id="entTabs"></div>
@@ -514,7 +523,7 @@ function renderFocos(){
   const rev=P.filter(r=>estadoDe(r.pct)[1]==="rev").sort((a,b)=>a.pct-b.pct);
   let det=[];
   if(prevKey!=null){const A=aggByRows(col,wrows),B=aggByRows(col,prevRows);
-    Object.keys(A).forEach(k=>{if(!B[k])return;const a=A[k],b=B[k];if(a.n<minN||b.n<minN)return;const d=+((a.ap/a.n-b.ap/b.n)*100).toFixed(1);if(d<0)det.push({k,d,n:a.n});});
+    Object.keys(A).forEach(k=>{if(!B[k])return;const a=A[k],b=B[k];if(a.n<minN||b.n<minN)return;const d=+((a.ap/a.n-b.ap/b.n)*100).toFixed(1);det.push({k,d,n:a.n});});
     det.sort((x,y)=>x.d-y.d);}
   let spike=null;
   if(prevKey!=null){const A={},B={};wrows.forEach(r=>defCount(r["DEFECTOS"],A));prevRows.forEach(r=>defCount(r["DEFECTOS"],B));
@@ -529,16 +538,16 @@ function renderFocos(){
     ?`<div class="fk-big" style="color:#C98A5E">${rev.length}</div><div class="fk-lbl">en revisión (ninguno crítico)</div><div class="fk-list">${rev.slice(0,3).map(r=>`<span class="fk-it" onclick="generarFicha('${fe}','${esc(r.k)}','${curTok}')"><b>${r.k}</b> · ${r.pct}%</span>`).join("")}</div>`
     :`<div class="fk-big" style="color:var(--sage)">✓</div><div class="fk-lbl">Ningún ${feLab} en crítico</div>`;
   const t2=det.length
-    ?`<div class="fk-big" style="color:#B05656">${det[0].d}<small>pts</small></div><div class="fk-lbl">Mayor caída de aprobación</div><div class="fk-list">${det.slice(0,3).map(r=>`<span class="fk-it" onclick="generarFicha('${fe}','${esc(r.k)}','${curTok}')"><b>${r.k}</b> · ${r.d}pts</span>`).join("")}</div>`
-    :(prevKey!=null?`<div class="fk-big" style="color:var(--sage)">—</div><div class="fk-lbl">Sin caídas relevantes vs. ${perNoun} previo(a)</div>`:`<div class="fk-big" style="color:var(--stone)">—</div><div class="fk-lbl">Sin período previo para comparar</div>`);
-  const t3=(spike&&spike.delta>0)
-    ?`<div class="fk-big" style="color:#B05656">+${spike.delta}</div><div class="fk-lbl">${spike.d}</div><div class="fk-list"><span class="fk-it" onclick="openDefectFicha('${esc(spike.d)}','${curTok}')">Ver ficha del defecto →</span></div>`
+    ?`<div class="fk-big" style="color:${det[0].d<0?"#B05656":"var(--sage)"}">${det[0].d>0?"+":""}${det[0].d}<small>pts</small></div><div class="fk-lbl">${det[0].d<0?"Mayor caída de aprobación":"Ninguna cayó · mayor alza en"} · ${det[0].k}</div><div class="fk-list">${det.slice(0,3).map(r=>`<span class="fk-it" onclick="generarFicha('${fe}','${esc(r.k)}','${curTok}')"><b>${r.k}</b> · <span style="color:${r.d<0?"#B05656":"var(--sage)"};font-weight:700">${r.d>0?"▲ +":(r.d<0?"▼ ":"— ")}${Math.abs(r.d)}pts</span></span>`).join("")}</div>`
+    :(prevKey!=null?`<div class="fk-big" style="color:var(--stone)">—</div><div class="fk-lbl">Sin datos para comparar</div>`:`<div class="fk-big" style="color:var(--stone)">—</div><div class="fk-lbl">Sin período previo para comparar</div>`);
+  const t3=spike
+    ?`<div class="fk-big" style="color:${spike.delta<0?"var(--sage)":"#B05656"}">${spike.delta>0?"+":""}${spike.delta}</div><div class="fk-lbl">${spike.d}${spike.delta<0?" (bajó)":""}</div><div class="fk-list"><span class="fk-it" onclick="openDefectFicha('${esc(spike.d)}','${curTok}')">Ver detalle del defecto →</span></div>`
     :(prevKey!=null?`<div class="fk-big" style="color:var(--sage)">—</div><div class="fk-lbl">Ningún defecto al alza en ${mode==="month"?"el mes":"la semana"}</div>`:`<div class="fk-big" style="color:var(--stone)">—</div><div class="fk-lbl">Sin período previo para comparar</div>`);
-  host.innerHTML=`<div class="fk-hd">🎯 Focos · ${plabel} <span>${perTxt}${prevLbl?(" · comparado con "+perNoun+" anterior ("+prevLbl+")"):" · sin período anterior"} · clic para abrir la ficha</span></div>
+  host.innerHTML=`<div class="fk-hd">🎯 Focos · ${plabel} <span>${perTxt}${prevLbl?(" · comparado con "+perNoun+" anterior ("+prevLbl+")"):" · sin período anterior"} · clic para abrir el detalle</span></div>
     <div class="fk-grid">
       <div class="fk-tile"><div class="fk-t">🔴 En crítico — ${plabel}</div>${t1}</div>
-      <div class="fk-tile"><div class="fk-t">📉 Mayor deterioro${prevLbl?(" · "+prevLbl+"→"+curLbl):""}</div>${t2}</div>
-      <div class="fk-tile"><div class="fk-t">⚠️ Defecto en alza${prevLbl?(" · vs "+prevLbl):""}</div>${t3}</div>
+      <div class="fk-tile"><div class="fk-t">📉 Mayor cambio${prevLbl?(" · "+prevLbl+"→"+curLbl):""}</div>${t2}</div>
+      <div class="fk-tile"><div class="fk-t">⚠️ Defecto — mayor cambio${prevLbl?(" · vs "+prevLbl):""}</div>${t3}</div>
     </div>`;
 }
 function renderCliRej(wrows,plabel){
@@ -670,7 +679,7 @@ function refreshPerfTable(){
   t.innerHTML="<thead><tr><th>#</th><th>"+e.label+"</th><th style='text-align:right'>Aud.</th><th style='text-align:right'>Aprob.</th><th style='text-align:right'>Rech.</th><th style='text-align:right'>"+pcolHd+"</th><th style='text-align:center'>Tend.</th><th>Defecto #1</th><th style='text-align:center'>Estado</th><th></th></tr></thead><tbody>"+
     P.list.map((r,i)=>{const[etxt,ecls]=r.low?["Muestra baja","low"]:estadoDe(r.pct);const bg=r.low?"#FBFBFA":(i%2?WARML:"#fff");const d1=r.defs.length?r.defs[0].d:"—";
       const pcell=rej?`<td style="text-align:right;font-weight:700;color:${r.rePct>=(100-STD2)?'#DC2626':'#333'}">${r.rePct}%</td>`:`<td style="text-align:right;font-weight:700;color:#333">${r.pct}%</td>`;
-      return `<tr style="background:${bg}"><td style="color:var(--stone)">${i+1}</td><td style="color:#333;font-weight:700">${r.k}</td><td style="text-align:right">${r.n}</td><td style="text-align:right;color:var(--sage)">${r.ap}</td><td style="text-align:right;color:${r.re>0?'#DC2626':'var(--stone)'}">${r.re}</td>${pcell}<td style="text-align:center">${r.low?'<span class="tfl">—</span>':tr(r)}</td><td style="font-size:11.5px">${d1}</td><td style="text-align:center"><span class="st ${ecls}">${etxt}</span></td><td style="text-align:center"><button class="fbtn" onclick="generarFicha('${CURENT}','${String(r.k).replace(/'/g,"\\'")}')">Ficha</button></td></tr>`;}).join("")+"</tbody>";
+      return `<tr style="background:${bg}"><td style="color:var(--stone)">${i+1}</td><td style="color:#333;font-weight:700">${r.k}</td><td style="text-align:right">${r.n}</td><td style="text-align:right;color:var(--sage)">${r.ap}</td><td style="text-align:right;color:${r.re>0?'#DC2626':'var(--stone)'}">${r.re}</td>${pcell}<td style="text-align:center">${r.low?'<span class="tfl">—</span>':tr(r)}</td><td style="font-size:11.5px">${d1}</td><td style="text-align:center"><span class="st ${ecls}">${etxt}</span></td><td style="text-align:center"><button class="fbtn" onclick="generarFicha('${CURENT}','${String(r.k).replace(/'/g,"\\'")}')">DETALLE</button></td></tr>`;}).join("")+"</tbody>";
 }
 
 /* ---------- helpers de período de ficha ---------- */
@@ -771,7 +780,7 @@ function generarFicha(entKey,key,period){
   const weeks=[...new Set(erows.map(r=>Number(r["SEMANA"])))].filter(x=>!isNaN(x)).sort((a,b)=>a-b);
   const months=[...new Set(erows.map(r=>monthOf(r["FECHA"])))].filter(x=>x!=null).sort((a,b)=>a-b);
   if(CURFICHA!=="E|"+entKey+"|"+key){
-    document.getElementById("fichaTopbar").innerHTML=`<span>Período de la ficha:</span><select id="fichaPeriod" onchange="generarFicha('${entKey}','${escq(key)}',this.value)">${fichaPeriodOpts(weeks,months)}</select>`;
+    document.getElementById("fichaTopbar").innerHTML=`<span>Período del detalle:</span><select id="fichaPeriod" onchange="generarFicha('${entKey}','${escq(key)}',this.value)">${fichaPeriodOpts(weeks,months)}</select>`;
     CURFICHA="E|"+entKey+"|"+key;
   }
   document.getElementById("fichaPeriod").value=periodKey(pp);
@@ -797,7 +806,7 @@ function generarFicha(entKey,key,period){
   document.getElementById("fichaCard").innerHTML=`
     <div class="fc-hd" style="background:${headColor}">
       <div><div class="co">LIVES — Área de Calidad · ${CFG.fichaKicker}</div>
-        <div class="tn">${ts.k}</div><div class="tsub">Ficha de desempeño · ${e.label} · ${periodLabel}</div></div>
+        <div class="tn">${ts.k}</div><div class="tsub">Detalle de desempeño · ${e.label} · ${periodLabel}</div></div>
       <div class="tpct">${ts.pct}%<small>${etxt}</small></div></div>
     <div class="fc-body">
       <div class="fc-kpis">
@@ -867,7 +876,7 @@ function openDefectFicha(defName,period){
   document.getElementById("fichaCard").innerHTML=`
     <div class="fc-hd" style="background:#DC2626">
       <div><div class="co">LIVES — Área de Calidad · ${CFG.fichaKicker}</div>
-        <div class="tn">${defName}</div><div class="tsub">Ficha de defecto · dónde se concentra · ${periodLabel}</div></div>
+        <div class="tn">${defName}</div><div class="tsub">Detalle de defecto · dónde se concentra · ${periodLabel}</div></div>
       <div class="tpct">${inc}<small>incidencias</small></div></div>
     <div class="fc-body">
       <div class="fc-kpis">

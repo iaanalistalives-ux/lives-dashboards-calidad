@@ -16,7 +16,7 @@
   .divider{width:1px;height:34px;background:rgba(255,255,255,.35);}
   .htitle{color:#fff;font-size:17px;font-weight:700;letter-spacing:.3px;}
   .hsub{color:#F1F6F4;font-size:12px;}
-  .wrap{max-width:1140px;margin:0 auto;padding:20px 24px 44px;}
+  .wrap{max-width:100%;margin:0;padding:20px 36px 44px;}
 
   .drop{border:2px dashed var(--warm);border-radius:10px;background:#fff;padding:34px 24px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;}
   .drop:hover,.drop.over{border-color:var(--sage);background:var(--warm-light);}
@@ -91,7 +91,7 @@
   .fbtn:hover{background:var(--sage-dark);}
   .fbtn.mut{background:#fff;border:1px solid var(--warm);color:var(--stone);cursor:default;}
 
-  /* ficha imprimible */
+  /* detalle imprimible */
   .ficha-overlay{display:none;position:fixed;inset:0;background:rgba(40,45,40,.55);z-index:1000;overflow:auto;padding:22px;}
   .ficha-overlay.show{display:block;}
   .ficha-card{max-width:760px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 10px 50px rgba(0,0,0,.35);}
@@ -140,6 +140,14 @@
     body.print-ficha #fichaOverlay{position:static!important;display:block!important;background:#fff!important;padding:0!important;overflow:visible!important;}
     body.print-ficha .ficha-card{box-shadow:none;max-width:100%;border-radius:0;}
   }
+
+  .clickhint{display:flex;align-items:center;gap:12px;background:linear-gradient(90deg,var(--warm-light),#fff);border:1.5px dashed var(--sage);border-radius:10px;padding:10px 16px;margin-bottom:16px;}
+  .clickhint .ch-icon{font-size:19px;flex-shrink:0;animation:chpulse 1.8s ease-in-out infinite;}
+  .clickhint .ch-text{font-size:12.5px;color:#333;flex:1;line-height:1.4;}
+  .clickhint .ch-text b{color:var(--sage-dark);}
+  .clickhint .ch-close{background:none;border:none;color:var(--stone);font-size:14px;cursor:pointer;padding:2px 6px;flex-shrink:0;}
+  .clickhint .ch-close:hover{color:#333;}
+  @keyframes chpulse{0%,100%{transform:scale(1);opacity:1;}50%{transform:scale(1.18);opacity:.75;}}
 </style>
 <style id="lf-css">
   .fc-pm{display:flex;flex-direction:column;gap:6px;}
@@ -214,6 +222,7 @@
     <div id="dash">
      <div id="mainView">
       <div class="note" id="srcNote"></div>
+      <div class="clickhint" id="clickHint"><span class="ch-icon">👆</span><span class="ch-text"><b>Tip:</b> los gráficos y las filas de las tablas son interactivos — haz clic sobre una barra, fila o "DETALLE" para ver la ficha completa de ese dato.</span><button class="ch-close" type="button" onclick="document.getElementById('clickHint').style.display='none'" title="Cerrar aviso">✕</button></div>
 
       <!-- KPIs duales -->
       <div class="kdual">
@@ -298,7 +307,7 @@
       <!-- DESEMPEÑO ACUMULADO TALLERES EXTERNOS -->
       <div class="panel">
         <div class="pt">🏭 Talleres externos — Desempeño acumulado <span id="perfRange" style="font-weight:400;color:var(--stone);font-size:12px;"></span></div>
-        <div class="ph">Ranking del año por % de aprobación (no por semana). ▲▼ = tendencia del último mes con datos vs el anterior. Talleres con menos de 8 auditorías se marcan "muestra baja" (no concluyente). El botón genera una ficha firmable para entregar al taller.</div>
+        <div class="ph">Ranking del año por % de aprobación (no por semana). ▲▼ = tendencia del último mes con datos vs el anterior. Talleres con menos de 8 auditorías se marcan "muestra baja" (no concluyente). El botón genera un detalle firmable para entregar al taller.</div>
         <div class="perfk">
           <div class="c"><div class="v" id="pT">—</div><div class="l">Talleres activos</div></div>
           <div class="c"><div class="v" id="pA">—</div><div class="l">Auditorías externas</div></div>
@@ -570,7 +579,7 @@ function renderPerf(){
     P.list.map((r,i)=>{const[etxt,ecls]=r.low?["Muestra baja","low"]:estadoDe(r.pct);
       const bg=r.low?"#FBFBFA":(i%2?WARML:"#fff");
       const d1=r.defs.length?r.defs[0].d:"—";
-      const btn=(!r.low&&r.pct<85)?`<button class="fbtn" onclick="generarFicha('${r.k.replace(/'/g,"\\'")}')">Ficha</button>`:`<button class="fbtn mut" onclick="generarFicha('${r.k.replace(/'/g,"\\'")}')" style="background:#fff;border:1px solid var(--warm);color:var(--sage);">Ficha</button>`;
+      const btn=(!r.low&&r.pct<85)?`<button class="fbtn" onclick="generarFicha('${r.k.replace(/'/g,"\\'")}')">DETALLE</button>`:`<button class="fbtn mut" onclick="generarFicha('${r.k.replace(/'/g,"\\'")}')" style="background:#fff;border:1px solid var(--warm);color:var(--sage);">DETALLE</button>`;
       return `<tr style="background:${bg}"><td style="color:var(--stone)">${i+1}</td>`+
         `<td style="color:#333;font-weight:700">${r.k}</td>`+
         `<td style="text-align:right">${r.n}</td><td style="text-align:right;color:var(--sage)">${r.ap}</td>`+
@@ -653,7 +662,7 @@ function generarFicha(taller, period){
   document.getElementById("fichaCard").innerHTML=`
     <div class="fc-hd" style="background:${headColor}">
       <div><div class="co">LIVES — Área de Calidad · Auditoría de Talleres Externos</div>
-        <div class="tn">${ts.k}</div><div class="tsub">Ficha de desempeño y retroalimentación · ${periodLabel}</div></div>
+        <div class="tn">${ts.k}</div><div class="tsub">Detalle de desempeño y retroalimentación · ${periodLabel}</div></div>
       <div class="tpct">${ts.pct}%<small>${etxt}</small></div>
     </div>
     <div class="fc-body">
@@ -900,7 +909,7 @@ if(window.__EMBED__){try{buildState(window.__EMBED__.rows,window.__EMBED__.fname
     var pp=parseP(period);
     var weeks=[].concat.apply([],[Array.from(new Set(erows.map(function(r){return Number(r["SEMANA"]);}))).filter(function(x){return !isNaN(x);}).sort(function(a,b){return a-b;})]);
     var months=Array.from(new Set(erows.map(function(r){return moOf(r["FECHA"]);}))).filter(function(x){return x!=null;}).sort(function(a,b){return a-b;});
-    if(CURF!=="E|"+key){document.getElementById("fichaTopbar").innerHTML='<span>Período de la ficha:</span><select id="fichaPeriod" onchange="generarFicha(\''+String(key).replace(/'/g,"\\'")+'\',this.value)">'+pOpts(weeks,months)+'</select>';CURF="E|"+key;}
+    if(CURF!=="E|"+key){document.getElementById("fichaTopbar").innerHTML='<span>Período del detalle:</span><select id="fichaPeriod" onchange="generarFicha(\''+String(key).replace(/'/g,"\\'")+'\',this.value)">'+pOpts(weeks,months)+'</select>';CURF="E|"+key;}
     document.getElementById("fichaPeriod").value=pKey(pp);
     var srows=scoped(pp).filter(function(r){return gv(r,col)===key;});
     var ts=statsOf(srows,key);
@@ -915,7 +924,7 @@ if(window.__EMBED__){try{buildState(window.__EMBED__.rows,window.__EMBED__.fname
     var sit=situacion(ts,trend,isScoped,plabel);var rc=recom(ts.pct);
     var hoy=new Date().toLocaleDateString("es-PE",{day:"2-digit",month:"2-digit",year:"numeric"});
     document.getElementById("fichaCard").innerHTML=
-      '<div class="fc-hd" style="background:'+headColor+'"><div><div class="co">LIVES — Área de Calidad · '+CFG.kicker+'</div><div class="tn">'+ts.k+'</div><div class="tsub">Ficha de desempeño · '+CFG.entLabel+' · '+plabel+'</div></div><div class="tpct">'+ts.pct+'%<small>'+et[0]+'</small></div></div>'+
+      '<div class="fc-hd" style="background:'+headColor+'"><div><div class="co">LIVES — Área de Calidad · '+CFG.kicker+'</div><div class="tn">'+ts.k+'</div><div class="tsub">Detalle de desempeño · '+CFG.entLabel+' · '+plabel+'</div></div><div class="tpct">'+ts.pct+'%<small>'+et[0]+'</small></div></div>'+
       '<div class="fc-body"><div class="fc-kpis"><div class="k"><div class="v">'+ts.n+'</div><div class="l">Total Aud.</div></div><div class="k"><div class="v" style="color:var(--sage)">'+ts.ap+'</div><div class="l">Aprobadas</div></div><div class="k"><div class="v" style="color:#DC2626">'+ts.re+'</div><div class="l">Rechazadas</div></div><div class="k"><div class="v">'+ts.pct+'%</div><div class="l">% Aprobación</div></div></div>'+
       '<div class="fc-sec">'+evoTitle+' '+(st.year||"")+' · Tendencia ('+trWord+' vs. previo): '+badge(trend)+'</div><div class="fc-mes">'+evo+'</div>'+
       '<div class="fc-sec">Contexto — '+plabel+'</div><div class="fc-ctx">'+ctxHTML+'</div>'+
@@ -943,7 +952,7 @@ if(window.__EMBED__){try{buildState(window.__EMBED__.rows,window.__EMBED__.fname
     var firstDim=CFG.defectDims[0],fd=topDim(rows,dn,firstDim.col);
     var plabel=pLabel(pp);var hoy=new Date().toLocaleDateString("es-PE",{day:"2-digit",month:"2-digit",year:"numeric"});
     document.getElementById("fichaCard").innerHTML=
-      '<div class="fc-hd" style="background:#DC2626"><div><div class="co">LIVES — Área de Calidad · '+CFG.kicker+'</div><div class="tn">'+dn+'</div><div class="tsub">Ficha de defecto · dónde se concentra · '+plabel+'</div></div><div class="tpct">'+inc+'<small>incidencias</small></div></div>'+
+      '<div class="fc-hd" style="background:#DC2626"><div><div class="co">LIVES — Área de Calidad · '+CFG.kicker+'</div><div class="tn">'+dn+'</div><div class="tsub">Detalle de defecto · dónde se concentra · '+plabel+'</div></div><div class="tpct">'+inc+'<small>incidencias</small></div></div>'+
       '<div class="fc-body"><div class="fc-kpis"><div class="k"><div class="v">'+inc+'</div><div class="l">Incidencias</div></div><div class="k"><div class="v">'+aud+'</div><div class="l">Auditorías con el defecto</div></div><div class="k"><div class="v" style="color:#DC2626">'+shareTot+'%</div><div class="l">del total de defectos del período</div></div><div class="k"><div class="v">'+(fd.list.length)+'</div><div class="l">'+firstDim.label+' afectados</div></div></div>'+
       '<div class="fc-sec">'+evoTitle+' '+(st.year||"")+' · Tendencia ('+trWord+' vs. previo): '+badgeInv(trend)+'</div><div class="fc-mes">'+evo+'</div>'+
       '<div class="fc-sec">Dónde se concentra «'+dn+'» — '+plabel+'</div><div class="fc-dfgrid">'+dimsHTML+'</div>'+
@@ -982,15 +991,15 @@ if(window.__EMBED__){try{buildState(window.__EMBED__.rows,window.__EMBED__.fname
       ?'<div class="fk-big" style="color:#C98A5E">'+rev.length+'</div><div class="fk-lbl">en revisión (ninguno crítico)</div><div class="fk-list">'+rev.slice(0,3).map(function(r){return '<span class="fk-it" onclick="generarFicha(\''+esc2(r.k)+'\',\''+curTok+'\')"><b>'+r.k+'</b> · '+r.pct+'%</span>';}).join("")+'</div>'
       :'<div class="fk-big" style="color:var(--sage)">\u2713</div><div class="fk-lbl">Ning\u00FAn '+feLab+' en alerta</div>';
     var t2=det.length
-      ?'<div class="fk-big" style="color:#B05656">'+det[0].d+'<small>pts</small></div><div class="fk-lbl">Mayor ca\u00EDda de aprobaci\u00F3n</div><div class="fk-list">'+det.slice(0,3).map(function(r){return '<span class="fk-it" onclick="generarFicha(\''+esc2(r.k)+'\',\''+curTok+'\')"><b>'+r.k+'</b> · '+r.d+'pts</span>';}).join("")+'</div>'
-      :(prevKey!=null?'<div class="fk-big" style="color:var(--sage)">\u2014</div><div class="fk-lbl">Sin ca\u00EDdas relevantes vs. '+perNoun+' previo(a)</div>':'<div class="fk-big" style="color:var(--stone)">\u2014</div><div class="fk-lbl">Sin per\u00EDodo previo para comparar</div>');
-    var t3=(spike&&spike.delta>0)
-      ?'<div class="fk-big" style="color:#B05656">+'+spike.delta+'</div><div class="fk-lbl">'+spike.d+'</div><div class="fk-list"><span class="fk-it" onclick="openDefectFicha(\''+esc2(spike.d)+'\',\''+curTok+'\')">Ver ficha del defecto \u2192</span></div>'
+      ?'<div class="fk-big" style="color:'+(det[0].d<0?"#B05656":"var(--sage)")+'">'+(det[0].d>0?"+":"")+det[0].d+'<small>pts</small></div><div class="fk-lbl">'+(det[0].d<0?"Mayor ca\u00EDda de aprobaci\u00F3n":"Ninguna cay\u00F3 · mayor alza en")+' · '+det[0].k+'</div><div class="fk-list">'+det.slice(0,3).map(function(r){return '<span class="fk-it" onclick="generarFicha(\''+esc2(r.k)+'\',\''+curTok+'\')"><b>'+r.k+'</b> · <span style="color:'+(r.d<0?"#B05656":"var(--sage)")+';font-weight:700">'+(r.d>0?"▲ +":(r.d<0?"▼ ":"— "))+Math.abs(r.d)+'pts</span></span>';}).join("")+'</div>'
+      :(prevKey!=null?'<div class="fk-big" style="color:var(--stone)">\u2014</div><div class="fk-lbl">Sin datos para comparar</div>':'<div class="fk-big" style="color:var(--stone)">\u2014</div><div class="fk-lbl">Sin per\u00EDodo previo para comparar</div>');
+    var t3=spike
+      ?'<div class="fk-big" style="color:'+(spike.delta<0?"var(--sage)":"#B05656")+'">'+(spike.delta>0?"+":"")+spike.delta+'</div><div class="fk-lbl">'+spike.d+(spike.delta<0?" (bajó)":"")+'</div><div class="fk-list"><span class="fk-it" onclick="openDefectFicha(\''+esc2(spike.d)+'\',\''+curTok+'\')">Ver detalle del defecto →</span></div>'
       :(prevKey!=null?'<div class="fk-big" style="color:var(--sage)">\u2014</div><div class="fk-lbl">Ning\u00FAn defecto al alza en '+(pp.kind==="month"?"el mes":"la semana")+'</div>':'<div class="fk-big" style="color:var(--stone)">\u2014</div><div class="fk-lbl">Sin per\u00EDodo previo para comparar</div>');
-    host.innerHTML='<div class="fk-hd">\uD83C\uDFAF Focos \u00B7 '+plabel+' <span>'+perTxt+(prevLbl?(" \u00B7 comparado con "+perNoun+" anterior ("+prevLbl+")"):" \u00B7 sin per\u00EDodo anterior")+' \u00B7 clic para abrir la ficha</span></div>'+
+    host.innerHTML='<div class="fk-hd">\uD83C\uDFAF Focos \u00B7 '+plabel+' <span>'+perTxt+(prevLbl?(" \u00B7 comparado con "+perNoun+" anterior ("+prevLbl+")"):" \u00B7 sin per\u00EDodo anterior")+' \u00B7 clic para abrir el detalle</span></div>'+
       '<div class="fk-grid"><div class="fk-tile"><div class="fk-t">\uD83D\uDD34 En alerta/cr\u00EDtico \u2014 '+plabel+'</div>'+t1+'</div>'+
-      '<div class="fk-tile"><div class="fk-t">\uD83D\uDCC9 Mayor deterioro'+(prevLbl?(" \u00B7 "+prevLbl+"\u2192"+curLbl):"")+'</div>'+t2+'</div>'+
-      '<div class="fk-tile"><div class="fk-t">\u26A0\uFE0F Defecto en alza'+(prevLbl?(" \u00B7 vs "+prevLbl):"")+'</div>'+t3+'</div></div>';
+      '<div class="fk-tile"><div class="fk-t">\uD83D\uDCC9 Mayor cambio'+(prevLbl?(" \u00B7 "+prevLbl+"\u2192"+curLbl):"")+'</div>'+t2+'</div>'+
+      '<div class="fk-tile"><div class="fk-t">\u26A0\uFE0F Defecto — mayor cambio'+(prevLbl?(" \u00B7 vs "+prevLbl):"")+'</div>'+t3+'</div></div>';
   }
   window.lfRenderFocos=lfRenderFocos;
   function mountFocos(){if(document.getElementById("focos"))return true;var mv=document.getElementById("mainView")||document.getElementById("dash");if(!mv)return false;var sn=document.getElementById("srcNote");var f=document.createElement("div");f.className="focos";f.id="focos";if(sn&&sn.parentNode===mv)mv.insertBefore(f,sn.nextSibling);else mv.insertBefore(f,mv.firstChild);return true;}
@@ -1029,7 +1038,7 @@ if(window.__EMBED__){try{buildState(window.__EMBED__.rows,window.__EMBED__.fname
   function injectBtn(){
     var cv=document.getElementById(CFG.defCanvas);if(!cv)return;
     var panel=cv.closest(".panel");if(!panel||panel.querySelector(".lf-defbtn"))return;
-    var b=document.createElement("button");b.type="button";b.className="scopebtn lf-defbtn";b.textContent="📋 Ficha de defecto";b.style.cssText="float:right;margin-top:-2px;";b.onclick=function(){openTopDefectFicha();};
+    var b=document.createElement("button");b.type="button";b.className="scopebtn lf-defbtn";b.textContent="📋 Detalle de defecto";b.style.cssText="float:right;margin-top:-2px;";b.onclick=function(){openTopDefectFicha();};
     panel.insertBefore(b,panel.firstChild);
   }
   var _setup=false;

@@ -11,7 +11,7 @@
   .header{background:var(--petrol);border-bottom:3px solid var(--emer);min-height:72px;display:flex;align-items:center;padding:0 24px;gap:18px;flex-wrap:wrap;}
   .header svg{height:30px;display:block;}.divider{width:1px;height:34px;background:rgba(255,255,255,.35);}
   .htitle{color:#fff;font-size:17px;font-weight:700;letter-spacing:.3px;}.hsub{color:#F1F6F4;font-size:12px;}
-  .wrap{max-width:1140px;margin:0 auto;padding:20px 24px 44px;}
+  .wrap{max-width:100%;margin:0;padding:20px 36px 44px;}
   .drop{border:2px dashed var(--warm);border-radius:10px;background:#fff;padding:34px 24px;text-align:center;cursor:pointer;transition:.15s;}
   .drop:hover,.drop.over{border-color:var(--sage);background:var(--warm-light);}
   .drop .big{font-size:16px;font-weight:700;color:#333;margin-bottom:4px;}.drop .sm{font-size:12.5px;color:var(--stone);}
@@ -23,6 +23,19 @@
   .bar .btn:hover{border-color:var(--sage);background:var(--warm-light);}
   .wsel{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:#333;font-weight:600;}
   .wsel select{font-family:inherit;font-size:14px;font-weight:700;color:var(--sage);border:1.5px solid var(--sage);border-radius:6px;padding:6px 12px;background:#fff;cursor:pointer;}
+  .pdbtns{display:inline-flex;flex-wrap:wrap;gap:5px;max-width:640px;vertical-align:middle;}
+  .pbtn{background:#fff;border:1.3px solid var(--warm);color:#333;border-radius:14px;padding:3px 10px;font-family:inherit;font-size:11.5px;font-weight:700;cursor:pointer;transition:.12s;}
+  .pbtn:hover{border-color:var(--sage);}
+  .pbtn.active{background:var(--sage);border-color:var(--sage);color:#fff;}
+  .msdrop{position:relative;display:inline-block;vertical-align:middle;}
+  .msdrop-btn{background:#fff;border:1.5px solid var(--sage);color:var(--sage);border-radius:6px;padding:6px 14px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;min-width:150px;text-align:left;}
+  .msdrop-btn:after{content:'▾';float:right;margin-left:8px;}
+  .msdrop-panel{display:none;position:absolute;top:calc(100% + 4px);left:0;background:#fff;border:1.5px solid var(--sage);border-radius:8px;padding:8px;box-shadow:0 6px 18px rgba(0,0,0,.14);z-index:50;max-height:280px;overflow-y:auto;min-width:190px;}
+  .msdrop-panel.open{display:block;}
+  .msopt{display:flex;align-items:center;gap:7px;padding:4px 6px;border-radius:5px;font-size:12.5px;color:#333;cursor:pointer;white-space:nowrap;}
+  .msopt:hover{background:var(--warm-light);}
+  .msopt input{accent-color:var(--sage);cursor:pointer;}
+
   .modesel{display:inline-flex;border:1.5px solid var(--sage);border-radius:6px;overflow:hidden;}
   .modesel .mbtn{background:#fff;color:var(--sage);border:none;padding:6px 14px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;}
   .modesel .mbtn.active{background:var(--sage);color:#fff;}
@@ -89,6 +102,14 @@
     body.print-ficha #fichaOverlay{position:static!important;display:block!important;background:#fff!important;padding:0!important;overflow:visible!important;}
     body.print-ficha .ficha-card{box-shadow:none;max-width:100%;border-radius:0;}
   }
+
+  .clickhint{display:flex;align-items:center;gap:12px;background:linear-gradient(90deg,var(--warm-light),#fff);border:1.5px dashed var(--sage);border-radius:10px;padding:10px 16px;margin-bottom:16px;}
+  .clickhint .ch-icon{font-size:19px;flex-shrink:0;animation:chpulse 1.8s ease-in-out infinite;}
+  .clickhint .ch-text{font-size:12.5px;color:#333;flex:1;line-height:1.4;}
+  .clickhint .ch-text b{color:var(--sage-dark);}
+  .clickhint .ch-close{background:none;border:none;color:var(--stone);font-size:14px;cursor:pointer;padding:2px 6px;flex-shrink:0;}
+  .clickhint .ch-close:hover{color:#333;}
+  @keyframes chpulse{0%,100%{transform:scale(1);opacity:1;}50%{transform:scale(1.18);opacity:.75;}}
 </style>
 <style id="lfs-css">#hSub{display:none!important}.tup{color:#0B815E;font-weight:700}.tdn{color:#DC2626;font-weight:700}.tfl{color:#B45309;font-weight:700}.scopebtn{background:#fff;border:1.5px solid var(--slate);color:var(--slate);border-radius:6px;padding:6px 12px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer}.scopebtn:hover{background:var(--warm-light,#F4F8F7)}.focos{background:linear-gradient(180deg,#fff,#FAFCFB);border:1.5px solid var(--warm,#DCE5E2);border-radius:12px;padding:14px 16px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.04)}.fk-hd{font-size:14px;font-weight:800;color:var(--slate,#40566B);margin-bottom:12px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}.fk-hd span{font-size:11px;font-weight:600;color:var(--stone,#5F726C)}.fk-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}@media(max-width:760px){.fk-grid{grid-template-columns:1fr}}.fk-tile{background:#fff;border:1px solid var(--warm-light,#F1F6F4);border-radius:10px;padding:12px 14px}.fk-t{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--stone,#5F726C);margin-bottom:8px}.fk-big{font-size:30px;font-weight:800;line-height:1}.fk-big small{font-size:13px;font-weight:700;margin-left:3px}.fk-lbl{font-size:12px;color:#333;font-weight:600;margin-top:3px}.fk-list{display:flex;flex-direction:column;gap:4px;margin-top:9px}.fk-it{font-size:12px;color:var(--slate,#40566B);background:var(--warm-light,#F1F6F4);border-radius:6px;padding:5px 9px;cursor:pointer}.fk-it:hover{background:#EEF3F1}.fk-it b{color:#333}.elead{background:#fff;border-left:5px solid var(--rose,#DC2626);border-radius:10px;padding:15px 18px;margin-bottom:20px;box-shadow:0 1px 3px rgba(0,0,0,.05)}.elead .eltx{font-size:14.5px;font-weight:600;color:#333;line-height:1.5}.elead b{color:var(--rose,#DC2626)}.esec{margin-bottom:24px}.est{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:13px;letter-spacing:1.3px;text-transform:uppercase;color:var(--slate,#4E6B78);margin-bottom:11px;border-bottom:1px solid var(--warm,#DCE5E2);padding-bottom:6px}.echips{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}.echip{flex:1;min-width:120px;background:#fff;border-radius:10px;padding:13px 15px;box-shadow:0 1px 3px rgba(0,0,0,.05)}.echip .eyr{font-size:12px;font-weight:700;color:var(--stone,#5F726C)}.echip .epc{font-size:28px;font-weight:800;line-height:1.1;margin-top:2px}.echip .ear{font-size:12px;font-weight:700;margin-top:1px;min-height:15px}.echip .ent{font-size:11px;color:var(--stone,#5F726C);margin-top:2px}.eup{color:var(--rose,#DC2626);font-weight:700}.edn{color:var(--sage,#10B981);font-weight:700}.eflt{color:var(--stone,#5F726C)}.emoney{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}.emny{flex:1;min-width:96px;background:#fff;border-radius:10px;padding:13px 12px;box-shadow:0 1px 3px rgba(0,0,0,.05);text-align:center}.emny .emv{font-size:22px;font-weight:800;color:var(--taupe,#B45309)}.emny .emy{font-size:11.5px;font-weight:700;color:var(--stone,#5F726C);margin-top:2px}.emny.etot{background:var(--sage,#10B981)}.emny.etot .emv{color:#fff;font-size:24px}.emny.etot .emy{color:#E7F7F0}.egrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}@media(max-width:820px){.egrid{grid-template-columns:1fr}}.ecard{background:#fff;border-radius:12px;padding:16px 18px;box-shadow:0 1px 3px rgba(0,0,0,.05)}.ect{font-weight:700;font-size:14px;color:#333;margin-bottom:12px}.ecw{height:260px;position:relative}.ebar{display:flex;align-items:center;gap:9px;margin:8px 0}.ebar .elb{width:118px;font-size:12.5px;font-weight:600;color:#333;text-align:right;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ebar .etr{flex:1;background:var(--warm-light,#F1F6F4);border-radius:5px;height:20px;overflow:hidden}.ebar .efl{height:100%;border-radius:5px}.ebar .evl{width:78px;font-size:12px;font-weight:700;color:var(--stone,#5F726C);flex-shrink:0}.econc{display:flex;align-items:center;gap:16px;margin-bottom:12px}.econc .ebig{font-size:46px;font-weight:900;color:var(--slate,#4E6B78);line-height:.9;font-family:"Barlow Condensed",sans-serif}.econc .etx{font-size:13.5px;color:#333;font-weight:600}.econc .etx span{color:var(--stone,#5F726C);font-weight:400;font-size:12.5px}.enp{font-size:11px;color:var(--stone,#5F726C);font-style:italic;margin-top:8px}.eins{background:var(--warm-light,#F1F6F4);border-radius:10px;padding:12px 16px 12px 30px}.eins li{font-size:13.5px;color:#333;margin:6px 0;line-height:1.45}.eins li b{color:var(--sage,#10B981)}</style>
 </head>
@@ -110,9 +131,14 @@
     <div id="bar" class="bar">
       
       <span class="wsel" id="yearWrap">Vista: <span class="modesel"><span id="yearBtns"></span><button id="compareBtn" class="mbtn" type="button" onclick="showCompare()">📊 Comparativo</button></span></span>
-      <span class="modesel" id="modeWrap"><button id="modeWeek" class="mbtn active" type="button" onclick="setMode('week')">Semana</button><button id="modeMonth" class="mbtn" type="button" onclick="setMode('month')">Mes</button></span>
-      <span class="wsel" id="weekWrap">Semana: <select id="weekSel"></select></span>
-      <span class="wsel" id="monthWrap" style="display:none">Mes: <select id="monthSel"></select></span>
+      <span class="modesel" id="modeWrap"><button id="modeYear" class="mbtn active" type="button" onclick="setMode('year')">Año</button><button id="modeWeek" class="mbtn" type="button" onclick="setMode('week')">Semana</button><button id="modeMonth" class="mbtn" type="button" onclick="setMode('month')">Mes</button></span>
+      <span class="wsel" id="weekWrap" style="display:none">Semana:
+        <span class="msdrop" id="weekMsDrop">
+          <button type="button" class="msdrop-btn" id="weekMsBtn" onclick="toggleWeekDrop()">—</button>
+          <div class="msdrop-panel" id="weekMsPanel"></div>
+        </span>
+      </span>
+      <span class="wsel" id="monthWrap" style="display:none">Mes: <span id="monthPills" class="pdbtns"></span></span>
       <button id="printBtn" class="btn" type="button" onclick="printDash()" style="background:#fff;border:1px solid var(--warm);color:var(--sage);">🖨 Imprimir A4</button>
       <button id="changeBtn" class="btn" type="button" onclick="document.getElementById('file').click()">Cambiar archivo</button>
       <button id="exportBtn" class="btn" type="button" onclick="exportFrozen()" style="background:var(--sage);color:#fff;border:none;">⬇ Exportar para enviar</button>
@@ -122,6 +148,7 @@
     <div id="dash">
      <div id="mainView">
       <div class="note" id="srcNote"></div>
+      <div class="clickhint" id="clickHint"><span class="ch-icon">👆</span><span class="ch-text"><b>Tip:</b> los gráficos y las filas de las tablas son interactivos — haz clic sobre una barra, fila o "DETALLE" para ver la ficha completa de ese dato.</span><button class="ch-close" type="button" onclick="document.getElementById('clickHint').style.display='none'" title="Cerrar aviso">✕</button></div>
       <div class="kpis" id="kpiRow"></div>
 
       <!-- tendencia mensual -->
@@ -143,12 +170,12 @@
       <div class="grid2">
         <div class="panel">
           <div class="pt">⚙️ Área generadora</div>
-          <div class="ph">% de segundas sobre confeccionadas, por área (período seleccionado).</div>
+          <div class="ph">% de segundas sobre confeccionadas, por área (período seleccionado). Clic en una barra para su detalle.</div>
           <div class="cwrap" style="height:260px;"><canvas id="cArea"></canvas></div>
         </div>
         <div class="panel">
           <div class="pt">🔧 Motivos de segunda</div>
-          <div class="ph">Top motivos del período seleccionado por cantidad.</div>
+          <div class="ph">Top motivos del período seleccionado por cantidad. Clic en una barra para su detalle.</div>
           <div class="cwrap" style="height:260px;"><canvas id="cMotivo"></canvas></div>
         </div>
       </div>
@@ -156,26 +183,27 @@
       <!-- cliente / grupo / estilo: rankings con ficha (ambos dashboards) -->
       <div class="grid2">
         <div class="panel">
-          <div class="pt">🏢 Por cliente</div><div class="ph">Clientes más recurrentes del período. Toca "Ficha" para el detalle.</div>
+          <div class="pt">🏢 Por cliente</div><div class="ph">Clientes más recurrentes del período. Toca "DETALLE" para más información.</div>
           <div style="overflow-x:auto;"><table id="cliRank"></table></div>
         </div>
         <div class="panel">
-          <div class="pt">📦 Por grupo</div><div class="ph">Grupos más recurrentes del período. Toca "Ficha" para el detalle.</div>
+          <div class="pt">📦 Por grupo</div><div class="ph">Grupos más recurrentes del período. Toca "DETALLE" para más información.</div>
           <div style="overflow-x:auto;"><table id="grpRank"></table></div>
         </div>
       </div>
       <div class="grid2">
         <div class="panel">
-          <div class="pt">👕 Por estilo</div><div class="ph">Estilos más recurrentes del período. Toca "Ficha" para el detalle.</div>
+          <div class="pt">👕 Por estilo</div><div class="ph">Estilos más recurrentes del período. Toca "DETALLE" para más información.</div>
           <div style="overflow-x:auto;"><table id="estRank"></table></div>
         </div>
         <div class="panel khide" data-kind="interno">
-          <div class="pt">🧵 Telas más recurrentes</div><div class="ph">Telas que más aparecen en REPORTE DE TELAS en el período. Toca "Ficha" para el detalle.</div>
+          <div class="pt">🧵 Telas más recurrentes</div><div class="ph">Telas que más aparecen en REPORTE DE TELAS en el período. Toca "DETALLE" para más información.</div>
           <div style="overflow-x:auto;"><table id="telasRank"></table></div>
         </div>
       </div>
 
       <!-- ============ DESEMPEÑO (ambos) ============ -->
+      <div id="anioBlock" style="display:none;">
       <div class="sectitle" id="desempTitle">🏭 Informe de desempeño — acumulado 2026</div>
       <div class="kpis">
         <div class="kpi"><div class="v" id="dConf">—</div><div class="l" id="dConfL">Confeccionadas 2026</div></div>
@@ -184,8 +212,13 @@
         <div class="kpi meta"><div class="v">2.50%</div><div class="l">Meta</div></div>
       </div>
       <div class="panel">
+        <div class="pt">📈 Tendencia anual — % de segundas por año</div>
+        <div class="ph">Acumulado de cada año completo. Meta 2.5%.</div>
+        <div class="cwrap" style="height:230px;"><canvas id="cAnual"></canvas></div>
+      </div>
+      <div class="panel">
         <div class="pt">Por área generadora — acumulado</div>
-        <div class="ph">% sobre confeccionadas (calendario). Toca "Ficha" para ver su Pareto de motivos, grupos y evolución.</div>
+        <div class="ph">% sobre confeccionadas (calendario). Toca "DETALLE" para ver su Pareto de motivos, grupos y evolución.</div>
         <div style="overflow-x:auto;"><table id="areaTbl"></table></div>
       </div>
       <div class="panel">
@@ -193,6 +226,7 @@
         <div class="ph">Motivos ordenados por incidencia, con % acumulado.</div>
         <div id="paretoGlobal"></div>
       </div>
+      </div><!-- /anioBlock -->
      </div><!-- /mainView -->
 
      <div id="compareView" style="display:none"></div>
@@ -202,7 +236,7 @@
   </div>
 
   <div id="fichaOverlay" class="ficha-overlay">
-    <div class="ficha-topbar no-print"><span>Período de la ficha:</span>
+    <div class="ficha-topbar no-print"><span>Período del detalle:</span>
       <select id="fichaPeriod" onchange="renderFicha(CURF.kind,CURF.key,this.value)"></select></div>
     <div id="fichaCard" class="ficha-card"></div>
     <div class="ficha-actions no-print">
@@ -260,7 +294,8 @@ const META=2.5;
 const FIX={1:0,2:0,3:0,4:0,5:1,6:1,7:1,8:1,9:1,10:2,11:2,12:2,13:2,14:3,15:3,16:3,17:3,18:4,19:4,20:4,21:4,22:5,23:5,24:5,25:5};
 let charts=[];const reg=c=>{charts.push(c);return c;};function clearCharts(){charts.forEach(c=>c.destroy());charts=[];}
 let STATE=null,CURMODE="week",CURVAL=null,CURYEAR=null,CURVIEW="year",CURF={kind:null,key:null};
-function curTok(){return CURMODE==="week"?("w:"+CURVAL):("m:"+CURVAL);}
+let SELWEEKS=[],SELMONTHS=[]; // selección múltiple de semanas/meses (arrays; 1 elemento = selección simple)
+function curTok(){var v=Array.isArray(CURVAL)?CURVAL[CURVAL.length-1]:CURVAL;return CURMODE==="week"?("w:"+v):("m:"+v);}
 
 const valueLabel={id:"valueLabel",afterDatasetsDraw(chart,a,opts){const{ctx}=chart;ctx.save();const meta=chart.getDatasetMeta(0);meta.data.forEach((bar,i)=>{const raw=chart.data.datasets[0].data[i];const ex=opts.extra?opts.extra[i]:"";const sf=opts.suffix||"";ctx.fillStyle="#333";ctx.font="700 11px Calibri, Arial";ctx.textBaseline="middle";if(chart.options.indexAxis==="y"){ctx.textAlign="left";ctx.fillText(raw+sf+(ex||""),bar.x+6,bar.y);}else{ctx.textAlign="center";ctx.fillText(raw+sf,bar.x,bar.y-8);}});ctx.restore();}};
 
@@ -277,10 +312,46 @@ fileInput.addEventListener("change",e=>{if(e.target.files[0])handleFile(e.target
 ["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("over");}));
 drop.addEventListener("drop",e=>{if(e.dataTransfer.files[0])handleFile(e.dataTransfer.files[0]);});
 drop.addEventListener("click",e=>{if(e.target.tagName!=="BUTTON")fileInput.click();});
-document.getElementById("weekSel").addEventListener("change",e=>renderPeriod("week",+e.target.value));
-document.getElementById("monthSel").addEventListener("change",e=>renderPeriod("month",+e.target.value));
+// (listeners viejos de <select> reemplazados por toggleWeek/toggleMonth en los pills)
 function showErr(m){const el=document.getElementById("err");el.style.display="block";el.innerHTML="⚠ "+m;}
-function setMode(m){CURMODE=m;document.getElementById("modeWeek").classList.toggle("active",m==="week");document.getElementById("modeMonth").classList.toggle("active",m==="month");document.getElementById("weekWrap").style.display=m==="week"?"inline-flex":"none";document.getElementById("monthWrap").style.display=m==="month"?"inline-flex":"none";if(m==="week")renderPeriod("week",+document.getElementById("weekSel").value);else renderPeriod("month",+document.getElementById("monthSel").value);}
+
+function buildWeekPills(wl){
+  const panel=document.getElementById("weekMsPanel");
+  panel.innerHTML=wl.map(w=>`<label class="msopt"><input type="checkbox" data-w="${w}" onchange="toggleWeek(${w})"> Semana ${w}</label>`).join("");
+}
+function weekBtnLabel(){
+  if(!SELWEEKS.length)return "—";
+  if(SELWEEKS.length===1)return "Semana "+SELWEEKS[0];
+  const v=SELWEEKS.slice().sort((a,b)=>a-b);
+  const consec=v.every((x,i)=>i===0||x===v[i-1]+1);
+  return consec?("Sem "+v[0]+"–"+v[v.length-1]):(v.length+" semanas");
+}
+function toggleWeekDrop(){const p=document.getElementById("weekMsPanel");p.classList.toggle("open");}
+document.addEventListener("click",function(e){
+  const d=document.getElementById("weekMsDrop");
+  if(d&&!d.contains(e.target))document.getElementById("weekMsPanel").classList.remove("open");
+});
+function buildMonthPills(ml,y){const box=document.getElementById("monthPills");box.innerHTML=ml.map(m=>`<button type="button" class="pbtn" data-m="${m}" title="${MESES[m]} ${y}" onclick="toggleMonth(${m})">${MESES[m]}</button>`).join("");}
+function syncWeekPillsUI(){
+  document.querySelectorAll("#weekMsPanel input[type=checkbox]").forEach(c=>c.checked=SELWEEKS.includes(+c.getAttribute("data-w")));
+  const btn=document.getElementById("weekMsBtn");if(btn)btn.textContent=weekBtnLabel();
+}
+function syncMonthPillsUI(){document.querySelectorAll("#monthPills .pbtn").forEach(b=>b.classList.toggle("active",SELMONTHS.includes(+b.getAttribute("data-m"))));}
+function toggleWeek(w){const i=SELWEEKS.indexOf(w);if(i>=0){if(SELWEEKS.length>1)SELWEEKS.splice(i,1);}else SELWEEKS.push(w);syncWeekPillsUI();renderPeriod("week",SELWEEKS.slice());}
+function toggleMonth(m){const i=SELMONTHS.indexOf(m);if(i>=0){if(SELMONTHS.length>1)SELMONTHS.splice(i,1);}else SELMONTHS.push(m);syncMonthPillsUI();renderPeriod("month",SELMONTHS.slice());}
+
+function setMode(m){
+  CURMODE=m;
+  document.getElementById("modeYear").classList.toggle("active",m==="year");
+  document.getElementById("modeWeek").classList.toggle("active",m==="week");
+  document.getElementById("modeMonth").classList.toggle("active",m==="month");
+  document.getElementById("weekWrap").style.display=m==="week"?"inline-flex":"none";
+  document.getElementById("monthWrap").style.display=m==="month"?"inline-flex":"none";
+  document.getElementById("anioBlock").style.display=m==="year"?"block":"none";
+  if(m==="year")renderPeriod("year",null);
+  else if(m==="week")renderPeriod("week",SELWEEKS.slice());
+  else renderPeriod("month",SELMONTHS.slice());
+}
 
 function handleFile(file){
   document.getElementById("err").style.display="none";
@@ -344,12 +415,14 @@ function monthOfRow(r){return latest()?FIX[r.sem]:r.mcal;} // mismo criterio que
 function priorYear(){const ys=STATE.years.filter(y=>y<CURYEAR);return ys.length?Math.max(...ys):null;}
 function repWeek(W){return yrep().find(r=>r.week===W)||{conf:0,seg:0,precio:0};}
 function repMonth(m){const rs=latest()?yrep().filter(r=>FIX[r.week]===m):yrep().filter(r=>r.mcal===m);return {conf:rs.reduce((s,r)=>s+r.conf,0),seg:rs.reduce((s,r)=>s+r.seg,0),precio:rs.reduce((s,r)=>s+r.precio,0)};}
+function repWeeks(arr){let conf=0,seg=0,precio=0;arr.forEach(w=>{const r=repWeek(w);conf+=r.conf;seg+=r.seg;precio+=(r.precio||0);});return {conf,seg,precio};}
+function repMonths(arr){let conf=0,seg=0,precio=0;arr.forEach(m=>{const r=repMonth(m);conf+=r.conf;seg+=r.seg;precio+=(r.precio||0);});return {conf,seg,precio};}
 function repMonthCal(m,year){const rs=STATE.rep.filter(r=>r.year===year&&r.mcal===m);return {conf:rs.reduce((s,r)=>s+r.conf,0),seg:rs.reduce((s,r)=>s+r.seg,0),precio:rs.reduce((s,r)=>s+r.precio,0)};}
 function acumY(year){const rs=STATE.rep.filter(r=>r.year===year);return {conf:rs.reduce((s,r)=>s+r.conf,0),seg:rs.reduce((s,r)=>s+r.seg,0)};}
 function pc(seg,conf){return conf?+(seg/conf*100).toFixed(2):0;}
 function monthsOfYear(){const ms=latest()?yrep().map(r=>FIX[r.week]):yrep().map(r=>r.mcal);return [...new Set(ms.filter(m=>m!=null))].sort((a,b)=>a-b);}
 function weeksOfYear(){return [...new Set(yrep().map(r=>r.week).filter(w=>w>0))].sort((a,b)=>a-b);}
-function dataPeriod(mode,value){const d=ydata();return mode==="week"?d.filter(r=>r.sem===value):(latest()?d.filter(r=>FIX[r.sem]===value):d.filter(r=>r.mcal===value));}
+function dataPeriod(mode,valueOrArr){if(mode==="year")return ydata();const vals=Array.isArray(valueOrArr)?valueOrArr:[valueOrArr];const set=new Set(vals);const d=ydata();return mode==="week"?d.filter(r=>set.has(r.sem)):(latest()?d.filter(r=>set.has(FIX[r.sem])):d.filter(r=>set.has(r.mcal)));}
 function groupSum(rows,key){const m={};rows.forEach(r=>{const k=r[key];if(k==null||k==="")return;m[k]=(m[k]||0)+r.cant;});return Object.keys(m).map(k=>({k,v:m[k]})).sort((a,b)=>b.v-a.v);}
 
 /* ----- control de año / comparativo ----- */
@@ -368,12 +441,12 @@ function selectYear(y){
   const canWeek=latest()&&weeksOfYear().length>0;
   document.getElementById("modeWeek").disabled=!canWeek;
   document.getElementById("modeWeek").style.opacity=canWeek?"1":".4";
-  const sel=document.getElementById("weekSel"),wl=weeksOfYear();
-  sel.innerHTML=wl.map(w=>`<option value="${w}">Semana ${w}</option>`).join("");sel.value=wl[wl.length-1];
-  const msel=document.getElementById("monthSel"),ml=monthsOfYear();
-  msel.innerHTML=ml.map(m=>`<option value="${m}">${MESES[m]} ${y}</option>`).join("");msel.value=ml[ml.length-1];
-  setMode(canWeek?"week":"month");
+  const wl=weeksOfYear();
+  buildWeekPills(wl);SELWEEKS=wl.length?[wl[wl.length-1]]:[];syncWeekPillsUI();
+  const ml=monthsOfYear();
+  buildMonthPills(ml,y);SELMONTHS=ml.length?[ml[ml.length-1]]:[];syncMonthPillsUI();
   renderDesempeno();
+  setMode("year"); // por defecto, año completo acumulado; Semana/Mes son un drill-down explícito
 }
 function showCompare(){
   CURVIEW="compare";
@@ -388,23 +461,36 @@ function showCompare(){
 }
 
 /* ============ RENDER PERÍODO ============ */
-function renderPeriod(mode,value){
+function periodLabel(mode,values,Y){
+  const v=values.slice().sort((a,b)=>a-b);
+  if(mode==="month"){
+    return v.length===1?(MESES[v[0]]+" "+Y):(v.map(m=>MESES[m]).join(", ")+" "+Y);
+  }
+  if(v.length===1)return "Sem "+v[0];
+  const consec=v.every((x,i)=>i===0||x===v[i-1]+1);
+  return consec?("Sem "+v[0]+"–"+v[v.length-1]):("Sem "+v.join(", "));
+}
+function renderPeriod(mode,valueOrArr){
   clearCharts();
-  CURMODE=mode;CURVAL=value;
+  const isYear=mode==="year";
+  const allW=weeksOfYear(),allM=monthsOfYear();
+  const values=isYear?[]:(Array.isArray(valueOrArr)?valueOrArr:[valueOrArr]).slice().sort((a,b)=>a-b);
+  const value=isYear?(allW.length?allW[allW.length-1]:(allM.length?allM[allM.length-1]:null)):values[values.length-1]; // valor de referencia para cortes tipo "hasta aquí"
+  CURMODE=mode;CURVAL=isYear?"acum":values;
   const isMonth=mode==="month";
   const Y=CURYEAR,prev=priorYear();
-  const conf=isMonth?repMonth(value):repWeek(value);
-  const periodPct=pc(conf.seg,conf.conf);
-  const plabel=isMonth?(MESES[value]+" "+Y):("Sem "+value);
-  const drows=dataPeriod(mode,value);
   const aY=acumY(Y);
+  const conf=isYear?aY:(isMonth?repMonths(values):repWeeks(values));
+  const periodPct=pc(conf.seg,conf.conf);
+  const plabel=isYear?("Acumulado "+Y):periodLabel(mode,values,Y);
+  const drows=isYear?ydata():dataPeriod(mode,values);
 
-  document.getElementById("srcNote").innerHTML=`<b>Fuente:</b> <i>${STATE.fname}</i> · Año <b>${Y}</b> · ${isMonth?((latest()?"Mes (rangos fijos): ":"Mes: ")+MESES[value]):"Semana "+value} · % de segundas = Cantidad ÷ Confeccionadas · Meta 2.5%.`;
+  document.getElementById("srcNote").innerHTML=`<b>Fuente:</b> <i>${STATE.fname}</i> · Año <b>${Y}</b> · ${isMonth?((latest()?"Mes (rangos fijos): ":"Mes: ")+plabel.replace(" "+Y,"")):plabel}${values.length>1?" ("+values.length+" "+(isMonth?"meses":"semanas")+" seleccionados)":""} · % de segundas = Cantidad ÷ Confeccionadas · Meta 2.5%.`;
 
   // KPIs
   const k=document.getElementById("kpiRow");
-  let kp=`<div class="kpi primary"><div class="v" style="color:${periodPct>META?ROSE:SAGE}">${periodPct}%</div><div class="l">% ${plabel}</div><div class="s">${nf(conf.seg)} de ${nf(conf.conf)} conf.</div></div>`+
-    `<div class="kpi"><div class="v">${pc(aY.seg,aY.conf)}%</div><div class="l">% Acum. ${Y}</div><div class="s">${nf(aY.seg)} segundas</div></div>`;
+  let kp=`<div class="kpi primary"><div class="v" style="color:${periodPct>META?ROSE:SAGE}">${periodPct}%</div><div class="l">% ${plabel}</div><div class="s">${nf(conf.seg)} de ${nf(conf.conf)} conf.</div></div>`;
+  if(!isYear)kp+=`<div class="kpi"><div class="v">${pc(aY.seg,aY.conf)}%</div><div class="l">% Acum. ${Y}</div><div class="s">${nf(aY.seg)} segundas</div></div>`;
   if(KIND==="gerencia"&&prev){const ap=acumY(prev);kp+=`<div class="kpi"><div class="v" style="color:var(--slate)">${pc(ap.seg,ap.conf)}%</div><div class="l">% ${prev}</div><div class="s">ref. anual</div></div>`;}
   kp+=`<div class="kpi meta"><div class="v">2.50%</div><div class="l">Meta</div></div>`;
   k.innerHTML=kp;
@@ -449,12 +535,18 @@ function renderPeriod(mode,value){
   // ----- área generadora (% sobre conf del período) -----
   const areaG=groupSum(drows,"area");
   reg(new Chart(document.getElementById("cArea"),{type:"bar",data:{labels:areaG.map(a=>a.k),datasets:[{data:areaG.map(a=>+(a.v/conf.conf*100).toFixed(2)),backgroundColor:areaG.map((a,i)=>i===0?ROSE:i<3?TAN:TAUPE),borderRadius:3}]},
-    options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,layout:{padding:{right:46}},plugins:{legend:{display:false},valueLabel:{suffix:"%"},tooltip:{callbacks:{label:c=>nf(areaG[c.dataIndex].v)+" seg · "+c.raw+"% sobre conf."}}},scales:{x:{min:0,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}},y:{grid:{display:false},border:{color:WARM},ticks:{font:{size:10}}}}},plugins:[valueLabel]}));
+    options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,layout:{padding:{right:46}},
+      onClick:(e,els)=>{if(els.length)openFicha("area",areaG[els[0].index].k,curTok());},
+      onHover:(e,els)=>{e.native.target.style.cursor=els.length?"pointer":"default";},
+      plugins:{legend:{display:false},valueLabel:{suffix:"%"},tooltip:{callbacks:{label:c=>nf(areaG[c.dataIndex].v)+" seg · "+c.raw+"% sobre conf. · clic para el detalle"}}},scales:{x:{min:0,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}},y:{grid:{display:false},border:{color:WARM},ticks:{font:{size:10}}}}},plugins:[valueLabel]}));
 
   // ----- motivos -----
   const motG=groupSum(drows,"mot").slice(0,8);const motTot=drows.reduce((s,r)=>s+r.cant,0)||1;
   reg(new Chart(document.getElementById("cMotivo"),{type:"bar",data:{labels:motG.map(a=>a.k),datasets:[{data:motG.map(a=>a.v),backgroundColor:motG.map((a,i)=>i===0?ROSE:i<3?TAN:TAUPE),borderRadius:3}]},
-    options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,layout:{padding:{right:36}},plugins:{legend:{display:false},valueLabel:{suffix:""},tooltip:{callbacks:{label:c=>nf(c.raw)+" ("+(c.raw/motTot*100).toFixed(1)+"%)"}}},scales:{x:{min:0,grid:{color:WARML},border:{display:false}},y:{grid:{display:false},border:{color:WARM},ticks:{font:{size:10}}}}},plugins:[valueLabel]}));
+    options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,layout:{padding:{right:36}},
+      onClick:(e,els)=>{if(els.length)openMotivoFicha(motG[els[0].index].k,curTok());},
+      onHover:(e,els)=>{e.native.target.style.cursor=els.length?"pointer":"default";},
+      plugins:{legend:{display:false},valueLabel:{suffix:""},tooltip:{callbacks:{label:c=>nf(c.raw)+" ("+(c.raw/motTot*100).toFixed(1)+"%) · clic para el detalle"}}},scales:{x:{min:0,grid:{color:WARML},border:{display:false}},y:{grid:{display:false},border:{color:WARM},ticks:{font:{size:10}}}}},plugins:[valueLabel]}));
 
   // ----- cliente / grupo / estilo: rankings con ficha (ambos) -----
   const ptot=drows.reduce((s,r)=>s+r.cant,0)||1;
@@ -469,7 +561,7 @@ function renderPeriod(mode,value){
     const tm={};tr.forEach(r=>{(tm[r.cod]=tm[r.cod]||{v:0,nom:""});tm[r.cod].v++;if(!tm[r.cod].nom&&r.nom)tm[r.cod].nom=r.nom;});
     let tl=Object.keys(tm).map(k=>({k,v:tm[k].v,nom:tm[k].nom})).sort((a,b)=>b.v-a.v).slice(0,8);
     let th="<thead><tr><th>Cód. Tela</th><th>Nombre</th><th style='text-align:right'>Incid.</th><th></th></tr></thead><tbody>";
-    tl.forEach(x=>{th+=`<tr><td style="color:#333;font-weight:700">${x.k}</td><td style="font-size:11px">${x.nom||"—"}</td><td style="text-align:right">${x.v}</td><td style="text-align:center"><button class="fbtn" onclick="openFicha('tela','${String(x.k).replace(/'/g,"\\'")}',curTok())">Ficha</button></td></tr>`;});
+    tl.forEach(x=>{th+=`<tr><td style="color:#333;font-weight:700">${x.k}</td><td style="font-size:11px">${x.nom||"—"}</td><td style="text-align:right">${x.v}</td><td style="text-align:center"><button class="fbtn" onclick="openFicha('tela','${String(x.k).replace(/'/g,"\\'")}',curTok())">DETALLE</button></td></tr>`;});
     if(!tl.length)th+=`<tr><td colspan="4" style="text-align:center;color:var(--stone)">Sin telas registradas en el período</td></tr>`;
     document.getElementById("telasRank").innerHTML=th+"</tbody>";
   } else if(KIND==="interno"){
@@ -485,7 +577,7 @@ function rankTable(id,items,head,kind,tot){
   let h="<thead><tr><th>"+head+"</th><th style='text-align:right'>Seg.</th><th style='text-align:right'>%</th><th></th></tr></thead><tbody>";
   if(!items.length)h+="<tr><td colspan='4' style='text-align:center;color:var(--stone)'>Sin datos en el período</td></tr>";
   items.forEach(x=>{const pct=(x.v/tot*100).toFixed(1);const nm=kind==="estilo"?("Estilo "+x.k):x.k;
-    h+=`<tr><td style="color:#333;font-weight:700">${nm}</td><td style="text-align:right">${nf(x.v)}</td><td style="text-align:right">${pct}%</td><td style="text-align:center"><button class="fbtn" onclick="openFicha('${kind}','${String(x.k).replace(/'/g,"\\'")}',curTok())">Ficha</button></td></tr>`;});
+    h+=`<tr><td style="color:#333;font-weight:700">${nm}</td><td style="text-align:right">${nf(x.v)}</td><td style="text-align:right">${pct}%</td><td style="text-align:center"><button class="fbtn" onclick="openFicha('${kind}','${String(x.k).replace(/'/g,"\\'")}',curTok())">DETALLE</button></td></tr>`;});
   el.innerHTML=h+"</tbody>";
 }
 
@@ -504,7 +596,7 @@ function renderDesempeno(){
   const totConf=a.conf;
   let ah="<thead><tr><th>Área generadora</th><th style='text-align:right'>Segundas</th><th style='text-align:right'>% sobre conf.</th><th style='text-align:center'>Estado</th><th></th></tr></thead><tbody>";
   areaAll.forEach((x,i)=>{const p=+(x.v/totConf*100).toFixed(2);const ale=i===0;
-    ah+=`<tr style="background:${i%2?WARML:'#fff'}"><td style="color:#333;font-weight:700">${x.k}</td><td style="text-align:right">${nf(x.v)}</td><td style="text-align:right;font-weight:700">${p}%</td><td style="text-align:center"><span class="st ${ale?'ale':'bue'}">${ale?'Mayor impacto':'Controlado'}</span></td><td style="text-align:center"><button class="fbtn" onclick="openFicha('area','${String(x.k).replace(/'/g,"\\'")}','acum')">Ficha</button></td></tr>`;});
+    ah+=`<tr style="background:${i%2?WARML:'#fff'}"><td style="color:#333;font-weight:700">${x.k}</td><td style="text-align:right">${nf(x.v)}</td><td style="text-align:right;font-weight:700">${p}%</td><td style="text-align:center"><span class="st ${ale?'ale':'bue'}">${ale?'Mayor impacto':'Controlado'}</span></td><td style="text-align:center"><button class="fbtn" onclick="openFicha('area','${String(x.k).replace(/'/g,"\\'")}','acum')">DETALLE</button></td></tr>`;});
   document.getElementById("areaTbl").innerHTML=ah+"</tbody>";
   // pareto global motivos
   const motG=groupSum(D,"mot");const tot=motG.reduce((s,x)=>s+x.v,0)||1;let acc=0;
@@ -521,8 +613,8 @@ function openFicha(kind,key,defPeriod){
   const mset=[...new Set(rows.map(r=>monthOfRow(r)).filter(m=>m!=null))].sort((a,b)=>a-b);
   const wset=[...new Set(rows.map(r=>r.sem).filter(w=>w>0))].sort((a,b)=>a-b);
   document.getElementById("fichaPeriod").innerHTML=
-    '<optgroup label="General"><option value="acum">Acumulado 2026</option></optgroup>'+
-    '<optgroup label="Mes (calendario)">'+mset.map(m=>`<option value="m:${m}">${MESES[m]} 2026</option>`).join("")+'</optgroup>'+
+    '<optgroup label="General"><option value="acum">Acumulado '+CURYEAR+'</option></optgroup>'+
+    '<optgroup label="Mes (calendario)">'+mset.map(m=>`<option value="m:${m}">${MESES[m]} ${CURYEAR}</option>`).join("")+'</optgroup>'+
     '<optgroup label="Semana">'+wset.map(w=>`<option value="w:${w}">Semana ${w}</option>`).join("")+'</optgroup>';
   let def="acum";
   if(defPeriod){if(defPeriod.startsWith("w:")&&wset.includes(+defPeriod.slice(2)))def=defPeriod;else if(defPeriod.startsWith("m:")&&mset.includes(+defPeriod.slice(2)))def=defPeriod;}
@@ -536,8 +628,8 @@ function renderFicha(kind,key,period){
   if(kind==="motivo")return renderMotivoFicha(key,period);
   const f={estilo:"est",cliente:"cli",grupo:"grp",area:"area"}[kind];
   let rows=ydata().filter(r=>r[f]===key);
-  let plabel="Acumulado 2026";
-  if(period&&period.startsWith("m:")){const m=+period.slice(2);rows=rows.filter(r=>monthOfRow(r)===m);plabel=MESES[m]+" 2026";}
+  let plabel="Acumulado "+CURYEAR;
+  if(period&&period.startsWith("m:")){const m=+period.slice(2);rows=rows.filter(r=>monthOfRow(r)===m);plabel=MESES[m]+" "+CURYEAR;}
   else if(period&&period.startsWith("w:")){const w=+period.slice(2);rows=rows.filter(r=>r.sem===w);plabel="Semana "+w;}
   const tot=rows.reduce((s,r)=>s+r.cant,0);
   const motG=groupSum(rows,"mot"),grpG=groupSum(rows,"grp"),areaG=groupSum(rows,"area"),cliG=groupSum(rows,"cli"),estG=groupSum(rows,"est");
@@ -560,7 +652,7 @@ function renderFicha(kind,key,period){
   const hoy=new Date().toLocaleDateString("es-PE",{day:"2-digit",month:"2-digit",year:"numeric"});
   document.getElementById("fichaCard").innerHTML=`
     <div class="fc-hd" style="background:var(--sage)">
-      <div><div class="co">LIVES — Control de Calidad · Segundas · ${head}</div><div class="tn">${titleName}</div><div class="tsub">Ficha de desempeño · ${plabel}</div></div>
+      <div><div class="co">LIVES — Control de Calidad · Segundas · ${head}</div><div class="tn">${titleName}</div><div class="tsub">Detalle de desempeño · ${plabel}</div></div>
       <div class="tpct">${nf(tot)}<small>segundas</small></div></div>
     <div class="fc-body">
       <div class="fc-kpis">
@@ -598,6 +690,7 @@ function renderFichaTela(key,period){
       <div><div class="co">LIVES — Control de Calidad · Segundas · Tela</div><div class="tn">${key}</div><div class="tsub">${nom||"—"} · ${plabel}</div></div>
       <div class="tpct">${tot}<small>apariciones</small></div></div>
     <div class="fc-body">
+      ${CURYEAR!==2026?'<div class="fc-note warn">La hoja de Telas solo se registra desde 2026 — estos datos son de 2026, aunque estés viendo '+CURYEAR+'.</div>':''}
       <div class="fc-kpis">
         <div class="k"><div class="v">${tot}</div><div class="l">Apariciones</div></div>
         <div class="k"><div class="v" style="font-size:13px">${estG[0]?"Estilo "+estG[0].k:"—"}</div><div class="l">Estilo más</div></div>
@@ -617,8 +710,8 @@ function lfsTrend(by,kind,selK){const ks=Object.keys(by).map(Number).sort((a,b)=
 function lfsBadgeInv(t){if(t==null)return '<span class="tfl">\u2192 s/d</span>';return t>0?'<span class="tdn">\u25B2 +'+nf(t)+'</span>':t<0?'<span class="tup">\u25BC '+nf(t)+'</span>':'<span class="tfl">\u2192 estable</span>';}
 function lfsEvo(by,kind,selK,unit){let keys;if(kind==="week"){keys=Object.keys(by).map(Number).sort((a,b)=>a-b).slice(-10);}else{keys=[0,1,2,3,4,5];}return keys.map(k=>{const v=by[k];const lbl=kind==="week"?("S"+k):MESES[k];const sel=(selK!=null&&k===selK)?' style="outline:2px solid #333;outline-offset:-2px"':'';if(!v)return '<div class="m nd"'+sel+'><div class="mn">'+lbl+'</div><div class="mp">\u2014</div><div class="mt">0</div></div>';return '<div class="m"'+sel+'><div class="mn">'+lbl+'</div><div class="mp">'+nf(v)+'</div><div class="mt">'+unit+'</div></div>';}).join("");}
 function lfsTopMotivo(){const g=groupSum(ydata(),"mot");return g[0]?g[0].k:null;}
-function openMotivoFicha(mot,defPeriod){CURF={kind:"motivo",key:mot};const rows=ydata().filter(r=>r.mot===mot);const mset=[...new Set(rows.map(r=>monthOfRow(r)).filter(m=>m!=null))].sort((a,b)=>a-b);const wset=[...new Set(rows.map(r=>r.sem).filter(w=>w>0))].sort((a,b)=>a-b);document.getElementById("fichaPeriod").innerHTML='<optgroup label="General"><option value="acum">Acumulado 2026</option></optgroup><optgroup label="Mes (calendario)">'+mset.map(m=>'<option value="m:'+m+'">'+MESES[m]+' 2026</option>').join("")+'</optgroup><optgroup label="Semana">'+wset.map(w=>'<option value="w:'+w+'">Semana '+w+'</option>').join("")+'</optgroup>';let def="acum";if(defPeriod){if(defPeriod.startsWith("w:")&&wset.includes(+defPeriod.slice(2)))def=defPeriod;else if(defPeriod.startsWith("m:")&&mset.includes(+defPeriod.slice(2)))def=defPeriod;}document.getElementById("fichaPeriod").value=def;renderFicha("motivo",mot,def);document.getElementById("fichaOverlay").classList.add("show");document.getElementById("fichaOverlay").scrollTop=0;}
-function renderMotivoFicha(mot,period){let rows=ydata().filter(r=>r.mot===mot);let plabel="Acumulado 2026";if(period&&period.startsWith("m:")){const m=+period.slice(2);rows=rows.filter(r=>monthOfRow(r)===m);plabel=MESES[m]+" 2026";}else if(period&&period.startsWith("w:")){const w=+period.slice(2);rows=rows.filter(r=>r.sem===w);plabel="Semana "+w;}const tot=rows.reduce((s,r)=>s+r.cant,0);const estG=groupSum(rows,"est"),grpG=groupSum(rows,"grp"),areaG=groupSum(rows,"area"),cliG=groupSum(rows,"cli");const par=(g,lblf)=>{let acc=0;return g.slice(0,7).map(x=>{acc+=x.v;const p=tot?x.v/tot*100:0,cum=tot?acc/tot*100:0;return '<div class="par"><div class="pl">'+(lblf?lblf(x.k):x.k)+'</div><div class="pbg"><div class="pfl" style="width:'+p.toFixed(1)+'%"></div></div><div class="pp">'+nf(x.v)+'</div><div class="pa">'+cum.toFixed(0)+'% ac</div></div>';}).join("")||'<div style="color:var(--stone);font-size:12px">Sin datos en el per\u00EDodo</div>';};const isW=period&&period.startsWith("w:");const skk=isW?"week":"month";const selK=period&&(period.startsWith("w:")||period.startsWith("m:"))?+period.slice(2):null;const byEvo=lfsSeries(ydata().filter(r=>r.mot===mot),skk,null);const trendV=lfsTrend(byEvo,skk,selK);const mesesHTML=lfsEvo(byEvo,skk,selK,"seg");const evoTitle=isW?"Evoluci\u00F3n semanal 2026 (segundas)":"Evoluci\u00F3n mensual 2026 (segundas)";const trWord=isW?"semana":"mes";const hoy=new Date().toLocaleDateString("es-PE",{day:"2-digit",month:"2-digit",year:"numeric"});document.getElementById("fichaCard").innerHTML='<div class="fc-hd" style="background:var(--rose,#DC2626)"><div><div class="co">LIVES \u2014 Control de Calidad \u00B7 Segundas \u00B7 Motivo</div><div class="tn">'+mot+'</div><div class="tsub">Ficha de motivo \u00B7 d\u00F3nde se concentra \u00B7 '+plabel+'</div></div><div class="tpct">'+nf(tot)+'<small>segundas</small></div></div><div class="fc-body"><div class="fc-kpis"><div class="k"><div class="v">'+nf(tot)+'</div><div class="l">Segundas</div></div><div class="k"><div class="v" style="font-size:13px">'+(estG[0]?"Estilo "+estG[0].k:"\u2014")+'</div><div class="l">Estilo m\u00E1s</div></div><div class="k"><div class="v" style="font-size:13px">'+(areaG[0]?areaG[0].k:"\u2014")+'</div><div class="l">\u00C1rea m\u00E1s</div></div><div class="k"><div class="v" style="font-size:13px">'+(cliG[0]?cliG[0].k:"\u2014")+'</div><div class="l">Cliente m\u00E1s</div></div></div><div class="fc-sec">'+evoTitle+' \u00B7 Tendencia ('+trWord+' vs. previo): '+lfsBadgeInv(trendV)+'</div><div class="fc-mes">'+mesesHTML+'</div><div class="fc-sec">Top estilos que lo generan \u2014 '+plabel+'</div>'+par(estG,k=>"Estilo "+k)+'<div class="fc-sec">Top \u00E1reas generadoras \u2014 '+plabel+'</div>'+par(areaG)+'<div class="fc-sec">Top clientes \u2014 '+plabel+'</div>'+par(cliG)+'</div><div class="fc-foot"><span>Confidencial \u2014 Uso Interno \u00B7 Sistema de Calidad LIVES</span><span>Per\u00EDodo: '+plabel+' \u00B7 Generado el '+hoy+'</span></div>';}
+function openMotivoFicha(mot,defPeriod){CURF={kind:"motivo",key:mot};const rows=ydata().filter(r=>r.mot===mot);const mset=[...new Set(rows.map(r=>monthOfRow(r)).filter(m=>m!=null))].sort((a,b)=>a-b);const wset=[...new Set(rows.map(r=>r.sem).filter(w=>w>0))].sort((a,b)=>a-b);document.getElementById("fichaPeriod").innerHTML='<optgroup label="General"><option value="acum">Acumulado '+CURYEAR+'</option></optgroup><optgroup label="Mes (calendario)">'+mset.map(m=>'<option value="m:'+m+'">'+MESES[m]+' '+CURYEAR+'</option>').join("")+'</optgroup><optgroup label="Semana">'+wset.map(w=>'<option value="w:'+w+'">Semana '+w+'</option>').join("")+'</optgroup>';let def="acum";if(defPeriod){if(defPeriod.startsWith("w:")&&wset.includes(+defPeriod.slice(2)))def=defPeriod;else if(defPeriod.startsWith("m:")&&mset.includes(+defPeriod.slice(2)))def=defPeriod;}document.getElementById("fichaPeriod").value=def;renderFicha("motivo",mot,def);document.getElementById("fichaOverlay").classList.add("show");document.getElementById("fichaOverlay").scrollTop=0;}
+function renderMotivoFicha(mot,period){let rows=ydata().filter(r=>r.mot===mot);let plabel="Acumulado "+CURYEAR;if(period&&period.startsWith("m:")){const m=+period.slice(2);rows=rows.filter(r=>monthOfRow(r)===m);plabel=MESES[m]+" "+CURYEAR;}else if(period&&period.startsWith("w:")){const w=+period.slice(2);rows=rows.filter(r=>r.sem===w);plabel="Semana "+w;}const tot=rows.reduce((s,r)=>s+r.cant,0);const estG=groupSum(rows,"est"),grpG=groupSum(rows,"grp"),areaG=groupSum(rows,"area"),cliG=groupSum(rows,"cli");const par=(g,lblf)=>{let acc=0;return g.slice(0,7).map(x=>{acc+=x.v;const p=tot?x.v/tot*100:0,cum=tot?acc/tot*100:0;return '<div class="par"><div class="pl">'+(lblf?lblf(x.k):x.k)+'</div><div class="pbg"><div class="pfl" style="width:'+p.toFixed(1)+'%"></div></div><div class="pp">'+nf(x.v)+'</div><div class="pa">'+cum.toFixed(0)+'% ac</div></div>';}).join("")||'<div style="color:var(--stone);font-size:12px">Sin datos en el per\u00EDodo</div>';};const isW=period&&period.startsWith("w:");const skk=isW?"week":"month";const selK=period&&(period.startsWith("w:")||period.startsWith("m:"))?+period.slice(2):null;const byEvo=lfsSeries(ydata().filter(r=>r.mot===mot),skk,null);const trendV=lfsTrend(byEvo,skk,selK);const mesesHTML=lfsEvo(byEvo,skk,selK,"seg");const evoTitle=isW?"Evoluci\u00F3n semanal 2026 (segundas)":"Evoluci\u00F3n mensual 2026 (segundas)";const trWord=isW?"semana":"mes";const hoy=new Date().toLocaleDateString("es-PE",{day:"2-digit",month:"2-digit",year:"numeric"});document.getElementById("fichaCard").innerHTML='<div class="fc-hd" style="background:var(--rose,#DC2626)"><div><div class="co">LIVES \u2014 Control de Calidad \u00B7 Segundas \u00B7 Motivo</div><div class="tn">'+mot+'</div><div class="tsub">Detalle de motivo \u00B7 d\u00F3nde se concentra \u00B7 '+plabel+'</div></div><div class="tpct">'+nf(tot)+'<small>segundas</small></div></div><div class="fc-body"><div class="fc-kpis"><div class="k"><div class="v">'+nf(tot)+'</div><div class="l">Segundas</div></div><div class="k"><div class="v" style="font-size:13px">'+(estG[0]?"Estilo "+estG[0].k:"\u2014")+'</div><div class="l">Estilo m\u00E1s</div></div><div class="k"><div class="v" style="font-size:13px">'+(areaG[0]?areaG[0].k:"\u2014")+'</div><div class="l">\u00C1rea m\u00E1s</div></div><div class="k"><div class="v" style="font-size:13px">'+(cliG[0]?cliG[0].k:"\u2014")+'</div><div class="l">Cliente m\u00E1s</div></div></div><div class="fc-sec">'+evoTitle+' \u00B7 Tendencia ('+trWord+' vs. previo): '+lfsBadgeInv(trendV)+'</div><div class="fc-mes">'+mesesHTML+'</div><div class="fc-sec">Top estilos que lo generan \u2014 '+plabel+'</div>'+par(estG,k=>"Estilo "+k)+'<div class="fc-sec">Top \u00E1reas generadoras \u2014 '+plabel+'</div>'+par(areaG)+'<div class="fc-sec">Top clientes \u2014 '+plabel+'</div>'+par(cliG)+'</div><div class="fc-foot"><span>Confidencial \u2014 Uso Interno \u00B7 Sistema de Calidad LIVES</span><span>Per\u00EDodo: '+plabel+' \u00B7 Generado el '+hoy+'</span></div>';}
 function closeFicha(){document.getElementById("fichaOverlay").classList.remove("show");}
 
 /* ============ IMPRESIÓN A4 ============ */
@@ -698,7 +791,7 @@ if(window.__EMBEDSTATE__){try{
 }catch(e){showErr("No pude cargar los datos incrustados: "+e.message);console.error(e);}}
 </script>
 <script id="lfs-btn">
-(function(){function inj(){var cv=document.getElementById("cMotivo");if(!cv)return false;var p=cv.closest(".panel");if(!p||p.querySelector(".lfs-motbtn"))return true;var b=document.createElement("button");b.type="button";b.className="scopebtn lfs-motbtn";b.textContent="📋 Ficha de motivo";b.style.cssText="float:right;margin-top:-2px;";b.onclick=function(){var t=lfsTopMotivo&&lfsTopMotivo();if(t)openMotivoFicha(t,"acum");};p.insertBefore(b,p.firstChild);return true;}var iv=setInterval(function(){if(inj())clearInterval(iv);},600);})();
+(function(){function inj(){var cv=document.getElementById("cMotivo");if(!cv)return false;var p=cv.closest(".panel");if(!p||p.querySelector(".lfs-motbtn"))return true;var b=document.createElement("button");b.type="button";b.className="scopebtn lfs-motbtn";b.textContent="📋 Detalle del motivo #1";b.title="Atajo al motivo más frecuente. Para ver el detalle de cualquier otro motivo, haz clic directo en su barra.";b.style.cssText="float:right;margin-top:-2px;";b.onclick=function(){var t=lfsTopMotivo&&lfsTopMotivo();if(t)openMotivoFicha(t,"acum");};p.insertBefore(b,p.firstChild);return true;}var iv=setInterval(function(){if(inj())clearInterval(iv);},600);})();
 </script>
 <script id="lfs-focos">
 (function(){
@@ -710,25 +803,28 @@ if(window.__EMBEDSTATE__){try{
   function render(){
     var host=document.getElementById("focos");if(!host||typeof STATE==="undefined"||!STATE)return;
     if(typeof CURMODE==="undefined"||CURVAL==null){host.innerHTML="";return;}
-    var mode=CURMODE,value=CURVAL,META=2.50;
-    var rm=repPeriod(mode,value);var pctM=pc(rm.seg,rm.conf);var over=pctM>META;
-    var prevKey=prevKeyOf(mode,value);
-    var wrows=dataPeriod(mode,value);
+    var mode=CURMODE,values=Array.isArray(CURVAL)?CURVAL:[CURVAL],META=2.50;
+    var isMulti=values.length>1;
+    var value=values[values.length-1];
+    var rm=isMulti?(mode==="month"?repMonths(values):repWeeks(values)):repPeriod(mode,value);
+    var pctM=pc(rm.seg,rm.conf);var over=pctM>META;
+    var prevKey=isMulti?null:prevKeyOf(mode,value);
+    var wrows=dataPeriod(mode,values);
     var prevRows=prevKey!=null?dataPeriod(mode,prevKey):[];
     var det=[];
-    if(prevKey!=null){var A=aggBy("area",wrows),B=aggBy("area",prevRows);Object.keys(A).forEach(function(k){var d=A[k]-(B[k]||0);if(d>0)det.push({k:k,d:d});});det.sort(function(x,y){return y.d-x.d;});}
+    if(prevKey!=null){var A=aggBy("area",wrows),B=aggBy("area",prevRows);Object.keys(A).forEach(function(k){var d=A[k]-(B[k]||0);det.push({k:k,d:d});});det.sort(function(x,y){return y.d-x.d;});}
     var spike=null;
     if(prevKey!=null){var MA=aggBy("mot",wrows),MB=aggBy("mot",prevRows);Object.keys(MA).forEach(function(k){var d=MA[k]-(MB[k]||0);if(!spike||d>spike.delta)spike={k:k,delta:d};});}
-    var curLbl=mode==="month"?MESES[value]:("Sem "+value);
+    var curLbl=periodLabel(mode,values,CURYEAR);
     var prevLbl=prevKey!=null?(mode==="month"?MESES[prevKey]:("Sem "+prevKey)):null;
     var perNoun=mode==="month"?"mes":"semana";
-    var perTxt=mode==="month"?"mes seleccionado":"semana seleccionada";
+    var perTxt=isMulti?(mode==="month"?"varios meses seleccionados":"varias semanas seleccionadas"):(mode==="month"?"mes seleccionado":"semana seleccionada");
     var t1='<div class="fk-big" style="color:'+(over?"#DC2626":"var(--sage)")+'">'+pctM.toFixed(2)+'%</div><div class="fk-lbl">% de segundas '+(mode==="month"?"del mes":"de la semana")+' '+(over?"(sobre meta "+META.toFixed(2)+"%)":"(dentro de meta "+META.toFixed(2)+"%)")+'</div>';
-    var t2=det.length?'<div class="fk-big" style="color:#DC2626">+'+nf(det[0].d)+'</div><div class="fk-lbl">\u00C1rea con mayor alza \u00B7 '+det[0].k+'</div><div class="fk-list">'+det.slice(0,3).map(function(r){return '<span class="fk-it" onclick="openFicha(\'area\',\''+esc(r.k)+'\',\''+curTok()+'\')"><b>'+r.k+'</b> \u00B7 +'+nf(r.d)+'</span>';}).join("")+'</div>'
-      :(prevKey!=null?'<div class="fk-big" style="color:var(--sage)">\u2014</div><div class="fk-lbl">Sin alzas por \u00E1rea vs. '+perNoun+' previo(a)</div>':'<div class="fk-big" style="color:var(--stone)">\u2014</div><div class="fk-lbl">Sin per\u00EDodo previo para comparar</div>');
-    var t3=(spike&&spike.delta>0)?'<div class="fk-big" style="color:#DC2626">+'+nf(spike.delta)+'</div><div class="fk-lbl">'+spike.k+'</div><div class="fk-list"><span class="fk-it" onclick="openMotivoFicha(\''+esc(spike.k)+'\',\''+curTok()+'\')">Ver ficha del motivo \u2192</span></div>'
-      :(prevKey!=null?'<div class="fk-big" style="color:var(--sage)">\u2014</div><div class="fk-lbl">Ning\u00FAn motivo al alza en '+(mode==="month"?"el mes":"la semana")+'</div>':'<div class="fk-big" style="color:var(--stone)">\u2014</div><div class="fk-lbl">Sin per\u00EDodo previo para comparar</div>');
-    host.innerHTML='<div class="fk-hd">\uD83C\uDFAF Focos \u00B7 '+curLbl+' '+(CURYEAR||"")+' <span>'+perTxt+(prevLbl?(" \u00B7 comparado con "+perNoun+" anterior ("+prevLbl+")"):" \u00B7 sin per\u00EDodo anterior")+' \u00B7 clic para abrir la ficha</span></div><div class="fk-grid"><div class="fk-tile"><div class="fk-t">\uD83D\uDCCA % de segundas vs meta \u2014 '+curLbl+'</div>'+t1+'</div><div class="fk-tile"><div class="fk-t">\uD83D\uDCC8 Mayor alza por \u00E1rea'+(prevLbl?(" \u00B7 "+prevLbl+"\u2192"+curLbl):"")+'</div>'+t2+'</div><div class="fk-tile"><div class="fk-t">\u26A0\uFE0F Motivo en alza'+(prevLbl?(" \u00B7 vs "+prevLbl):"")+'</div>'+t3+'</div></div>';
+    var t2=det.length?'<div class="fk-big" style="color:'+(det[0].d>0?"#DC2626":"var(--sage)")+'">'+(det[0].d>0?"+":"")+nf(det[0].d)+'</div><div class="fk-lbl">'+(det[0].d>0?"\u00C1rea con mayor alza":"Ninguna subi\u00F3 \u00B7 mayor ca\u00EDda en")+' \u00B7 '+det[0].k+'</div><div class="fk-list">'+det.slice(0,3).map(function(r){var ar=r.d>0?"\u25B2 +":(r.d<0?"\u25BC ":"\u2014 ");var cl=r.d>0?"#DC2626":(r.d<0?"var(--sage)":"var(--stone)");return '<span class="fk-it" onclick="openFicha(\'area\',\''+esc(r.k)+'\',\''+curTok()+'\')"><b>'+r.k+'</b> <span style="color:'+cl+';font-weight:700">'+ar+nf(Math.abs(r.d))+'</span></span>';}).join("")+'</div>'
+      :(prevKey!=null?'<div class="fk-big" style="color:var(--stone)">\u2014</div><div class="fk-lbl">Sin datos de \u00E1rea para comparar</div>':'<div class="fk-big" style="color:var(--stone)">\u2014</div><div class="fk-lbl">'+(isMulti?"Selecci\u00F3n m\u00FAltiple \u00B7 sin comparativo autom\u00E1tico":"Sin per\u00EDodo previo para comparar")+'</div>');
+    var t3=spike?'<div class="fk-big" style="color:'+(spike.delta>0?"#DC2626":"var(--sage)")+'">'+(spike.delta>0?"+":"")+nf(spike.delta)+'</div><div class="fk-lbl">'+spike.k+(spike.delta>0?"":" (bajó)")+'</div><div class="fk-list"><span class="fk-it" onclick="openMotivoFicha(\''+esc(spike.k)+'\',\''+curTok()+'\')">Ver detalle del motivo \u2192</span></div>'
+      :(prevKey!=null?'<div class="fk-big" style="color:var(--stone)">\u2014</div><div class="fk-lbl">Sin datos de motivo para comparar</div>':'<div class="fk-big" style="color:var(--stone)">\u2014</div><div class="fk-lbl">'+(isMulti?"Selecci\u00F3n m\u00FAltiple \u00B7 sin comparativo autom\u00E1tico":"Sin per\u00EDodo previo para comparar")+'</div>');
+    host.innerHTML='<div class="fk-hd">\uD83C\uDFAF Focos \u00B7 '+curLbl+' '+(CURYEAR||"")+' <span>'+perTxt+(prevLbl?(" \u00B7 comparado con "+perNoun+" anterior ("+prevLbl+")"):" \u00B7 sin per\u00EDodo anterior")+' \u00B7 clic para abrir el detalle</span></div><div class="fk-grid"><div class="fk-tile"><div class="fk-t">\uD83D\uDCCA % de segundas vs meta \u2014 '+curLbl+'</div>'+t1+'</div><div class="fk-tile"><div class="fk-t">\uD83D\uDCC8 Mayor cambio por \u00E1rea'+(prevLbl?(" \u00B7 "+prevLbl+"\u2192"+curLbl):"")+'</div>'+t2+'</div><div class="fk-tile"><div class="fk-t">\u26A0\uFE0F Motivo \u2014 mayor cambio'+(prevLbl?(" \u00B7 vs "+prevLbl):"")+'</div>'+t3+'</div></div>';
   }
   window.lfsRenderFocos=render;
   function mount(){if(document.getElementById("focos"))return;var mv=document.getElementById("mainView")||document.getElementById("dash");if(!mv)return;var sn=document.getElementById("srcNote");var f=document.createElement("div");f.className="focos";f.id="focos";if(sn&&sn.parentNode===mv)mv.insertBefore(f,sn.nextSibling);else mv.insertBefore(f,mv.firstChild);}
