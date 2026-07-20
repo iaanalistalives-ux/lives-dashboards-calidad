@@ -211,7 +211,7 @@
         <div class="kpi primary"><div class="v" id="dPct" style="color:var(--rose)">—</div><div class="l" id="dPctL">% Acum. 2026</div></div>
         <div class="kpi meta"><div class="v">2.50%</div><div class="l">Meta</div></div>
       </div>
-      <div class="panel">
+      <div class="panel" id="anualTrendPanel" style="display:none;">
         <div class="pt">📈 Tendencia anual — % de segundas por año</div>
         <div class="ph">Acumulado de cada año completo. Meta 2.5%.</div>
         <div class="cwrap" style="height:230px;"><canvas id="cAnual"></canvas></div>
@@ -295,7 +295,7 @@ const FIX={1:0,2:0,3:0,4:0,5:1,6:1,7:1,8:1,9:1,10:2,11:2,12:2,13:2,14:3,15:3,16:
 let charts=[];const reg=c=>{charts.push(c);return c;};function clearCharts(){charts.forEach(c=>c.destroy());charts=[];}
 let STATE=null,CURMODE="week",CURVAL=null,CURYEAR=null,CURVIEW="year",CURF={kind:null,key:null};
 let SELWEEKS=[],SELMONTHS=[]; // selección múltiple de semanas/meses (arrays; 1 elemento = selección simple)
-function curTok(){var v=Array.isArray(CURVAL)?CURVAL[CURVAL.length-1]:CURVAL;return CURMODE==="week"?("w:"+v):("m:"+v);}
+function curTok(){if(CURMODE==="year")return "acum";var v=Array.isArray(CURVAL)?CURVAL[CURVAL.length-1]:CURVAL;return CURMODE==="week"?("w:"+v):("m:"+v);}
 
 const valueLabel={id:"valueLabel",afterDatasetsDraw(chart,a,opts){const{ctx}=chart;ctx.save();const meta=chart.getDatasetMeta(0);meta.data.forEach((bar,i)=>{const raw=chart.data.datasets[0].data[i];const ex=opts.extra?opts.extra[i]:"";const sf=opts.suffix||"";ctx.fillStyle="#333";ctx.font="700 11px Calibri, Arial";ctx.textBaseline="middle";if(chart.options.indexAxis==="y"){ctx.textAlign="left";ctx.fillText(raw+sf+(ex||""),bar.x+6,bar.y);}else{ctx.textAlign="center";ctx.fillText(raw+sf,bar.x,bar.y-8);}});ctx.restore();}};
 
@@ -484,6 +484,22 @@ function renderPeriod(mode,valueOrArr){
   const periodPct=pc(conf.seg,conf.conf);
   const plabel=isYear?("Acumulado "+Y):periodLabel(mode,values,Y);
   const drows=isYear?ydata():dataPeriod(mode,values);
+
+  // ----- tendencia anual (solo en modo Año, solo si hay ≥2 años para comparar) -----
+  const atp=document.getElementById("anualTrendPanel");
+  if(isYear && STATE.years.length>=2){
+    atp.style.display="";
+    const yrs=STATE.years.slice().sort((a,b)=>a-b);
+    const yData=yrs.map(y=>{const r=acumY(y);return pc(r.seg,r.conf);});
+    reg(new Chart(document.getElementById("cAnual"),{type:"line",
+      data:{labels:yrs.map(y=>y===STATE.maxYear?y+"*":""+y), datasets:[
+        {label:"% segundas",data:yData,borderColor:SAGE,backgroundColor:"rgba(105,137,98,.08)",borderWidth:2.5,pointRadius:5,pointBackgroundColor:yData.map(p=>p>META?ROSE:SAGE),tension:.25,fill:true},
+        {label:"Meta",data:yrs.map(()=>META),borderColor:TAN,borderWidth:1.5,borderDash:[6,4],pointRadius:0,fill:false}
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{position:"top",labels:{boxWidth:14,usePointStyle:true}},tooltip:{callbacks:{label:c=>c.dataset.label+": "+c.raw+"%"}}},
+        scales:{x:{grid:{display:false},border:{color:WARM}},y:{min:0,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}}}}}));
+  } else if(atp){ atp.style.display="none"; }
 
   document.getElementById("srcNote").innerHTML=`<b>Fuente:</b> <i>${STATE.fname}</i> · Año <b>${Y}</b> · ${isMonth?((latest()?"Mes (rangos fijos): ":"Mes: ")+plabel.replace(" "+Y,"")):plabel}${values.length>1?" ("+values.length+" "+(isMonth?"meses":"semanas")+" seleccionados)":""} · % de segundas = Cantidad ÷ Confeccionadas · Meta 2.5%.`;
 
@@ -802,7 +818,7 @@ if(window.__EMBEDSTATE__){try{
   function aggBy(field,rows){var m={};rows.forEach(function(r){var k=r[field];if(k==null||k==="")return;m[k]=(m[k]||0)+r.cant;});return m;}
   function render(){
     var host=document.getElementById("focos");if(!host||typeof STATE==="undefined"||!STATE)return;
-    if(typeof CURMODE==="undefined"||CURVAL==null){host.innerHTML="";return;}
+    if(typeof CURMODE==="undefined"||CURVAL==null||CURMODE==="year"){host.innerHTML="";return;} // Focos es comparativo de período — no aplica en modo Año (para eso está Comparativo)
     var mode=CURMODE,values=Array.isArray(CURVAL)?CURVAL:[CURVAL],META=2.50;
     var isMulti=values.length>1;
     var value=values[values.length-1];
