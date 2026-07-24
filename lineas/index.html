@@ -177,7 +177,7 @@
       
       <span class="wsel" id="yearWrap">Vista: <span class="modesel"><span id="yearBtns"></span><button id="compareBtn" class="mbtn" type="button" onclick="showCompare()">📊 Comparativo</button></span></span>
       <span class="wsel" id="lineWrap" style="display:none">Líneas: <span class="lmsel"><button id="lmFused" class="mbtn active" type="button" onclick="setLineMode('fused')">Fusionadas (3)</button><button id="lmReal" class="mbtn" type="button" onclick="setLineMode('real')">Reales (6)</button></span></span>
-      <span class="modesel" id="modeWrap"><button id="modeWeek" class="mbtn active" type="button" onclick="setMode('week')">Semana</button><button id="modeMonth" class="mbtn" type="button" onclick="setMode('month')">Mes</button></span>
+      <span class="modesel" id="modeWrap"><button id="modeWeek" class="mbtn active" type="button" onclick="setMode('week')">Semana</button><button id="modeMonth" class="mbtn" type="button" onclick="setMode('month')">Mes</button><button id="modeYear" class="mbtn" type="button" onclick="setMode('year')">Año</button></span>
       <span class="wsel" id="weekWrap">Semana: <select id="weekSel"></select></span>
       <span class="wsel" id="monthWrap" style="display:none">Mes: <select id="monthSel"></select></span>
       <button id="printBtn" class="btn" type="button" onclick="printDash()" style="background:#fff;border:1px solid var(--warm);color:var(--sage);">🖨 Imprimir A4</button>
@@ -367,7 +367,7 @@ drop.addEventListener("click",e=>{if(e.target.tagName!=="BUTTON")fileInput.click
 document.getElementById("weekSel").addEventListener("change",e=>renderPeriod("week",+e.target.value));
 document.getElementById("monthSel").addEventListener("change",e=>renderPeriod("month",+e.target.value));
 function showErr(m){const el=document.getElementById("err");el.style.display="block";el.innerHTML="⚠ "+m;}
-function setMode(m){CURMODE=m;document.getElementById("modeWeek").classList.toggle("active",m==="week");document.getElementById("modeMonth").classList.toggle("active",m==="month");document.getElementById("weekWrap").style.display=m==="week"?"inline-flex":"none";document.getElementById("monthWrap").style.display=m==="month"?"inline-flex":"none";if(m==="week")renderPeriod("week",+document.getElementById("weekSel").value);else renderPeriod("month",+document.getElementById("monthSel").value);}
+function setMode(m){CURMODE=m;document.getElementById("modeWeek").classList.toggle("active",m==="week");document.getElementById("modeMonth").classList.toggle("active",m==="month");document.getElementById("modeYear").classList.toggle("active",m==="year");document.getElementById("weekWrap").style.display=m==="week"?"inline-flex":"none";document.getElementById("monthWrap").style.display=m==="month"?"inline-flex":"none";if(m==="week")renderPeriod("week",+document.getElementById("weekSel").value);else if(m==="month")renderPeriod("month",+document.getElementById("monthSel").value);else renderPeriod("year",null);}
 
 function handleFile(file){
   document.getElementById("err").style.display="none";
@@ -563,17 +563,17 @@ function renderCliRej(wrows,plabel){
 
 function renderPeriod(mode,value){
   clearCharts();
-  const S=STATE,isMonth=mode==="month";
-  const wrows=isMonth?S.rows.filter(r=>monthOf(r["FECHA"])===value):S.rows.filter(r=>Number(r["SEMANA"])===value);
-  const plabel=isMonth?(MESES[value]+" "+(S.year||"")):("Sem "+value);
+  const S=STATE,isMonth=mode==="month",isYear=mode==="year";
+  const wrows=isYear?S.rows:(isMonth?S.rows.filter(r=>monthOf(r["FECHA"])===value):S.rows.filter(r=>Number(r["SEMANA"])===value));
+  const plabel=isYear?("Año "+(S.year||"")):(isMonth?(MESES[value]+" "+(S.year||"")):("Sem "+value));
   const cnt=(a,res)=>a.filter(r=>r["RESULTADO"]===res).length;
   const n=wrows.length,ap=cnt(wrows,"APROBADO"),re=n-ap,apPct=pct(ap,n),rePct=pct(re,n);
   const pcol=entColOf(CFG.primaryEntity),plab=entCfg(CFG.primaryEntity).label;
 
-  document.getElementById("srcNote").innerHTML=`<b>Fuente:</b> <i>${S.fname}</i>`+(S.year?` · año ${S.year}`:"")+` · ${isMonth?"Mes: "+MESES[value]:"Semana "+value} · ${CFG.srcNote} Tasas = RECHAZADAS / total.`;
+  document.getElementById("srcNote").innerHTML=`<b>Fuente:</b> <i>${S.fname}</i>`+(S.year?` · año ${S.year}`:"")+` · ${isYear?"Año completo":(isMonth?"Mes: "+MESES[value]:"Semana "+value)} · ${CFG.srcNote} Tasas = RECHAZADAS / total.`;
   document.getElementById("ttyear").textContent=S.year||"";
-  document.getElementById("trendTitle").textContent=isMonth?"📈 Tendencia mensual":"📈 Tendencia semanal";
-  document.getElementById("trendSub").textContent=isMonth?"% de aprobación vs % de rechazo por mes (hasta el mes seleccionado).":"% de aprobación vs % de rechazo de las últimas 5 semanas hasta la seleccionada.";
+  document.getElementById("trendTitle").textContent=isYear?"📈 Tendencia mensual (año completo)":(isMonth?"📈 Tendencia mensual":"📈 Tendencia semanal");
+  document.getElementById("trendSub").textContent=isYear?"% de aprobación vs % de rechazo por mes, todos los meses del año.":(isMonth?"% de aprobación vs % de rechazo por mes (hasta el mes seleccionado).":"% de aprobación vs % de rechazo de las últimas 5 semanas hasta la seleccionada.");
 
   document.getElementById("kTot").textContent=nf(n);
   document.getElementById("kTotS").textContent=plabel;
@@ -582,14 +582,15 @@ function renderPeriod(mode,value){
   document.getElementById("kRe").textContent=rePct+"%";
   document.getElementById("kReS").textContent=re+" rechazadas";
 
-  const cur=isMonth?S.mo[value]:S.wk[value];
-  const prevKeys=(isMonth?S.months:S.weeks).filter(x=>x<value);
+  const cur=isYear?{n,r:re}:(isMonth?S.mo[value]:S.wk[value]);
+  const prevKeys=isYear?[]:(isMonth?S.months:S.weeks).filter(x=>x<value);
   const prevKey=prevKeys.length?prevKeys[prevKeys.length-1]:null;
   const prevObj=prevKey!=null?(isMonth?S.mo[prevKey]:S.wk[prevKey]):null;
   const curPr=cur?pct(cur.r,cur.n):0;
   const lblOf=k=>isMonth?MESES[k]:("Sem "+k);
   const kv=document.getElementById("kVar"),kvs=document.getElementById("kVarS");
-  if(prevObj){const pvPr=pct(prevObj.r,prevObj.n),d=+(curPr-pvPr).toFixed(1);kv.textContent=(d>0?"+":"")+d+" pts";kv.style.color=d>0?"#DC2626":(d<0?SAGE:"#333");kvs.textContent=`${lblOf(prevKey)}: ${pvPr}% → ${lblOf(value)}: ${curPr}% rechazo`;}
+  if(isYear){kv.textContent=curPr+"%";kv.style.color="#333";kvs.textContent="Rechazo acumulado "+(S.year||"")+" (año completo)";}
+  else if(prevObj){const pvPr=pct(prevObj.r,prevObj.n),d=+(curPr-pvPr).toFixed(1);kv.textContent=(d>0?"+":"")+d+" pts";kv.style.color=d>0?"#DC2626":(d<0?SAGE:"#333");kvs.textContent=`${lblOf(prevKey)}: ${pvPr}% → ${lblOf(value)}: ${curPr}% rechazo`;}
   else{kv.textContent=curPr+"%";kv.style.color="#333";kvs.textContent="Rechazo "+lblOf(value)+" (sin previo)";}
 
   reg(new Chart(document.getElementById("dDonut"),{type:"doughnut",data:{labels:["Aprobado","Rechazado"],datasets:[{data:[ap,re],backgroundColor:[SAGE,ROSE],borderWidth:0}]},options:{cutout:"68%",responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},centerPct:{text:n?rePct+"%":"—"},tooltip:{callbacks:{label:c=>c.label+": "+c.raw}}}},plugins:[centerPct]}));
@@ -613,10 +614,10 @@ function renderPeriod(mode,value){
     {label:"% Rechazo",data:S.monthly.rech,borderColor:ROSE,borderWidth:2.5,pointRadius:3,pointBackgroundColor:ROSE,tension:.3,fill:false}]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"top",labels:{boxWidth:14,usePointStyle:true}},tooltip:{callbacks:{label:c=>c.dataset.label+": "+c.raw+"%"}}},scales:{x:{grid:{display:false},border:{color:WARM}},y:{min:0,max:100,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}}}}}));
 
-  const tk=isMonth?S.months.filter(m=>m<=value).slice(-6):S.weeks.filter(w=>w<=value).slice(-5);
-  const tsrc=isMonth?S.mo:S.wk;
+  const tk=isYear?S.months.slice():(isMonth?S.months.filter(m=>m<=value).slice(-6):S.weeks.filter(w=>w<=value).slice(-5));
+  const tsrc=(isYear||isMonth)?S.mo:S.wk;
   const apLine=tk.map(k=>pct(tsrc[k].n-tsrc[k].r,tsrc[k].n)), reLine=tk.map(k=>pct(tsrc[k].r,tsrc[k].n));
-  reg(new Chart(document.getElementById("cTrend"),{type:"line",data:{labels:tk.map(k=>isMonth?MESES[k]:"Sem "+k),datasets:[
+  reg(new Chart(document.getElementById("cTrend"),{type:"line",data:{labels:tk.map(k=>(isYear||isMonth)?MESES[k]:"Sem "+k),datasets:[
     {label:"% Aprobación",data:apLine,borderColor:SAGE,pointBackgroundColor:SAGE,pointRadius:4,tension:.3,fill:false,borderWidth:2.5},
     {label:"% Rechazo",data:reLine,borderColor:ROSE,pointBackgroundColor:ROSE,pointRadius:4,tension:.3,fill:false,borderWidth:2.5}]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"top",labels:{boxWidth:14,usePointStyle:true}},tooltip:{callbacks:{label:c=>c.dataset.label+": "+c.raw+"%"}}},scales:{x:{grid:{display:false},border:{color:WARM}},y:{min:0,max:100,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}}}}}));
