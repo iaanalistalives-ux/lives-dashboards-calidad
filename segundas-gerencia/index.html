@@ -291,7 +291,28 @@ Chart.defaults.plugins.tooltip.backgroundColor="rgba(51,51,51,0.95)";Chart.defau
 const nf=n=>Number(n).toLocaleString("es-PE");
 const MESES=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
 const META=2.5;
-const FIX={1:0,2:0,3:0,4:0,5:1,6:1,7:1,8:1,9:1,10:2,11:2,12:2,13:2,14:3,15:3,16:3,17:3,18:4,19:4,20:4,21:4,22:5,23:5,24:5,25:5};
+// Mapeo semana->mes (0=Ene...11=Dic) para el ano en curso ("latest"). Ya NO es una tabla fija a mano:
+  // se recalcula automaticamente cada vez que se sube el Excel (ver computeFix() y su llamada en buildState),
+  // usando el mes calendario real (mcal) que ya trae cada fila de REPORTES. Para cada numero de semana, se toma
+  // el mes calendario mas frecuente entre sus filas (por si una semana cae a caballo entre dos meses).
+  // No requiere mantenimiento manual: funciona para cualquier semana que exista en el archivo subido,
+  // incluidas las futuras (septiembre, octubre...) sin tocar el codigo.
+  let FIX={};
+  function computeFix(rep,maxYear){
+    var byWeek={};
+    rep.forEach(function(r){
+      if(r.year!==maxYear||r.week==null||r.mcal==null)return;
+      if(!byWeek[r.week])byWeek[r.week]={};
+      byWeek[r.week][r.mcal]=(byWeek[r.week][r.mcal]||0)+1;
+    });
+    var fix={};
+    Object.keys(byWeek).forEach(function(w){
+      var counts=byWeek[w],best=null,bestN=-1;
+      Object.keys(counts).forEach(function(m){if(counts[m]>bestN){bestN=counts[m];best=+m;}});
+      fix[w]=best;
+    });
+    return fix;
+  }
 let charts=[];const reg=c=>{charts.push(c);return c;};function clearCharts(){charts.forEach(c=>c.destroy());charts=[];}
 let STATE=null,CURMODE="week",CURVAL=null,CURYEAR=null,CURVIEW="year",CURF={kind:null,key:null};
 let SELWEEKS=[],SELMONTHS=[]; // selección múltiple de semanas/meses (arrays; 1 elemento = selección simple)
@@ -364,7 +385,7 @@ function handleFile(file){
   }catch(err){showErr("No pude leer el archivo: "+err.message);console.error(err);}};
   r.readAsArrayBuffer(file);
 }
-function monthOf(f){if(f instanceof Date)return f.getMonth();if(typeof f==="string"){const d=new Date(f);if(!isNaN(d))return d.getMonth();const m=f.match(/-(\d{2})-/);if(m)return +m[1]-1;}return null;}
+function monthOf(f){if(f instanceof Date)return f.getMonth();if(typeof f==="string"){const m=f.match(/^(\d{4})-(\d{2})-(\d{2})/);if(m)return +m[2]-1;const d=new Date(f);if(!isNaN(d))return d.getMonth();}return null;}
 function yearOf(f){if(f instanceof Date)return f.getFullYear();if(typeof f==="string"){const m=f.match(/(20\d{2})/);if(m)return +m[1];}return null;}
 function num(v){if(v==null)return 0;if(typeof v==="number")return isFinite(v)?v:0;const n=parseFloat(String(v).replace(/[^0-9.\-]/g,""));return isFinite(n)?n:0;}
 
@@ -395,6 +416,7 @@ function buildState(S,fname,frozen){
   const years=[...new Set(rep.map(r=>r.year).filter(Boolean))].sort((a,b)=>a-b);
   STATE={dataAll,rep,telas26,years,maxYear:Math.max(...years),fname};
   CURYEAR=STATE.maxYear;
+  FIX=computeFix(rep,STATE.maxYear);
   initDash(frozen,fname);
 }
 function initDash(frozen,fname){
@@ -486,11 +508,15 @@ function renderPeriod(mode,valueOrArr){
   const drows=isYear?ydata():dataPeriod(mode,values);
 
   // ----- tendencia anual (solo en modo Año, solo si hay ≥2 años para comparar) -----
+  // Incluye tanto los anios del Excel subido (STATE.years) como los anios historicos incrustados
+  // (window.__SEG_ANNUAL__, ej. 2022-2024) via el helper expuesto por el script lfs-annual.
+  // Si por algun motivo ese helper no esta disponible, cae de vuelta a solo STATE.years.
   const atp=document.getElementById("anualTrendPanel");
-  if(isYear && STATE.years.length>=2){
+  const _allYrs=(typeof window.__segAllYears==="function")?window.__segAllYears().map(Number):STATE.years.slice();
+  if(isYear && _allYrs.length>=2){
     atp.style.display="";
-    const yrs=STATE.years.slice().sort((a,b)=>a-b);
-    const yData=yrs.map(y=>{const r=acumY(y);return pc(r.seg,r.conf);});
+    const yrs=_allYrs.slice().sort((a,b)=>a-b);
+    const yData=yrs.map(y=>(typeof window.__segPctYear==="function")?window.__segPctYear(String(y)):(()=>{const r=acumY(y);return pc(r.seg,r.conf);})());
     reg(new Chart(document.getElementById("cAnual"),{type:"line",
       data:{labels:yrs.map(y=>y===STATE.maxYear?y+"*":""+y), datasets:[
         {label:"% segundas",data:yData,borderColor:SAGE,backgroundColor:"rgba(105,137,98,.08)",borderWidth:2.5,pointRadius:5,pointBackgroundColor:yData.map(p=>p>META?ROSE:SAGE),tension:.25,fill:true},
@@ -803,6 +829,7 @@ function exportFrozen(){
 /* arranque incrustado: salta el parseo de Excel, usa el STATE ya calculado */
 if(window.__EMBEDSTATE__){try{
   STATE=window.__EMBEDSTATE__;CURYEAR=STATE.maxYear;
+  FIX=computeFix(STATE.rep,STATE.maxYear); // el arranque incrustado saltaba buildState() y por eso nunca calculaba FIX -> meses/tendencias vacios en el exportado
   initDash(true,STATE.fname);
 }catch(e){showErr("No pude cargar los datos incrustados: "+e.message);console.error(e);}}
 </script>
@@ -938,6 +965,8 @@ if(window.__EMBEDSTATE__){try{
   if(typeof window.selectYear==="function"){var _sy=window.selectYear;window.selectYear=function(){hideAnnual();var r=_sy.apply(this,arguments);try{ensureAnnualView();annualButtons();}catch(e){}return r;};}
   if(typeof window.showCompare==="function"){var _sc=window.showCompare;window.showCompare=function(){hideAnnual();return _sc.apply(this,arguments);};}
   var iv=setInterval(function(){if(typeof STATE!=="undefined"&&STATE&&document.getElementById("yearBtns")&&document.querySelectorAll("#yearBtns .ybtn:not(.aybtn)").length){try{ensureAnnualView();annualButtons();}catch(e){}clearInterval(iv);}},600);
+  // Exponer para el grafico de tendencia anual (fuera de este IIFE): union de anios incrustados (__SEG_ANNUAL__) + anios del Excel subido
+  window.__segAllYears=years;window.__segPctYear=pctYear;
 })();
 
 </script>
