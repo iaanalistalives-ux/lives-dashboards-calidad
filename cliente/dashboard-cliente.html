@@ -147,6 +147,25 @@
   .fk-it{font-size:12px;color:var(--slate,#40566B);background:var(--warm-light,#F1F6F4);border-radius:6px;padding:5px 9px;cursor:pointer;}
   .fk-it:hover{background:#EEF3F1;}
   .fk-it b{color:#333;}
+
+/* ===== Estándar LIVES: los tableros usan todo el ancho de la pantalla =====
+   Va al final del CSS a propósito, para ganarle a los anchos fijos que traían
+   los archivos originales sin tener que tocarlos uno por uno. */
+.wrap, .container, .app, .shell, .page, .content, main{
+  max-width:100% !important;
+  width:100% !important;
+  margin-left:0 !important;
+  margin-right:0 !important;
+}
+.wrap, .container, .content{ padding-left:22px !important; padding-right:22px !important; }
+@media(max-width:700px){
+  .wrap, .container, .content{ padding-left:12px !important; padding-right:12px !important; }
+}
+/* En pantallas anchas las grillas de 2 columnas pasan a 3: si no, quedan dos
+   tarjetas gigantes y mucho aire al centro. */
+@media(min-width:1700px){
+  .grid2, .g2, .row2{ grid-template-columns:repeat(3, minmax(0,1fr)) !important; }
+}
 </style>
 
 </head>
@@ -689,8 +708,22 @@ function cargarEnVivo(){
         }
         if(o['RESULTADO']) filas.push(o);
       }
-      if(!filas.length) throw new Error('no hay filas con RESULTADO');
-      buildState(filas,'En vivo · Sheet maestro',false);
+      if(!filas.length) throw new Error('el CSV llegó pero ninguna fila tiene RESULTADO');
+      try{
+        buildState(filas,'En vivo · Sheet maestro',false);
+      }catch(errB){
+        console.error('buildState falló:',errB);
+        var av2=document.getElementById('avisoVivo');
+        if(av2){
+          av2.innerHTML='<b>Los datos llegaron pero el tablero no pudo armarlos.</b> '+
+            'Se leyeron '+filas.length.toLocaleString('es-PE')+' filas del Sheet. '+
+            'Columnas recibidas: '+cab.filter(function(c){return c;}).join(', ')+'. '+
+            '<span style="opacity:.75">Error: '+errB.message+'</span>';
+          av2.className='avisoVivo error';
+        }
+        var dr2=document.getElementById('drop'); if(dr2) dr2.style.display='';
+        return;
+      }
       if(av){
         av.innerHTML='<b>En vivo.</b> '+filas.length.toLocaleString('es-PE')+
           ' auditorías leídas del Sheet · actualizado '+
@@ -704,7 +737,7 @@ function cargarEnVivo(){
     .catch(function(e){
       console.error(e);
       if(av){
-        av.innerHTML='<b>No pude leer el Sheet en vivo.</b> '+
+        av.innerHTML='<b>No llegaron los datos del Sheet.</b> '+
           'Revisa que la hoja PUBLICO_CLIENTE siga publicada en la web. '+
           'Mientras tanto puedes cargar el Excel a mano abajo. '+
           '<span style="opacity:.7">('+e.message+')</span>';
