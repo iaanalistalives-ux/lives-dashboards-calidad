@@ -154,6 +154,42 @@
   .avisoVivo button{background:#0F7A5A;color:#fff;border:none;border-radius:7px;
              padding:5px 14px;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;}
   .avisoVivo button:hover{background:#0B815E;}
+
+  #panelDer{margin-top:16px;}
+  .derWrap{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  @media(max-width:980px){.derWrap{grid-template-columns:1fr;}}
+  .derCard{background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(14,59,54,.10);padding:15px 17px;}
+  .derTit{font-size:14px;font-weight:700;color:#0E3B36;}
+  .derSub{font-size:11.5px;color:#5F726C;margin:3px 0 11px;line-height:1.6;}
+  .derB{display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;
+        padding:5px 0;font-family:inherit;font-size:13px;cursor:default;text-align:left;}
+  .derB.tipo{cursor:pointer;} .derB.tipo:hover .derN{color:#0F7A5A;}
+  .derN{width:34%;color:#333;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .derBar{flex:1;height:14px;background:#F1F6F4;border-radius:7px;overflow:hidden;}
+  .derBar i{display:block;height:100%;background:#0F7A5A;border-radius:7px;}
+  .derB.tela .derBar i{background:#4E6B78;}
+  .derV{width:62px;text-align:right;font-weight:700;color:#0E3B36;}
+  .derVacio{font-size:12.5px;color:#5F726C;font-style:italic;padding:12px 0;line-height:1.7;}
+  .derMod{position:fixed;inset:0;background:rgba(14,59,54,.55);display:none;
+        align-items:center;justify-content:center;z-index:300;padding:20px;}
+  .derModC{background:#fff;border-radius:12px;width:96vw;max-width:1200px;max-height:92vh;
+        display:flex;flex-direction:column;overflow:hidden;}
+  .derModH{background:#0E3B36;color:#fff;padding:12px 18px;font-weight:700;font-size:15px;
+        display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #10B981;}
+  .derModH button{background:none;border:none;color:#fff;font-size:25px;cursor:pointer;line-height:1;}
+  .derModB{padding:16px 18px;overflow:auto;}
+  .dmGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;}
+  .dmCol{background:#F1F6F4;border-radius:9px;padding:10px 13px;}
+  .dmT{font-size:11px;font-weight:700;color:#4E6B78;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;}
+  .dmF{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:3px 0;
+       border-bottom:1px solid #fff;}
+  .dmF b{color:#0F7A5A;}
+  .dmTbl{max-height:340px;overflow:auto;margin-top:7px;}
+  .dmTbl table{width:100%;border-collapse:collapse;}
+  .dmTbl th{position:sticky;top:0;background:#0E3B36;color:#fff;font-size:10.5px;padding:6px 8px;
+       text-transform:uppercase;text-align:left;}
+  .dmTbl td{padding:5px 8px;border-bottom:1px solid #F1F6F4;font-size:12.5px;}
+  .dmTbl td.nu{text-align:right;}
 </style>
 <style id="lf-css">
   .fc-pm{display:flex;flex-direction:column;gap:6px;}
@@ -206,6 +242,42 @@
 @media(min-width:1700px){
   .grid2, .g2, .row2{ grid-template-columns:repeat(3, minmax(0,1fr)) !important; }
 }
+
+  #panelDer{margin-top:16px;}
+  .derWrap{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  @media(max-width:980px){.derWrap{grid-template-columns:1fr;}}
+  .derCard{background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(14,59,54,.10);padding:15px 17px;}
+  .derTit{font-size:14px;font-weight:700;color:#0E3B36;}
+  .derSub{font-size:11.5px;color:#5F726C;margin:3px 0 11px;line-height:1.6;}
+  .derB{display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;
+        padding:5px 0;font-family:inherit;font-size:13px;cursor:default;text-align:left;}
+  .derB.tipo{cursor:pointer;} .derB.tipo:hover .derN{color:#0F7A5A;}
+  .derN{width:34%;color:#333;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .derBar{flex:1;height:14px;background:#F1F6F4;border-radius:7px;overflow:hidden;}
+  .derBar i{display:block;height:100%;background:#0F7A5A;border-radius:7px;}
+  .derB.tela .derBar i{background:#4E6B78;}
+  .derV{width:62px;text-align:right;font-weight:700;color:#0E3B36;}
+  .derVacio{font-size:12.5px;color:#5F726C;font-style:italic;padding:12px 0;line-height:1.7;}
+  .derMod{position:fixed;inset:0;background:rgba(14,59,54,.55);display:none;
+        align-items:center;justify-content:center;z-index:300;padding:20px;}
+  .derModC{background:#fff;border-radius:12px;width:96vw;max-width:1200px;max-height:92vh;
+        display:flex;flex-direction:column;overflow:hidden;}
+  .derModH{background:#0E3B36;color:#fff;padding:12px 18px;font-weight:700;font-size:15px;
+        display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #10B981;}
+  .derModH button{background:none;border:none;color:#fff;font-size:25px;cursor:pointer;line-height:1;}
+  .derModB{padding:16px 18px;overflow:auto;}
+  .dmGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;}
+  .dmCol{background:#F1F6F4;border-radius:9px;padding:10px 13px;}
+  .dmT{font-size:11px;font-weight:700;color:#4E6B78;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;}
+  .dmF{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:3px 0;
+       border-bottom:1px solid #fff;}
+  .dmF b{color:#0F7A5A;}
+  .dmTbl{max-height:340px;overflow:auto;margin-top:7px;}
+  .dmTbl table{width:100%;border-collapse:collapse;}
+  .dmTbl th{position:sticky;top:0;background:#0E3B36;color:#fff;font-size:10.5px;padding:6px 8px;
+       text-transform:uppercase;text-align:left;}
+  .dmTbl td{padding:5px 8px;border-bottom:1px solid #F1F6F4;font-size:12.5px;}
+  .dmTbl td.nu{text-align:right;}
 </style>
 
 </head>
@@ -1226,6 +1298,154 @@ function cargarEnVivo(){
       }
       var dr=document.getElementById('drop'); if(dr) dr.style.display='';
     });
+}
+
+
+/* ==================================================================
+   DERIVADOS Y TELAS
+   Los derivados son defectos hallados al revisar el LOTE COMPLETO, fuera de la
+   muestra. Vienen como texto con cantidades: «SEGUNDAS 20-CONTAMINADO 13».
+   La tela llega desde la tabla de órdenes de producción, así que solo la tienen
+   las auditorías digitadas con OP: el panel se oculta mientras no haya datos,
+   en vez de mostrar un gráfico vacío que parezca roto.
+   ================================================================== */
+function derParse(txt){
+  var out=[], t=String(txt||'').trim();
+  if(!t) return out;
+  t.split('-').forEach(function(fr){
+    fr=fr.trim(); if(!fr) return;
+    var m=fr.match(/^(.*?)[\s]*(\d+)$/);
+    if(m && m[1].trim()) out.push({nombre:m[1].trim().toUpperCase(), cant:parseInt(m[2],10)});
+  });
+  return out;
+}
+
+function derFilas(){
+  var base = (window.rowsOfPeriod ? rowsOfPeriod() : null) ||
+             (window.STATE && STATE.rows) || [];
+  return base.filter(function(r){ return String(r['DERIVADOS']||'').trim(); });
+}
+
+function derPanel(){
+  var rows=derFilas();
+  var porTipo={}, porTela={}, totalDer=0, conTela=0;
+  rows.forEach(function(r){
+    var tela = String(r['TELA']||r['COD TELA']||'').trim().toUpperCase();
+    derParse(r['DERIVADOS']).forEach(function(d){
+      totalDer += d.cant;
+      porTipo[d.nombre]=(porTipo[d.nombre]||0)+d.cant;
+      if(tela){ porTela[tela]=(porTela[tela]||0)+d.cant; conTela+=d.cant; }
+    });
+  });
+
+  var cont=document.getElementById('panelDer');
+  if(!cont){
+    cont=document.createElement('div'); cont.id='panelDer';
+    var d=document.getElementById('dash');
+    if(!d) return; d.appendChild(cont);
+  }
+  if(!totalDer){ cont.innerHTML=''; cont.style.display='none'; return; }
+  cont.style.display='';
+
+  function barras(obj, cls, click){
+    var arr=Object.keys(obj).map(function(k){ return [k,obj[k]]; })
+              .sort(function(a,b){ return b[1]-a[1]; }).slice(0,10);
+    var max=arr.length?arr[0][1]:1;
+    return arr.map(function(x){
+      return '<button type="button" class="derB '+cls+'" '+(click?('data-d="'+encodeURIComponent(x[0])+'"'):'')+'>'+
+        '<span class="derN">'+x[0]+'</span>'+
+        '<span class="derBar"><i style="width:'+(x[1]/max*100).toFixed(1)+'%"></i></span>'+
+        '<span class="derV">'+x[1].toLocaleString('es-PE')+'</span></button>';
+    }).join('') || '<div class="derVacio">Sin datos en el período.</div>';
+  }
+
+  var telaHtml = conTela
+    ? barras(porTela,'tela',false)
+    : '<div class="derVacio">Todavía no hay auditorías con tela registrada. '+
+      'La tela llega desde la orden de producción: aparece en cuanto se digiten '+
+      'auditorías con OP.</div>';
+
+  cont.innerHTML =
+    '<div class="derWrap">'+
+      '<div class="derCard">'+
+        '<div class="derTit">Derivados por tipo</div>'+
+        '<div class="derSub">Defectos hallados al revisar el lote completo, fuera de la muestra. '+
+          'Haz clic en uno para ver de qué clientes, talleres y estilos viene.</div>'+
+        barras(porTipo,'tipo',true)+
+      '</div>'+
+      '<div class="derCard">'+
+        '<div class="derTit">Telas más recurrentes en derivados</div>'+
+        '<div class="derSub">Prendas derivadas acumuladas por tela'+
+          (conTela&&conTela<totalDer ? (' · '+Math.round(conTela/totalDer*100)+'% de los derivados tiene tela registrada') : '')+
+        '</div>'+
+        telaHtml+
+      '</div>'+
+    '</div>';
+
+  Array.prototype.forEach.call(cont.querySelectorAll('[data-d]'),function(b){
+    b.onclick=function(){ derDetalle(decodeURIComponent(b.dataset.d)); };
+  });
+}
+
+/* Detalle de un derivado: de dónde viene. */
+function derDetalle(tipo){
+  var rows=derFilas(), det=[], total=0;
+  rows.forEach(function(r){
+    derParse(r['DERIVADOS']).forEach(function(d){
+      if(d.nombre!==tipo) return;
+      total+=d.cant;
+      det.push({
+        fecha:String(r['FECHA']||''), cliente:String(r['CLIENTE']||''),
+        grupo:String(r['GRUPO']||''), estilo:String(r['ESTILO']||''),
+        color:String(r['COLOR']||''),
+        taller:String(r['SERVICIO']||'')||(String(r['INT/EXT']||'')==='INTERNO'?'LIVES':''),
+        origen:String(r['INT/EXT']||''), tela:String(r['TELA']||r['COD TELA']||''),
+        cant:d.cant
+      });
+    });
+  });
+  det.sort(function(a,b){ return b.cant-a.cant; });
+
+  function agrupa(campo){
+    var m={};
+    det.forEach(function(x){ var k=x[campo]||'—'; m[k]=(m[k]||0)+x.cant; });
+    return Object.keys(m).map(function(k){ return [k,m[k]]; })
+      .sort(function(a,b){ return b[1]-a[1]; }).slice(0,8);
+  }
+  function mini(t,arr){
+    return '<div class="dmCol"><div class="dmT">'+t+'</div>'+
+      arr.map(function(x){
+        return '<div class="dmF"><span>'+x[0]+'</span><b>'+x[1].toLocaleString('es-PE')+'</b></div>';
+      }).join('')+'</div>';
+  }
+
+  var m=document.getElementById('derModal');
+  if(!m){
+    m=document.createElement('div'); m.id='derModal'; m.className='derMod';
+    m.onclick=function(e){ if(e.target===m) m.style.display='none'; };
+    document.body.appendChild(m);
+  }
+  m.innerHTML='<div class="derModC">'+
+    '<div class="derModH">'+tipo+' · '+total.toLocaleString('es-PE')+' prendas derivadas'+
+      '<button type="button" onclick="document.getElementById(\'derModal\').style.display=\'none\'">&times;</button></div>'+
+    '<div class="derModB">'+
+      '<div class="dmGrid">'+mini('Cliente',agrupa('cliente'))+mini('Taller',agrupa('taller'))+
+        mini('Estilo',agrupa('estilo'))+mini('Tela',agrupa('tela'))+'</div>'+
+      '<div class="dmT" style="margin-top:14px">Auditorías donde apareció</div>'+
+      '<div class="dmTbl"><table><thead><tr><th>Fecha</th><th>Cliente</th><th>Grupo</th>'+
+        '<th>Estilo</th><th>Color</th><th>Taller</th><th>Tela</th><th>Prendas</th></tr></thead><tbody>'+
+        det.slice(0,120).map(function(x){
+          return '<tr><td>'+x.fecha+'</td><td>'+x.cliente+'</td><td>'+x.grupo+'</td>'+
+            '<td>'+x.estilo+'</td><td>'+x.color+'</td><td>'+x.taller+'</td>'+
+            '<td>'+(x.tela||'—')+'</td><td class="nu"><b>'+x.cant+'</b></td></tr>';
+        }).join('')+'</tbody></table></div>'+
+    '</div></div>';
+  m.style.display='flex';
+}
+
+var _rpDer = window.renderPeriod;
+if(typeof _rpDer==='function'){
+  window.renderPeriod=function(){ var r=_rpDer.apply(this,arguments); try{ derPanel(); }catch(e){ console.warn('derPanel',e); } return r; };
 }
 
 document.addEventListener('DOMContentLoaded',function(){ cargarEnVivo(); });
