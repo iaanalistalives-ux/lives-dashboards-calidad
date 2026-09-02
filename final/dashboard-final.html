@@ -1302,6 +1302,56 @@ function cargarEnVivo(){
 
 
 /* ==================================================================
+   DETALLE FINO DE DERIVADOS Y DEFECTOS (Sheet AC-009-25)
+   ------------------------------------------------------------------
+   PUBLICO_FINAL trae los derivados como TEXTO en una sola celda
+   («MANCHAS ACEITE 3-SEGUNDAS 20»). Eso alcanza para el total, pero no
+   distingue categoría de subtipo: por eso en el histórico aparecen ocho
+   variantes sueltas de mancha que en realidad son un mismo problema.
+
+   El formulario AC-009-25 sí guarda el detalle estructurado: una fila por
+   incidencia con CATEGORIA + SUBTIPO + CANTIDAD, ligada por ID_AUDITORIA.
+   Aquí se lee ese detalle y se usa para el desglose fino. El TOTAL sigue
+   saliendo del texto (cubre todo el período); el detalle cubre solo las
+   auditorías del formulario, y el panel dice qué porción es.
+   ================================================================== */
+var SHEET_DETALLE = '1zM-ajBkOs_PgyzEaXh_gVJ1seXvjRJSVO1ZRql7KnVQ';
+var DET_DER = {};   // ID_AUDITORIA -> [{categoria, subtipo, cant}]
+var DET_DEF = {};
+var DET_OK  = false;
+
+function urlHoja(nombre){
+  return 'https://docs.google.com/spreadsheets/d/'+SHEET_DETALLE+
+         '/gviz/tq?tqx=out:csv&sheet='+encodeURIComponent(nombre)+'&_='+Date.now();
+}
+function cargarDetalleFino(){
+  return Promise.all([
+    fetch(urlHoja('DERIVADOS'),{cache:'no-store'}).then(function(r){return r.ok?r.text():'';}),
+    fetch(urlHoja('DEFECTOS'), {cache:'no-store'}).then(function(r){return r.ok?r.text():'';})
+  ]).then(function(txts){
+    function armar(txt, destino){
+      if(!txt || /^\s*</.test(txt)) return;
+      var t=leerCSV(txt);
+      for(var i=1;i<t.length;i++){
+        var f=t[i]; if(!f || !f[0]) continue;
+        var id=String(f[0]).trim(); if(!id) continue;
+        var cant=Number(String(f[4]||'').replace(/[^0-9.\-]/g,''))||0;
+        if(!cant) continue;
+        (destino[id]=destino[id]||[]).push({
+          categoria:String(f[2]||'').trim(),
+          subtipo:String(f[3]||'').trim(),
+          cant:cant
+        });
+      }
+    }
+    armar(txts[0], DET_DER);
+    armar(txts[1], DET_DEF);
+    DET_OK = Object.keys(DET_DER).length>0 || Object.keys(DET_DEF).length>0;
+    try{ derPanel(); }catch(e){ console.warn('derPanel tras detalle', e); }
+  }).catch(function(e){ console.warn('detalle fino no disponible:', e); });
+}
+
+/* ==================================================================
    DERIVADOS Y TELAS
    Los derivados son defectos hallados al revisar el LOTE COMPLETO, fuera de la
    muestra. Vienen como texto con cantidades: «SEGUNDAS 20-CONTAMINADO 13».
@@ -1320,10 +1370,25 @@ function derParse(txt){
   return out;
 }
 
+/* Filas del período activo.
+   CORREGIDO: antes preguntaba por `window.rowsOfPeriod` y `window.STATE`, pero ninguna de
+   las dos existe: STATE está declarado con `let` (no cuelga de window) y rowsOfPeriod no
+   existe en este archivo. El resultado era que derFilas() SIEMPRE devolvía vacío y este
+   panel nunca llegaba a mostrarse. Como este código vive en el mismo <script> que STATE,
+   se accede directo. */
+function filasPeriodoDer(){
+  if(typeof STATE==='undefined' || !STATE || !STATE.rows) return [];
+  var rows=STATE.rows;
+  try{
+    if(typeof CURMODE!=='undefined' && typeof CURVAL!=='undefined' && CURVAL!=null){
+      if(CURMODE==='week')  return rows.filter(function(r){ return Number(r['SEMANA'])===Number(CURVAL); });
+      if(CURMODE==='month') return rows.filter(function(r){ return monthOf(r['FECHA'])===Number(CURVAL); });
+    }
+  }catch(e){}
+  return rows;   // año / acumulado
+}
 function derFilas(){
-  var base = (window.rowsOfPeriod ? rowsOfPeriod() : null) ||
-             (window.STATE && STATE.rows) || [];
-  return base.filter(function(r){ return String(r['DERIVADOS']||'').trim(); });
+  return filasPeriodoDer().filter(function(r){ return String(r['DERIVADOS']||'').trim(); });
 }
 
 function derPanel(){
@@ -1390,34 +1455,136 @@ function derPanel(){
 /* Detalle de un derivado: de dónde viene. */
 function derDetalle(tipo){
   var rows=derFilas(), det=[], total=0;
+  // Denominador del universo: las prendas realmente revisadas en esas auditorías.
+  // Sin esto las cifras son absolutas y no se puede comparar un taller grande
+  // con uno chico — que es justo la decisión que hay que tomar.
+  var loteVisto={}, loteTotal=0;
   rows.forEach(function(r){
+    var id=String(r['ID_AUDITORIA']||'').trim();
+    var lote=Number(r['LOTE_CONTABLE']!=null&&r['LOTE_CONTABLE']!==''?r['LOTE_CONTABLE']:r['LOTE'])||0;
+    var taller=String(r['SERVICIO']||'')||(String(r['INT/EXT']||'')==='INTERNO'?'LIVES':'');
+    var llave = id || (String(r['FECHA']||'')+'|'+taller+'|'+lote);
+    if(!loteVisto[llave]){ loteVisto[llave]={lote:lote, r:r}; loteTotal+=lote; }
     derParse(r['DERIVADOS']).forEach(function(d){
       if(d.nombre!==tipo) return;
       total+=d.cant;
       det.push({
-        fecha:String(r['FECHA']||''), cliente:String(r['CLIENTE']||''),
-        grupo:String(r['GRUPO']||''), estilo:String(r['ESTILO']||''),
-        color:String(r['COLOR']||''),
-        taller:String(r['SERVICIO']||'')||(String(r['INT/EXT']||'')==='INTERNO'?'LIVES':''),
-        origen:String(r['INT/EXT']||''), tela:String(r['TELA']||r['COD TELA']||''),
-        cant:d.cant
+        id:id, fecha:String(r['FECHA']||''), semana:Number(r['SEMANA'])||0,
+        cliente:String(r['CLIENTE']||''), grupo:String(r['GRUPO']||''),
+        estilo:String(r['ESTILO']||''), color:String(r['COLOR']||''),
+        taller:taller, origen:String(r['INT/EXT']||''),
+        tela:String(r['TELA']||r['COD TELA']||''), lote:lote, cant:d.cant
       });
     });
   });
   det.sort(function(a,b){ return b.cant-a.cant; });
 
-  function agrupa(campo){
+  // Denominador por dimensión: cuántas prendas se revisaron en cada taller/estilo/etc.
+  function denomPor(campo){
     var m={};
-    det.forEach(function(x){ var k=x[campo]||'—'; m[k]=(m[k]||0)+x.cant; });
-    return Object.keys(m).map(function(k){ return [k,m[k]]; })
-      .sort(function(a,b){ return b[1]-a[1]; }).slice(0,8);
+    Object.keys(loteVisto).forEach(function(k){
+      var o=loteVisto[k], r=o.r;
+      var val;
+      if(campo==='taller') val=String(r['SERVICIO']||'')||(String(r['INT/EXT']||'')==='INTERNO'?'LIVES':'');
+      else if(campo==='cliente') val=String(r['CLIENTE']||'');
+      else if(campo==='estilo') val=String(r['ESTILO']||'');
+      else if(campo==='tela') val=String(r['TELA']||r['COD TELA']||'');
+      else val='';
+      val=val||'—';
+      m[val]=(m[val]||0)+o.lote;
+    });
+    return m;
+  }
+  function agrupa(campo){
+    var num={}, den=denomPor(campo);
+    det.forEach(function(x){ var k=x[campo]||'—'; num[k]=(num[k]||0)+x.cant; });
+    return Object.keys(num).map(function(k){
+      var d=den[k]||0;
+      return [k, num[k], d, d? +(num[k]/d*100).toFixed(2) : null];
+    }).sort(function(a,b){ return b[1]-a[1]; }).slice(0,8);
   }
   function mini(t,arr){
     return '<div class="dmCol"><div class="dmT">'+t+'</div>'+
       arr.map(function(x){
-        return '<div class="dmF"><span>'+x[0]+'</span><b>'+x[1].toLocaleString('es-PE')+'</b></div>';
+        var pct = (x[3]==null) ? '' : ' <span style="opacity:.7">de '+x[2].toLocaleString('es-PE')+' · '+x[3]+'%</span>';
+        return '<div class="dmF"><span>'+x[0]+'</span><b>'+x[1].toLocaleString('es-PE')+pct+'</b></div>';
       }).join('')+'</div>';
   }
+
+  // Tendencia semanal: prendas con este derivado sobre las revisadas cada semana.
+  // Solo se dibuja la semana si hubo volumen suficiente; con lotes chicos el
+  // porcentaje salta de 0 a 20 por dos prendas y la línea engaña.
+  var MIN_SEM=200;
+  var semNum={}, semDen={};
+  det.forEach(function(x){ if(x.semana) semNum[x.semana]=(semNum[x.semana]||0)+x.cant; });
+  Object.keys(loteVisto).forEach(function(k){
+    var r=loteVisto[k].r, sem=Number(r['SEMANA'])||0;
+    if(sem) semDen[sem]=(semDen[sem]||0)+loteVisto[k].lote;
+  });
+  var sems=Object.keys(semDen).map(Number).sort(function(a,b){return a-b;});
+  var puntos=sems.map(function(w){
+    var d=semDen[w]||0;
+    return {w:w, p:(d>=MIN_SEM)? +((semNum[w]||0)/d*100).toFixed(2) : null, n:semNum[w]||0, d:d};
+  }).filter(function(x){ return x.p!==null; });
+  var tendHTML='';
+  if(puntos.length>=2){
+    var mx=Math.max.apply(null,puntos.map(function(x){return x.p;}))||1;
+    tendHTML='<div class="dmT" style="margin-top:14px">Tendencia semanal · % de las prendas revisadas</div>'+
+      '<div style="display:flex;align-items:flex-end;gap:6px;height:110px;padding:8px 2px 0;border-bottom:1px solid #DCE5E2">'+
+      puntos.map(function(x){
+        var h=Math.max(3,Math.round(x.p/mx*92));
+        return '<div style="flex:1;text-align:center" title="Semana '+x.w+': '+x.n+' de '+x.d+' = '+x.p+'%">'+
+          '<div style="height:'+h+'px;background:#B45309;border-radius:3px 3px 0 0"></div>'+
+          '<div style="font-size:10px;color:#5F726C;margin-top:3px">S'+x.w+'</div></div>';
+      }).join('')+'</div>'+
+      '<div style="font-size:11.5px;color:#5F726C;margin-top:5px">Solo se grafican las semanas con al menos '+MIN_SEM+' prendas revisadas.</div>';
+  }
+
+  // CATEGORÍA MADRE. Aquí está el valor de cruzar las dos fuentes: en el texto libre del
+  // histórico, "MANCHAS OTRAS", "MANCHAS ACEITE" y "MANCHAS SUCIEDAD" son tres etiquetas
+  // sueltas. En el formulario son una sola categoría (Manchas) con tres subtipos. Al pinchar
+  // cualquiera de las variantes se muestra la categoría completa, que es el problema real.
+  var subHTML='';
+  if(DET_OK){
+    // ¿a qué categoría madre pertenece el tipo clicado?
+    var madre='', mejor=0;
+    det.forEach(function(x){
+      (DET_DER[x.id]||[]).forEach(function(d){
+        var full=(d.categoria+' '+(d.subtipo||'')).trim().toUpperCase();
+        if(full===tipo || tipo.indexOf(d.categoria.toUpperCase())===0){
+          if(d.cant>mejor){ mejor=d.cant; madre=d.categoria; }
+        }
+      });
+    });
+    if(madre){
+      // Todo lo de esa categoría, en TODAS las auditorías del período que tengan detalle
+      var sub={}, totalMadre=0, idsConDet={};
+      filasPeriodoDer().forEach(function(r){
+        var id=String(r['ID_AUDITORIA']||'').trim();
+        var lista=DET_DER[id]; if(!lista) return;
+        idsConDet[id]=true;
+        lista.forEach(function(d){
+          if(d.categoria!==madre) return;
+          var k=d.subtipo||'(sin subtipo)';
+          sub[k]=(sub[k]||0)+d.cant; totalMadre+=d.cant;
+        });
+      });
+      var arr=Object.keys(sub).map(function(k){return [k,sub[k],0,null];})
+                .sort(function(a,b){ return b[1]-a[1]; });
+      if(arr.length){
+        var nAud=Object.keys(idsConDet).length;
+        subHTML='<div class="dmT" style="margin-top:16px">Categoría completa: '+madre+' · '+
+            totalMadre.toLocaleString('es-PE')+' prendas</div>'+
+          '<div style="font-size:12px;color:#5F726C;margin:2px 0 8px">'+
+            'En el histórico este problema viene partido en varias etiquetas de texto. El formulario lo guarda '+
+            'como una sola categoría con sus subtipos, y así se ve el tamaño real. '+
+            'Cubre las '+nAud+' auditorías del período que ya vienen del formulario.</div>'+
+          '<div class="dmGrid">'+mini('Subtipo de '+madre, arr)+'</div>';
+      }
+    }
+  }
+
+  var pctTotal = loteTotal? +(total/loteTotal*100).toFixed(2) : null;
 
   var m=document.getElementById('derModal');
   if(!m){
@@ -1427,17 +1594,20 @@ function derDetalle(tipo){
   }
   m.innerHTML='<div class="derModC">'+
     '<div class="derModH">'+tipo+' · '+total.toLocaleString('es-PE')+' prendas derivadas'+
+      (pctTotal!=null? ' <span style="font-weight:400;opacity:.85">de '+loteTotal.toLocaleString('es-PE')+' revisadas · '+pctTotal+'%</span>' : '')+
       '<button type="button" onclick="document.getElementById(\'derModal\').style.display=\'none\'">&times;</button></div>'+
     '<div class="derModB">'+
+      '<div style="font-size:12px;color:#5F726C;margin-bottom:10px">Cada línea muestra las prendas con este derivado sobre el total revisado de ese taller, cliente, estilo o tela. Son tasas independientes: no suman 100%.</div>'+
       '<div class="dmGrid">'+mini('Cliente',agrupa('cliente'))+mini('Taller',agrupa('taller'))+
         mini('Estilo',agrupa('estilo'))+mini('Tela',agrupa('tela'))+'</div>'+
+      subHTML + tendHTML +
       '<div class="dmT" style="margin-top:14px">Auditorías donde apareció</div>'+
       '<div class="dmTbl"><table><thead><tr><th>Fecha</th><th>Cliente</th><th>Grupo</th>'+
-        '<th>Estilo</th><th>Color</th><th>Taller</th><th>Tela</th><th>Prendas</th></tr></thead><tbody>'+
+        '<th>Estilo</th><th>Color</th><th>Taller</th><th>Tela</th><th>Lote</th><th>Prendas</th></tr></thead><tbody>'+
         det.slice(0,120).map(function(x){
           return '<tr><td>'+x.fecha+'</td><td>'+x.cliente+'</td><td>'+x.grupo+'</td>'+
             '<td>'+x.estilo+'</td><td>'+x.color+'</td><td>'+x.taller+'</td>'+
-            '<td>'+(x.tela||'—')+'</td><td class="nu"><b>'+x.cant+'</b></td></tr>';
+            '<td>'+(x.tela||'—')+'</td><td class="nu">'+(x.lote||'—')+'</td><td class="nu"><b>'+x.cant+'</b></td></tr>';
         }).join('')+'</tbody></table></div>'+
     '</div></div>';
   m.style.display='flex';
@@ -1448,8 +1618,8 @@ if(typeof _rpDer==='function'){
   window.renderPeriod=function(){ var r=_rpDer.apply(this,arguments); try{ derPanel(); }catch(e){ console.warn('derPanel',e); } return r; };
 }
 
-document.addEventListener('DOMContentLoaded',function(){ cargarEnVivo(); });
-if(document.readyState!=='loading') cargarEnVivo();
+document.addEventListener('DOMContentLoaded',function(){ cargarEnVivo(); cargarDetalleFino(); });
+if(document.readyState!=='loading'){ cargarEnVivo(); cargarDetalleFino(); }
 </script>
 
 <script id="lf-app">
