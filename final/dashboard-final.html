@@ -130,6 +130,15 @@
   .fc-firma .fl{border-bottom:1px solid #bbb;height:30px;margin-bottom:4px;}
   .fc-foot{background:var(--warm-light);padding:10px 24px;font-size:10px;color:var(--stone);display:flex;justify-content:space-between;}
 
+  /* Los KPIs de universo y las 3 tarjetas de motivos, en pantallas chicas */
+  @media(max-width:900px){
+    #uniKpis{grid-template-columns:repeat(2,1fr)!important;}
+    #uniTop>div:last-child{grid-template-columns:1fr!important;}
+    /* Preexistente: este panel medía 760px en un celular de 390 y empujaba toda la
+       página hacia los lados. Ahora tiene su propio scroll dentro de la tarjeta. */
+    #panelPerf{overflow-x:auto;}
+    #panelPerf>*{min-width:0;}
+  }
   @media print{
     @page{size:A4 portrait;margin:11mm;}
     *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
@@ -404,12 +413,21 @@
         </div>
       </div>
 
-      <!-- Derivados — Talleres (LIVES nunca tiene este dato, se quitó ese lado) -->
-      <div class="panel" id="panelDerTaller">
-        <div class="pt">🧵 Derivados — Talleres externos <span style="font-weight:400;color:var(--stone);font-size:12px;">(<span id="derTn">0</span> und.)</span></div>
-        <div class="ph">Defectos hallados en el <b>lote completo</b> de talleres externos (no en la muestra) durante el período seleccionado. Mismo formato que DEFECTOS, pero de la inspección del lote de donde se sacó la muestra. LIVES no tiene este dato (la inspección de lote completo solo aplica a talleres externos), por eso no aparece aquí.</div>
-        <div class="cwrap" style="height:280px;"><canvas id="cDerTaller"></canvas></div>
+      <!-- RESUMEN DEL UNIVERSO + TOP 3 MOTIVOS.
+           Va arriba de todo el bloque de derivados porque responde primero la pregunta
+           de fondo: de cuántas prendas estamos hablando, cuántas se miraron una por una
+           y cuántas salieron con problema. Sin eso, los conteos de abajo son números
+           sueltos que no se pueden comparar entre talleres ni entre semanas. -->
+      <div class="panel" id="panelUniverso">
+        <div class="pt">🎯 De cuántas prendas estamos hablando</div>
+        <div class="ph" id="uniSub"></div>
+        <div id="uniKpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px"></div>
+        <div id="uniTop"></div>
       </div>
+
+      <!-- El panel de derivados con gráfico se eliminó: mostraba lo mismo que el de
+           abajo, con menos motivos (8 contra 10), sin telas y sin porcentaje sobre el
+           lote. Se conserva uno solo para no tener dos lecturas del mismo dato. -->
 
       <!-- TALLERES EXTERNOS + AUDITORAS DE TALLER, lado a lado, ambos con scroll interno -->
       <div class="grid2" id="rowTallerAudt">
@@ -1178,7 +1196,7 @@ function renderPeriod(mode,value){
       options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,layout:{padding:{right:28}},plugins:{legend:{display:false},valueLabel:{suffix:""},tooltip:{callbacks:{label:c=>c.raw+" incid."}}},
         scales:{x:{min:0,grid:{color:WARML},border:{display:false},ticks:{precision:0}},y:{grid:{display:false},border:{color:WARM},ticks:{font:{size:10}}}}},plugins:[valueLabel]}));
   }
-  derChart("cDerTaller",tal,"derTn",SLATE,"panelDerTaller");
+  try{ renderUniverso(); }catch(e){ console.warn('renderUniverso', e); }
 
   // footer
   const hoy=new Date().toLocaleDateString("es-PE",{day:"numeric",month:"long",year:"numeric"});
@@ -1412,20 +1430,29 @@ function derPanel(){
   if(!totalDer){ cont.innerHTML=''; cont.style.display='none'; return; }
   cont.style.display='';
 
-  function barras(obj, cls, click){
+  // Denominador del período: prendas revisadas en talleres externos, que es de donde
+  // salen los derivados. Sin esto las barras son conteos sueltos que no se pueden
+  // comparar entre semanas ni entre talleres de distinto tamaño.
+  var loteExt = 0;
+  filasPeriodoDer().forEach(function(r){
+    if(String(r['INT/EXT']||'')!=='EXTERNO') return;
+    loteExt += Number(r['LOTE_CONTABLE']!=null&&r['LOTE_CONTABLE']!==''?r['LOTE_CONTABLE']:r['LOTE'])||0;
+  });
+  function barras(obj, cls, click, conPct){
     var arr=Object.keys(obj).map(function(k){ return [k,obj[k]]; })
               .sort(function(a,b){ return b[1]-a[1]; }).slice(0,10);
     var max=arr.length?arr[0][1]:1;
     return arr.map(function(x){
+      var pct = (conPct && loteExt) ? ('<span style="opacity:.65;font-weight:600"> · '+(x[1]/loteExt*100).toFixed(2)+'%</span>') : '';
       return '<button type="button" class="derB '+cls+'" '+(click?('data-d="'+encodeURIComponent(x[0])+'"'):'')+'>'+
         '<span class="derN">'+x[0]+'</span>'+
         '<span class="derBar"><i style="width:'+(x[1]/max*100).toFixed(1)+'%"></i></span>'+
-        '<span class="derV">'+x[1].toLocaleString('es-PE')+'</span></button>';
+        '<span class="derV">'+x[1].toLocaleString('es-PE')+pct+'</span></button>';
     }).join('') || '<div class="derVacio">Sin datos en el período.</div>';
   }
 
   var telaHtml = conTela
-    ? barras(porTela,'tela',false)
+    ? barras(porTela,'tela',true,true)
     : '<div class="derVacio">Todavía no hay auditorías con tela registrada. '+
       'La tela llega desde la orden de producción: aparece en cuanto se digiten '+
       'auditorías con OP.</div>';
@@ -1433,28 +1460,260 @@ function derPanel(){
   cont.innerHTML =
     '<div class="derWrap">'+
       '<div class="derCard">'+
-        '<div class="derTit">Derivados por tipo</div>'+
-        '<div class="derSub">Defectos hallados al revisar el lote completo, fuera de la muestra. '+
-          'Haz clic en uno para ver de qué clientes, talleres y estilos viene.</div>'+
-        barras(porTipo,'tipo',true)+
+        '<div class="derTit">Derivados por tipo'+
+          '<span style="font-weight:400;color:#5F726C;font-size:12px"> · '+totalDer.toLocaleString('es-PE')+' prendas'+
+          (loteExt? (' de '+loteExt.toLocaleString('es-PE')+' revisadas · '+(totalDer/loteExt*100).toFixed(2)+'%') : '')+
+          '</span></div>'+
+        '<div class="derSub">Prendas separadas al revisar el <b>lote completo</b> en talleres externos, fuera de la muestra. '+
+          'El % es sobre las prendas revisadas. <b>Toca un motivo</b> para ver de qué talleres, estilos y semanas viene.</div>'+
+        barras(porTipo,'tipo',true,true)+
       '</div>'+
       '<div class="derCard">'+
         '<div class="derTit">Telas más recurrentes en derivados</div>'+
-        '<div class="derSub">Prendas derivadas acumuladas por tela'+
-          (conTela&&conTela<totalDer ? (' · '+Math.round(conTela/totalDer*100)+'% de los derivados tiene tela registrada') : '')+
-        '</div>'+
+        '<div class="derSub">Toca una tela para ver su detalle. Prendas derivadas del período agrupadas por tela.</div>'+
+        (function(){
+          // AVISO DE COBERTURA. La tela solo viene de auditorías con OP, y hoy son pocas.
+          // Sin este aviso las barras parecen el total del período y en realidad son una
+          // fracción: se leía como si esas telas fueran las que más fallan, cuando son
+          // simplemente las únicas que tienen el dato.
+          if(!conTela || conTela>=totalDer) return '';
+          var pc=Math.round(conTela/totalDer*100);
+          return '<div style="background:#FDF6E3;border-left:3px solid var(--tan);border-radius:0 6px 6px 0;'+
+            'padding:8px 11px;margin:0 0 10px;font-size:11.5px;color:#7a5a12;line-height:1.5">'+
+            '<b>Solo '+pc+'% de los derivados tiene tela registrada</b> ('+conTela.toLocaleString('es-PE')+
+            ' de '+totalDer.toLocaleString('es-PE')+' prendas). Lo de abajo es esa parte, no el total: '+
+            'todavía no sirve para decir qué tela falla más. La tela llega desde la OP y va subiendo sola.</div>';
+        })()+
         telaHtml+
       '</div>'+
     '</div>';
 
   Array.prototype.forEach.call(cont.querySelectorAll('[data-d]'),function(b){
-    b.onclick=function(){ derDetalle(decodeURIComponent(b.dataset.d)); };
+    var esTela = b.className.indexOf('tela')>=0;
+    b.onclick=function(){
+      var v=decodeURIComponent(b.dataset.d);
+      if(esTela) telaDetalle(v); else derDetalle(v);
+    };
   });
+}
+
+/* ============================================================================
+   FICHA DE UNA TELA
+   Responde lo mismo que la ficha de un derivado, pero mirando desde la tela:
+   cuántas prendas de esa tela se revisaron, cuántas se derivaron, por qué
+   motivos, en qué talleres y cómo viene evolucionando.
+   ========================================================================== */
+function telaDetalle(tela){
+  var rows=filasPeriodoDer();
+  var loteTela=0, derTela=0, porMotivo={}, porTaller={}, porTallerLote={},
+      porEstilo={}, porSemNum={}, porSemDen={}, auds=[];
+  // El panel guarda el nombre de la tela ya normalizado a mayúsculas; en el Sheet viene
+  // en mixto ("Rib 2x2 w/Spandex..."). Se comparan ambos normalizados o no coincide nada
+  // y la ficha salía en ceros.
+  function normTela(v){ return String(v==null?'':v).trim().toUpperCase(); }
+  var telaN = normTela(tela);
+  rows.forEach(function(r){
+    if(normTela(r['TELA']||r['COD TELA'])!==telaN) return;
+    var lote=Number(r['LOTE_CONTABLE']!=null&&r['LOTE_CONTABLE']!==''?r['LOTE_CONTABLE']:r['LOTE'])||0;
+    var taller=String(r['SERVICIO']||'')||(String(r['INT/EXT']||'')==='INTERNO'?'LIVES':'—');
+    var sem=Number(r['SEMANA'])||0;
+    loteTela+=lote;
+    porTallerLote[taller]=(porTallerLote[taller]||0)+lote;
+    if(sem) porSemDen[sem]=(porSemDen[sem]||0)+lote;
+    var enFila=0;
+    derParse(r['DERIVADOS']).forEach(function(d){
+      enFila+=d.cant; derTela+=d.cant;
+      porMotivo[d.nombre]=(porMotivo[d.nombre]||0)+d.cant;
+    });
+    if(enFila){
+      porTaller[taller]=(porTaller[taller]||0)+enFila;
+      var est=String(r['ESTILO']||'—'); porEstilo[est]=(porEstilo[est]||0)+enFila;
+      if(sem) porSemNum[sem]=(porSemNum[sem]||0)+enFila;
+      auds.push({fecha:String(r['FECHA']||''), taller:taller, estilo:est,
+                 color:String(r['COLOR']||''), lote:lote, cant:enFila});
+    }
+  });
+  auds.sort(function(a,b){ return b.cant-a.cant; });
+
+  function lista(num, den){
+    var arr=Object.keys(num).map(function(k){
+      var d=den?(den[k]||0):0;
+      return [k, num[k], d, d? +(num[k]/d*100).toFixed(2) : null];
+    }).sort(function(a,b){ return b[1]-a[1]; }).slice(0,8);
+    if(!arr.length) return '<span style="font-size:11.5px;color:#5F726C">Sin registros.</span>';
+    var mx=arr[0][1];
+    return arr.map(function(x){
+      var extra = (x[3]==null)?'':' <span style="opacity:.7">de '+x[2].toLocaleString('es-PE')+' · '+x[3]+'%</span>';
+      return '<div class="dmF"><span>'+x[0]+'</span><b>'+x[1].toLocaleString('es-PE')+extra+'</b></div>';
+    }).join('');
+  }
+
+  var MIN_SEM=200, tendHTML='';
+  var sems=Object.keys(porSemDen).map(Number).sort(function(a,b){return a-b;});
+  var pts=sems.map(function(w){
+    var d=porSemDen[w]||0;
+    return {w:w, p:(d>=MIN_SEM)? +((porSemNum[w]||0)/d*100).toFixed(2):null, n:porSemNum[w]||0, d:d};
+  }).filter(function(x){ return x.p!==null; });
+  if(pts.length>=2){
+    var mx=Math.max.apply(null,pts.map(function(x){return x.p;}))||1;
+    tendHTML='<div class="dmT" style="margin-top:14px">Tendencia semanal · % del lote de esta tela</div>'+
+      '<div style="display:flex;align-items:flex-end;gap:6px;height:110px;padding:8px 2px 0;border-bottom:1px solid #DCE5E2">'+
+      pts.map(function(x){
+        var h=Math.max(3,Math.round(x.p/mx*92));
+        return '<div style="flex:1;text-align:center" title="Semana '+x.w+': '+x.n+' de '+x.d+' = '+x.p+'%">'+
+          '<div style="height:'+h+'px;background:#4E6B78;border-radius:3px 3px 0 0"></div>'+
+          '<div style="font-size:10px;color:#5F726C;margin-top:3px">S'+x.w+'</div></div>';
+      }).join('')+'</div>'+
+      '<div style="font-size:11.5px;color:#5F726C;margin-top:5px">Solo semanas con al menos '+MIN_SEM+' prendas de esta tela.</div>';
+  }
+
+  var tasa = loteTela? +(derTela/loteTela*100).toFixed(2) : null;
+  var m=document.getElementById('derModal');
+  if(!m){
+    m=document.createElement('div'); m.id='derModal'; m.className='derMod';
+    m.onclick=function(e){ if(e.target===m) m.style.display='none'; };
+    document.body.appendChild(m);
+  }
+  m.innerHTML='<div class="derModC">'+
+    '<div class="derModH">'+tela+'<button type="button" onclick="document.getElementById(\'derModal\').style.display=\'none\'">&times;</button></div>'+
+    '<div class="derModB">'+
+      '<div class="dmGrid" style="margin-bottom:4px">'+
+        '<div class="dmCol"><div class="dmT">Universo de esta tela</div>'+
+          '<div class="dmF"><span>Prendas revisadas</span><b>'+loteTela.toLocaleString('es-PE')+'</b></div>'+
+          '<div class="dmF"><span>Prendas derivadas</span><b>'+derTela.toLocaleString('es-PE')+'</b></div>'+
+          '<div class="dmF"><span>Tasa de derivados</span><b>'+(tasa!=null? tasa+'%' : '—')+'</b></div>'+
+          '<div class="dmF"><span>Auditorías con derivados</span><b>'+auds.length+'</b></div></div>'+
+        '<div class="dmCol"><div class="dmT">Principales motivos</div>'+lista(porMotivo,null)+'</div>'+
+        '<div class="dmCol"><div class="dmT">Por taller</div>'+lista(porTaller,porTallerLote)+'</div>'+
+        '<div class="dmCol"><div class="dmT">Por estilo</div>'+lista(porEstilo,null)+'</div>'+
+      '</div>'+ tendHTML +
+      '<div class="dmT" style="margin-top:14px">Auditorías de esta tela con derivados</div>'+
+      '<div class="dmTbl"><table><thead><tr><th>Fecha</th><th>Taller</th><th>Estilo</th>'+
+        '<th>Color</th><th>Lote</th><th>Derivadas</th><th>%</th></tr></thead><tbody>'+
+        auds.slice(0,100).map(function(x){
+          var p=x.lote? (x.cant/x.lote*100).toFixed(2)+'%' : '—';
+          return '<tr><td>'+x.fecha+'</td><td>'+x.taller+'</td><td>'+x.estilo+'</td><td>'+x.color+'</td>'+
+            '<td class="nu">'+(x.lote||'—')+'</td><td class="nu"><b>'+x.cant+'</b></td><td class="nu">'+p+'</td></tr>';
+        }).join('')+'</tbody></table></div>'+
+    '</div></div>';
+  m.style.display='flex';
+}
+
+/* ============================================================================
+   PANEL DE UNIVERSO + TOP 3 MOTIVOS
+   ----------------------------------------------------------------------------
+   Los dos universos NO se mezclan, porque miden cosas distintas:
+     · LOTE    = prendas que pasaron por la auditoría. En talleres externos se
+                 revisa el lote completo, y de ahí salen los DERIVADOS.
+     · MUESTRA = prendas inspeccionadas una por una según AQL. De ahí salen
+                 los DEFECTOS. Es una fracción del lote.
+   Un defecto sobre el lote y un derivado sobre la muestra son números sin
+   sentido; por eso cada tasa dice explícitamente sobre qué está calculada.
+   ========================================================================== */
+function renderUniverso(){
+  var cont=document.getElementById('panelUniverso');
+  if(!cont) return;
+  var rows=filasPeriodoDer();
+  if(!rows.length){ cont.style.display='none'; return; }
+  cont.style.display='';
+
+  var lote=0, muestra=0, defs=0, ders=0, nAud=rows.length, loteTaller=0;
+  var motNum={}, motTallerNum={}, motTallerDen={}, motSemNum={}, semDen={};
+  rows.forEach(function(r){
+    var L=Number(r['LOTE_CONTABLE']!=null&&r['LOTE_CONTABLE']!==''?r['LOTE_CONTABLE']:r['LOTE'])||0;
+    var M=Number(r['MUESTRA_CONTABLE']!=null&&r['MUESTRA_CONTABLE']!==''?r['MUESTRA_CONTABLE']:r['MUESTRA'])||0;
+    var externo = String(r['INT/EXT']||'')==='EXTERNO';
+    var taller=String(r['SERVICIO']||'')||(externo?'—':'LIVES');
+    var sem=Number(r['SEMANA'])||0;
+    lote+=L; muestra+=M;
+    if(sem) semDen[sem]=(semDen[sem]||0)+L;
+    if(externo){ loteTaller+=L; motTallerDen[taller]=(motTallerDen[taller]||0)+L; }
+    (function(){ var acc={}; defCount(r['DEFECTOS'],acc);
+      for(var k in acc) defs+=acc[k]; })();
+    derParse(r['DERIVADOS']).forEach(function(d){
+      ders+=d.cant;
+      motNum[d.nombre]=(motNum[d.nombre]||0)+d.cant;
+      (motTallerNum[d.nombre]=motTallerNum[d.nombre]||{});
+      motTallerNum[d.nombre][taller]=(motTallerNum[d.nombre][taller]||0)+d.cant;
+      (motSemNum[d.nombre]=motSemNum[d.nombre]||{});
+      if(sem) motSemNum[d.nombre][sem]=(motSemNum[d.nombre][sem]||0)+d.cant;
+    });
+  });
+
+  document.getElementById('uniSub').innerHTML =
+    'Dos universos distintos, nunca sumados: los <b>derivados</b> salen de revisar el '+
+    '<b>lote completo</b> en talleres externos; los <b>defectos</b> salen de la '+
+    '<b>muestra inspeccionada</b> (AQL). Cada porcentaje dice sobre cuál está calculado.';
+
+  function kpi(v,l,sub,color){
+    return '<div style="background:#fff;border:1px solid var(--warm);border-radius:12px;padding:14px 16px;box-shadow:0 1px 3px rgba(14,59,54,.06)">'+
+      '<div style="font-size:24px;font-weight:800;color:'+(color||'#0E3B36')+';line-height:1.1">'+v+'</div>'+
+      '<div style="font-size:12px;font-weight:700;color:#333;margin-top:3px">'+l+'</div>'+
+      '<div style="font-size:11px;color:#5F726C;margin-top:2px;line-height:1.4">'+sub+'</div></div>';
+  }
+  var tasaDer = loteTaller? (ders/loteTaller*100).toFixed(2) : null;
+  var tasaDef = muestra? (defs/muestra*100).toFixed(2) : null;
+  var pctInsp = lote? (muestra/lote*100).toFixed(1) : null;
+  document.getElementById('uniKpis').innerHTML =
+    kpi(lote.toLocaleString('es-PE'),'Prendas en los lotes','Total que pasó por auditoría · '+nAud+' auditorías')+
+    kpi(muestra.toLocaleString('es-PE'),'Prendas inspeccionadas',(pctInsp!=null?('Muestra AQL · '+pctInsp+'% del lote'):'Muestra AQL'))+
+    kpi(ders.toLocaleString('es-PE')+(tasaDer!=null?(' <span style="font-size:14px;font-weight:700">· '+tasaDer+'%</span>'):''),
+        'Prendas derivadas','Sobre '+loteTaller.toLocaleString('es-PE')+' del lote de talleres externos','#B45309')+
+    kpi(defs.toLocaleString('es-PE')+(tasaDef!=null?(' <span style="font-size:14px;font-weight:700">· '+tasaDef+'%</span>'):''),
+        'Defectos en muestra','Sobre las '+muestra.toLocaleString('es-PE')+' prendas inspeccionadas','#DC2626');
+
+  // TOP 3 motivos: cada uno con su peso, su taller de origen y su tendencia.
+  var top=Object.keys(motNum).map(function(k){return {k:k,v:motNum[k]};})
+            .sort(function(a,b){return b.v-a.v;}).slice(0,3);
+  if(!top.length){ document.getElementById('uniTop').innerHTML=''; return; }
+  var sems=Object.keys(semDen).map(Number).sort(function(a,b){return a-b;});
+  var MIN=200;
+
+  document.getElementById('uniTop').innerHTML =
+    '<div style="font-size:13px;font-weight:800;color:#0E3B36;margin-bottom:4px">Los 3 motivos que más pesan</div>'+
+    '<div style="font-size:11.5px;color:#5F726C;margin-bottom:10px">Toca cualquiera para abrir su ficha completa.</div>'+
+    '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">'+
+    top.map(function(t,i){
+      var tall=motTallerNum[t.k]||{};
+      var mejor=Object.keys(tall).map(function(k){
+        var d=motTallerDen[k]||0;
+        return {k:k, v:tall[k], d:d, p:d? +(tall[k]/d*100).toFixed(2):null};
+      }).sort(function(a,b){return b.v-a.v;})[0];
+      var pts=sems.map(function(w){
+        var d=semDen[w]||0;
+        return (d>=MIN)? +(((motSemNum[t.k]||{})[w]||0)/d*100).toFixed(2) : null;
+      }).filter(function(x){return x!==null;});
+      var spark='';
+      if(pts.length>=2){
+        var mx=Math.max.apply(null,pts)||1;
+        spark='<div style="display:flex;align-items:flex-end;gap:3px;height:34px;margin-top:8px">'+
+          pts.map(function(v){ return '<div style="flex:1;height:'+Math.max(2,Math.round(v/mx*32))+'px;background:#B45309;border-radius:2px 2px 0 0"></div>'; }).join('')+'</div>'+
+          '<div style="font-size:10.5px;color:#5F726C;margin-top:2px">Tendencia semanal · último '+pts[pts.length-1]+'%</div>';
+      }
+      var pesoPct = ders? (t.v/ders*100).toFixed(1) : '0';
+      var sobreLote = loteTaller? (t.v/loteTaller*100).toFixed(2) : null;
+      return '<div onclick="derDetalle('+JSON.stringify(t.k).replace(/"/g,'&quot;')+')" '+
+        'style="cursor:pointer;background:#fff;border:1px solid var(--warm);border-radius:12px;padding:13px 15px;box-shadow:0 1px 3px rgba(14,59,54,.06)">'+
+        '<div style="font-size:11px;font-weight:700;color:#5F726C">#'+(i+1)+'</div>'+
+        '<div style="font-size:14px;font-weight:800;color:#0E3B36;margin:2px 0 6px;line-height:1.25">'+t.k+'</div>'+
+        '<div style="font-size:19px;font-weight:800;color:#B45309">'+t.v.toLocaleString('es-PE')+
+          '<span style="font-size:12px;font-weight:600;color:#5F726C"> prendas</span></div>'+
+        '<div style="font-size:11.5px;color:#5F726C;line-height:1.6;margin-top:4px">'+
+          pesoPct+'% de todos los derivados'+(sobreLote!=null?(' · '+sobreLote+'% del lote'):'')+'<br>'+
+          (mejor? ('Más en <b>'+mejor.k+'</b>: '+mejor.v.toLocaleString('es-PE')+
+                   (mejor.p!=null?(' de '+mejor.d.toLocaleString('es-PE')+' · '+mejor.p+'%'):'')) : '')+
+        '</div>'+ spark +'</div>';
+    }).join('')+'</div>';
 }
 
 /* Detalle de un derivado: de dónde viene. */
 function derDetalle(tipo){
-  var rows=derFilas(), det=[], total=0;
+  // El universo son TODAS las prendas revisadas en talleres externos del período, no solo
+  // las auditorías que tuvieron derivados. Antes usaba derFilas() (solo las que tenían algo),
+  // y eso achicaba el denominador e inflaba la tasa: el panel decía 3.65% sobre 58,426 y la
+  // ficha del mismo motivo decía 3.55% sobre 13,197. Dos cifras para el mismo dato.
+  var rows=filasPeriodoDer().filter(function(r){ return String(r['INT/EXT']||'')==='EXTERNO'; });
+  var det=[], total=0;
   // Denominador del universo: las prendas realmente revisadas en esas auditorías.
   // Sin esto las cifras son absolutas y no se puede comparar un taller grande
   // con uno chico — que es justo la decisión que hay que tomar.
