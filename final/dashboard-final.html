@@ -131,6 +131,48 @@
   .fc-foot{background:var(--warm-light);padding:10px 24px;font-size:10px;color:var(--stone);display:flex;justify-content:space-between;}
 
   /* Los KPIs de universo y las 3 tarjetas de motivos, en pantallas chicas */
+  /* ===== TABLAS EJECUTIVAS =====
+     Antes cada tabla traía su propio estilo suelto: encabezados sin peso, números
+     alineados a la izquierda mezclados con texto, filas sin separación. Se leía como
+     una lista de datos, no como un reporte. Esto unifica las 17 tablas del tablero:
+     encabezado en Petróleo, números a la derecha con cifras de ancho fijo (así las
+     columnas quedan alineadas verticalmente y se comparan de un vistazo), filas
+     alternadas suaves y realce al pasar el cursor. */
+  .tblScroll table th{
+    background:var(--petrol); color:#fff; font-size:11px; font-weight:700;
+    text-transform:uppercase; letter-spacing:.5px; padding:10px 12px;
+    text-align:left; white-space:nowrap; border:none;
+  }
+  .tblScroll thead th{ box-shadow:0 2px 0 rgba(14,59,54,.15); }
+  .tblScroll table td{
+    padding:9px 12px; font-size:12.5px; border-bottom:1px solid var(--warm-light);
+    vertical-align:middle;
+  }
+  .tblScroll table tbody tr:nth-child(even){ background:#FAFCFB; }
+  .tblScroll table tbody tr:hover{ background:var(--warm-light); }
+  .tblScroll table tbody tr:last-child td{ border-bottom:none; }
+  /* Números: alineados a la derecha y con cifras de ancho fijo para que las
+     unidades, decenas y centenas queden una debajo de otra. */
+  .tblScroll table td.nu, .tblScroll table th.nu,
+  .tblScroll table td[align="right"]{
+    text-align:right; font-variant-numeric:tabular-nums; font-feature-settings:"tnum";
+  }
+  .tblScroll table td:first-child{ font-weight:600; color:#0E3B36; }
+  .tblScroll{ box-shadow:0 1px 3px rgba(14,59,54,.06); border-radius:12px; overflow:hidden; }
+  .tblScroll{ overflow-y:auto; overflow-x:auto; }
+  /* Mismo tratamiento dentro de las fichas de detalle */
+  .dmTbl table th{
+    background:var(--warm-light); color:#4E6B78; font-size:10.5px; font-weight:700;
+    text-transform:uppercase; letter-spacing:.4px; padding:8px 8px; text-align:left;
+    position:sticky; top:0; z-index:1;
+  }
+  .dmTbl table tbody tr:nth-child(even){ background:#FAFCFB; }
+  .dmTbl table tbody tr:hover{ background:var(--warm-light); }
+  .dmTbl td.nu{ font-variant-numeric:tabular-nums; font-feature-settings:"tnum"; }
+  .dmTbl table td:first-child{ color:#0E3B36; font-weight:600; }
+  /* Las píldoras de estado dentro de tablas, con el mismo peso visual */
+  .tblScroll .pill{ font-size:10.5px; padding:3px 9px; border-radius:20px; font-weight:700; white-space:nowrap; }
+
   @media(max-width:900px){
     #uniKpis{grid-template-columns:repeat(2,1fr)!important;}
     #uniTop>div:last-child{grid-template-columns:1fr!important;}
@@ -1133,7 +1175,25 @@ function renderPeriod(mode,value){
     if(procPanelEl) procPanelEl.style.display="";
     if(procSiblingEl) procSiblingEl.style.gridColumn="";
     const PROC_ORDER=["1RA","2DA","3RA","4TA","5TA","6TA"];
-    const procLabel=t=>{ for(const k of PROC_ORDER){ if(t.indexOf(k)>=0) return k+" AUDITORÍA"; } return "OTRO"; };
+    /* CORREGIDO: las dos fuentes escriben este dato distinto.
+       · El piloto AC-009-25 guarda texto: "1ra", "2da", "3ra", "Reproceso".
+       · El histórico que digita Athina guarda el número pelado: 1, 2, 3.
+       Antes se buscaba el texto "1RA" dentro del valor, y un "1" no lo contiene, así que
+       TODO el histórico caía en una categoría inventada llamada "OTRO". El gráfico salía
+       con una sola barra sin significado y se veía igual de creíble que los datos buenos.
+       Ahora el número se traduce a su ordinal antes de clasificar. */
+    const procLabel=t=>{
+      const soloNum=t.replace(/[^0-9]/g,"");
+      if(/^REPRO/.test(t)) return "REPROCESO";
+      // valor numérico puro (formato del histórico): 1 -> 1RA, 2 -> 2DA...
+      if(soloNum && soloNum===t.trim() ){
+        const n=parseInt(soloNum,10);
+        if(n>=1 && n<=PROC_ORDER.length) return PROC_ORDER[n-1]+" AUDITORÍA";
+        if(n>PROC_ORDER.length) return PROC_ORDER[PROC_ORDER.length-1]+" AUDITORÍA";
+      }
+      for(const k of PROC_ORDER){ if(t.indexOf(k)>=0) return k+" AUDITORÍA"; }
+      return "SIN CLASIFICAR";
+    };
     const proc={};
     wrows.forEach(r=>{
       const raw=r["N° DE AUDITORÍA"];
@@ -1148,6 +1208,28 @@ function renderPeriod(mode,value){
       const oa=PROC_ORDER.findIndex(k=>a.indexOf(k)===0), ob=PROC_ORDER.findIndex(k=>b.indexOf(k)===0);
       return (oa<0?99:oa)-(ob<0?99:ob);
     });
+    /* Si quedan filas sin clasificar, se dice en pantalla con el número exacto.
+       Un panel que no entiende sus datos tiene que avisarlo, no inventar una categoría
+       y pintarla como si fuera un hallazgo. */
+    (function(){
+      const sc = proc["SIN CLASIFICAR"];
+      const cont = document.getElementById("procesoPanel");
+      if(!cont) return;
+      let av = document.getElementById("procAviso");
+      if(!av){
+        av=document.createElement("div"); av.id="procAviso";
+        av.style.cssText="background:#FDF6E3;border-left:3px solid var(--tan);border-radius:0 6px 6px 0;padding:8px 11px;margin:0 0 10px;font-size:11.5px;color:#7a5a12;line-height:1.5";
+        const sub=cont.querySelector(".ph");
+        if(sub) sub.parentNode.insertBefore(av, sub.nextSibling); else cont.appendChild(av);
+      }
+      if(sc && sc.n){
+        av.style.display="";
+        av.innerHTML="<b>"+sc.n+" auditoría(s) no se pudieron clasificar</b> por número de auditoría: "+
+          "el valor llegó en un formato que no se reconoce. No están incluidas en las barras de abajo.";
+      }else{
+        av.style.display="none";
+      }
+    })();
     const pa=g=>g.n?+(g.ap/g.n*100).toFixed(1):0, pr=g=>g.n?+(g.re/g.n*100).toFixed(1):0;
     reg(new Chart(document.getElementById("cProceso"),{type:"bar",
       data:{labels:procLabels,datasets:[
@@ -1197,6 +1279,7 @@ function renderPeriod(mode,value){
         scales:{x:{min:0,grid:{color:WARML},border:{display:false},ticks:{precision:0}},y:{grid:{display:false},border:{color:WARM},ticks:{font:{size:10}}}}},plugins:[valueLabel]}));
   }
   try{ renderUniverso(); }catch(e){ console.warn('renderUniverso', e); }
+  try{ alinearNumeros(); }catch(e){}
 
   // footer
   const hoy=new Date().toLocaleDateString("es-PE",{day:"numeric",month:"long",year:"numeric"});
@@ -1610,6 +1693,26 @@ function telaDetalle(tela){
    Un defecto sobre el lote y un derivado sobre la muestra son números sin
    sentido; por eso cada tasa dice explícitamente sobre qué está calculada.
    ========================================================================== */
+/* Alinea a la derecha toda celda cuyo contenido sea un número o porcentaje.
+   Las tablas del tablero se arman en varios sitios distintos y no todas marcan sus
+   celdas numéricas; en vez de tocar cada una, se corrige al final del render. Sin esto
+   quedan cifras alineadas a la izquierda mezcladas con texto y las columnas no se
+   pueden comparar de un vistazo. */
+function alinearNumeros(){
+  try{
+    document.querySelectorAll('.tblScroll table td, .dmTbl table td').forEach(function(td){
+      var t=(td.textContent||'').trim();
+      if(t && /^[-+]?[\d.,]+\s*%?$/.test(t)) td.classList.add('nu');
+    });
+    document.querySelectorAll('.tblScroll table th').forEach(function(th){
+      var i=Array.prototype.indexOf.call(th.parentNode.children, th);
+      var tabla=th.closest('table');
+      var celda=tabla?tabla.querySelector('tbody tr td:nth-child('+(i+1)+')'):null;
+      if(celda && celda.classList.contains('nu')) th.classList.add('nu');
+    });
+  }catch(e){}
+}
+
 function renderUniverso(){
   var cont=document.getElementById('panelUniverso');
   if(!cont) return;
@@ -1941,6 +2044,95 @@ if(document.readyState!=='loading'){ cargarEnVivo(); cargarDetalleFino(); }
       return '<div class="m '+cc[0]+'"><div class="mn">S'+w+'</div><div class="mp" style="color:'+cc[1]+'">'+p+'%</div><div class="mt">'+d.n+' aud</div></div>';
     }).join("");
   }
+  /* ==========================================================================
+     DERIVADOS DE LA ENTIDAD (taller o cliente) DENTRO DE SU FICHA
+     Responde: de todo el lote que pasó por este taller, cuántas prendas se
+     separaron, por qué motivos, y cómo viene evolucionando.
+     El denominador es SIEMPRE el lote propio de la entidad en cada período,
+     nunca el total del dashboard: comparar un taller grande contra uno chico
+     con cifras absolutas lleva a decidir mal.
+     ========================================================================== */
+  function derivadosDeEntidad(erows, pp, sk){
+    function lote(r){ return Number(r["LOTE_CONTABLE"]!=null&&r["LOTE_CONTABLE"]!==""?r["LOTE_CONTABLE"]:r["LOTE"])||0; }
+    function periodoDe(r){ return sk==="week" ? Number(r["SEMANA"]) : moOf(r["FECHA"]); }
+
+    // Serie completa (todos los períodos con datos), para ver evolución
+    var num={}, den={}, motivos={}, totalDer=0, totalLote=0;
+    erows.forEach(function(r){
+      var k=periodoDe(r); if(k==null||isNaN(k)) return;
+      var L=lote(r);
+      den[k]=(den[k]||0)+L; totalLote+=L;
+      derParse(r["DERIVADOS"]).forEach(function(d){
+        num[k]=(num[k]||0)+d.cant; totalDer+=d.cant;
+        motivos[d.nombre]=(motivos[d.nombre]||0)+d.cant;
+      });
+    });
+    var claves=Object.keys(den).map(Number).sort(function(a,b){return a-b;});
+    if(!totalLote) return "";
+
+    // Solo se grafica un período si tuvo volumen suficiente: con lotes chicos el
+    // porcentaje salta de 0 a 20 por dos prendas y la línea confunde más que informa.
+    var MIN = sk==="week" ? 200 : 500;
+    var pts=claves.map(function(k){
+      var d=den[k]||0;
+      return {k:k, d:d, n:num[k]||0, p: d>=MIN ? +((num[k]||0)/d*100).toFixed(2) : null};
+    });
+    var visibles=pts.filter(function(x){ return x.p!==null; });
+
+    var sel = (pp.kind!=="acum") ? pp.value : null;
+    var barras="";
+    if(visibles.length>=2){
+      var mx=Math.max.apply(null,visibles.map(function(x){return x.p;}))||1;
+      barras='<div style="display:flex;align-items:flex-end;gap:5px;height:118px;padding:10px 2px 0;border-bottom:1px solid #DCE5E2;margin-top:6px">'+
+        visibles.map(function(x){
+          var act = (sel!=null && Number(x.k)===Number(sel));
+          var h=Math.max(3,Math.round(x.p/mx*98));
+          var etq = sk==="week" ? ("S"+x.k) : (["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Set","Oct","Nov","Dic"][x.k-1]||x.k);
+          return '<div style="flex:1;text-align:center" title="'+etq+': '+x.n+' derivadas de '+x.d.toLocaleString("es-PE")+' del lote = '+x.p+'%">'+
+            '<div style="font-size:9.5px;color:#5F726C;margin-bottom:2px">'+x.p+'%</div>'+
+            '<div style="height:'+h+'px;background:'+(act?"#0E3B36":"#B45309")+';border-radius:3px 3px 0 0"></div>'+
+            '<div style="font-size:10px;color:'+(act?"#0E3B36":"#5F726C")+';font-weight:'+(act?"800":"400")+';margin-top:3px">'+etq+'</div></div>';
+        }).join("")+'</div>'+
+        '<div style="font-size:11px;color:#5F726C;margin-top:5px">% de prendas derivadas sobre el lote propio de cada '+
+        (sk==="week"?"semana":"mes")+'. Solo se muestran los períodos con al menos '+MIN+' prendas revisadas.</div>';
+    }
+
+    // Período activo vs acumulado
+    var actual = (sel!=null) ? pts.filter(function(x){ return Number(x.k)===Number(sel); })[0] : null;
+    var tasaAcum = totalLote? (totalDer/totalLote*100).toFixed(2) : "0";
+    var cab = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px">'+
+      '<div style="background:#F1F6F4;border-radius:8px;padding:9px 11px">'+
+        '<div style="font-size:17px;font-weight:800;color:#B45309">'+totalDer.toLocaleString("es-PE")+'</div>'+
+        '<div style="font-size:11px;color:#5F726C">Prendas derivadas (acumulado)</div></div>'+
+      '<div style="background:#F1F6F4;border-radius:8px;padding:9px 11px">'+
+        '<div style="font-size:17px;font-weight:800;color:#0E3B36">'+totalLote.toLocaleString("es-PE")+'</div>'+
+        '<div style="font-size:11px;color:#5F726C">Prendas del lote revisadas</div></div>'+
+      '<div style="background:#F1F6F4;border-radius:8px;padding:9px 11px">'+
+        '<div style="font-size:17px;font-weight:800;color:#B45309">'+tasaAcum+'%</div>'+
+        '<div style="font-size:11px;color:#5F726C">Tasa acumulada'+
+          (actual&&actual.p!=null? (' · período actual '+actual.p+'%') : '')+'</div></div>'+
+      '</div>';
+
+    var top=Object.keys(motivos).map(function(k){return [k,motivos[k]];})
+              .sort(function(a,b){return b[1]-a[1];}).slice(0,6);
+    var lista = top.length ? ('<div style="margin-top:12px">'+
+      '<div style="font-size:12px;font-weight:800;color:#0E3B36;margin-bottom:5px">Motivos de derivación</div>'+
+      top.map(function(x){
+        var mx=top[0][1];
+        return '<div style="display:flex;align-items:center;gap:9px;margin:5px 0">'+
+          '<div style="width:150px;font-size:11.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+x[0]+'</div>'+
+          '<div style="flex:1;background:#F1F6F4;border-radius:4px;height:13px;overflow:hidden"><div style="width:'+Math.max(5,Math.round(x[1]/mx*100))+'%;height:100%;background:#B45309;border-radius:4px"></div></div>'+
+          '<div style="width:118px;text-align:right;font-size:11.5px;font-weight:700;color:#5F726C">'+x[1].toLocaleString("es-PE")+
+            ' · '+(totalLote?(x[1]/totalLote*100).toFixed(2):"0")+'%</div></div>';
+      }).join("")+'</div>') : "";
+
+    if(!totalDer) return '<div class="fc-sec">Derivados</div>'+
+      '<div style="font-size:12px;color:#5F726C">Sin prendas derivadas en el histórico de este registro. '+
+      'Los derivados solo se registran en talleres externos, donde se revisa el lote completo.</div>';
+
+    return '<div class="fc-sec">Derivados · sobre su propio lote</div>'+ cab + barras + lista;
+  }
+
   function entityFicha(key,period,entColOverride,entLabelOverride,fnName){
     var st=S();if(!st)return;var col=entColOverride||CFG.entCol;var entLabel=entLabelOverride||CFG.entLabel;var fn=fnName||"generarFicha";
     var erows=st.rows.filter(function(r){return gv(r,col)===key;});if(!erows.length)return;
@@ -1969,6 +2161,7 @@ if(document.readyState!=='loading'){ cargarEnVivo(); cargarDetalleFino(); }
       '<div class="fc-body"><div class="fc-kpis"><div class="k"><div class="v">'+ts.n+'</div><div class="l">Total Aud.</div></div><div class="k"><div class="v" style="color:var(--sage)">'+ts.ap+'</div><div class="l">Aprobadas</div></div><div class="k"><div class="v" style="color:#DC2626">'+ts.re+'</div><div class="l">Rechazadas</div></div><div class="k"><div class="v">'+ts.pct+'%</div><div class="l">% Aprobación</div></div></div>'+
       '<div class="fc-sec">'+evoTitle+' '+(st.year||"")+' · Tendencia ('+trWord+' vs. previo): '+badge(trend)+'</div><div class="fc-mes">'+evo+'</div>'+
       (weekInMonthHTML?('<div class="fc-sec">Semana a semana — '+plabel+'</div><div class="fc-mes">'+weekInMonthHTML+'</div>'):'')+
+      derivadosDeEntidad(erows, pp, sk)+
       '<div class="fc-sec">Contexto — '+plabel+'</div><div class="fc-ctx">'+ctxHTML+'</div>'+
       '<div class="fc-sec">Defectos más frecuentes — '+plabel+'</div><div class="fc-defs">'+(defsHTML||'<span class="d">Sin defectos registrados</span>')+'</div>'+
       '<div class="fc-sec">🎯 Puntos a mejorar</div><div class="fc-pm">'+pmHTML+'</div></div>'+
@@ -2049,7 +2242,7 @@ if(document.readyState!=='loading'){ cargarEnVivo(); cargarDetalleFino(); }
   function lfNormalize(){if(!CFG.renameMap)return false;var st=S();if(!st)return false;var arr=st.allRows||st.rows||[];var ch=false;arr.forEach(function(r){var v=r[CFG.renameCol];if(v!=null&&CFG.renameMap[v]!=null){r[CFG.renameCol]=CFG.renameMap[v];ch=true;}});return ch;}
   // ---- lente de % de rechazo por cliente ----
   function lfPeriodNow(){try{var cm=curMode();if(cm==="week")return {kind:"week",value:+document.getElementById("weekSel").value};if(cm==="month")return {kind:"month",value:+document.getElementById("monthSel").value};return {kind:"acum"};}catch(e){return {kind:"acum"};}}
-  function lfMountCliRej(){if(!CFG.clientLens||document.getElementById("lfCliRejPanel"))return;var anchor=document.getElementById(CFG.defCanvas);var panel=anchor&&anchor.closest(".panel");if(!panel||!panel.parentNode)return;var p=document.createElement("div");p.className="panel";p.id="lfCliRejPanel";p.innerHTML='<div class="pt">👔 % de rechazo por cliente</div><div class="ph">Clientes con mayor % de rechazo en el período (mín. 3 auditorías).</div><div class="cwrap" style="height:300px;"><canvas id="lfCliRej"></canvas></div>';panel.parentNode.insertBefore(p,panel.nextSibling);}
+  function lfMountCliRej(){if(!CFG.clientLens||document.getElementById("lfCliRejPanel"))return;var anchor=document.getElementById(CFG.defCanvas);var panel=anchor&&anchor.closest(".panel");if(!panel||!panel.parentNode)return;var p=document.createElement("div");p.className="panel";p.id="lfCliRejPanel";p.innerHTML='<div class="pt">👔 % de rechazo por cliente</div><div class="ph"><b>Toca un cliente</b> para abrir su ficha con la tendencia de derivados sobre su propio lote. Clientes con mayor % de rechazo en el período (mín. 3 auditorías).</div><div class="cwrap" style="height:300px;"><canvas id="lfCliRej"></canvas></div>';panel.parentNode.insertBefore(p,panel.nextSibling);}
   function lfRenderCliRej(){
     if(!CFG.clientLens)return;
     var panelEl=document.getElementById("lfCliRejPanel");
@@ -2067,6 +2260,15 @@ if(document.readyState!=='loading'){ cargarEnVivo(); cargarDetalleFino(); }
     if(panelEl)panelEl.style.display="";
     var cv=document.getElementById("lfCliRej");if(!cv||typeof Chart==="undefined")return;
     if(window._lfCliChart){try{window._lfCliChart.destroy();}catch(e){}}
+    // El cliente ahora abre su propia ficha: hasta ahora esta barra solo se miraba.
+    cv.style.cursor="pointer";
+    cv.onclick=function(ev){
+      if(!window._lfCliChart) return;
+      var hit=window._lfCliChart.getElementsAtEventForMode(ev,"nearest",{intersect:true},true);
+      if(!hit.length) return;
+      var cliente=window._lfCliChart.data.labels[hit[0].index];
+      if(typeof generarFichaCliente==="function") generarFichaCliente(cliente, curPeriodTok());
+    };
     var colors=list.map(function(x){return x.re>=40?"#DC2626":(x.re>=15?"#F59E0B":"#10B981");});
     window._lfCliChart=new Chart(cv,{
       type:"bar",
@@ -2085,6 +2287,10 @@ if(document.readyState!=='loading'){ cargarEnVivo(); cargarDetalleFino(); }
 
   // overrides globales
   window.generarFicha=function(key,period){entityFicha(key,period);};
+  /* Ficha por CLIENTE: la misma ficha, cambiando la columna de agrupación. Antes solo
+     existía por taller y por auditora, así que no había forma de ver la tendencia de
+     derivados de un cliente sobre su propio lote. */
+  window.generarFichaCliente=function(key,period){entityFicha(key,period,"CLIENTE","Cliente","generarFichaCliente");};
   window.generarFichaAudt=function(key,period){entityFicha(key,period,"AUD. TALLER","Auditora de Taller","generarFichaAudt");};
   window.openDefectFicha=function(dn,period){defectFicha(dn,period);};
   window.openTopDefectFicha=function(){topDefectFicha();};
