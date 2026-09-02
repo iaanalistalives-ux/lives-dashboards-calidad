@@ -166,36 +166,6 @@
              padding:5px 14px;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;}
   .avisoVivo button:hover{background:#0B815E;}
 
-  .panelCajas{background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(14,59,54,.10);
-              padding:16px 18px;margin-bottom:16px;}
-  .panelCajas .pcTit{font-size:13px;font-weight:700;color:#0E3B36;margin-bottom:12px;}
-  .panelCajas .pcGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;}
-  .panelCajas .pcBox{background:#F1F6F4;border-radius:10px;padding:12px 14px;}
-  .panelCajas .pcBox.bad .pcV{color:#DC2626;}
-  .panelCajas .pcV{font-size:24px;font-weight:700;color:#0F7A5A;line-height:1.15;}
-  .panelCajas .pcL{font-size:12.5px;font-weight:700;color:#4E6B78;margin-top:2px;}
-  .panelCajas .pcS{font-size:11px;color:#5F726C;margin-top:2px;}
-  .panelCajas .pcNota{font-size:11.5px;color:#5F726C;margin-top:12px;line-height:1.7;
-              border-left:3px solid #F59E0B;padding-left:11px;}
-
-/* ===== Estándar LIVES: los tableros usan todo el ancho de la pantalla =====
-   Va al final del CSS a propósito, para ganarle a los anchos fijos que traían
-   los archivos originales sin tener que tocarlos uno por uno. */
-.wrap, .container, .app, .shell, .page, .content, main{
-  max-width:100% !important;
-  width:100% !important;
-  margin-left:0 !important;
-  margin-right:0 !important;
-}
-.wrap, .container, .content{ padding-left:22px !important; padding-right:22px !important; }
-@media(max-width:700px){
-  .wrap, .container, .content{ padding-left:12px !important; padding-right:12px !important; }
-}
-/* En pantallas anchas las grillas de 2 columnas pasan a 3: si no, quedan dos
-   tarjetas gigantes y mucho aire al centro. */
-@media(min-width:1700px){
-  .grid2, .g2, .row2{ grid-template-columns:repeat(3, minmax(0,1fr)) !important; }
-}
 </style>
 </head>
 <body>
@@ -1075,47 +1045,6 @@ function cargarEnVivo(){
       }
       var dr=document.getElementById('drop'); if(dr) dr.style.display='';
     });
-}
-
-/* En Empaque los nombres de las columnas engañan: CAJAS son las cajas del
-   despacho y LOTE son las cajas revisadas. MUESTRA sí son prendas. Este panel
-   deja esa relación escrita en pantalla para que nadie la interprete al revés. */
-function panelCajas(){
-  try{
-    var rows=(window.STATE&&STATE.rows)||[];
-    var per=(typeof rowsOfPeriod==='function')?rowsOfPeriod():rows;
-    if(!per||!per.length) per=rows;
-    var tot=0, rev=0, pr=0, df=0;
-    per.forEach(function(r){
-      tot+=Number(r['CAJAS'])||0; rev+=Number(r['LOTE'])||0;
-      pr+=Number(r['MUESTRA'])||0; df+=Number(r['OBS'])||0;
-    });
-    var el=document.getElementById('panelCajas');
-    if(!el){
-      el=document.createElement('div'); el.id='panelCajas'; el.className='panelCajas';
-      var d=document.getElementById('dash'); if(d) d.insertBefore(el, d.firstChild); else return;
-    }
-    function n(x){ return (x||0).toLocaleString('es-PE'); }
-    el.innerHTML=
-      '<div class="pcTit">Cómo se lee este tablero</div>'+
-      '<div class="pcGrid">'+
-        '<div class="pcBox"><div class="pcV">'+n(tot)+'</div><div class="pcL">Cajas del despacho</div>'+
-          '<div class="pcS">El total que salió</div></div>'+
-        '<div class="pcBox"><div class="pcV">'+n(rev)+'</div><div class="pcL">Cajas revisadas</div>'+
-          '<div class="pcS">'+(tot?(rev/tot*100).toFixed(1):'0')+'% de las cajas del despacho</div></div>'+
-        '<div class="pcBox"><div class="pcV">'+n(pr)+'</div><div class="pcL">Prendas revisadas</div>'+
-          '<div class="pcS">Las que había dentro de esas cajas</div></div>'+
-        '<div class="pcBox'+(df?' bad':'')+'"><div class="pcV">'+n(df)+'</div><div class="pcL">Prendas defectuosas</div>'+
-          '<div class="pcS">'+(pr?(df/pr*100).toFixed(2):'0')+'% de las prendas revisadas</div></div>'+
-      '</div>'+
-      '<div class="pcNota">El defecto es de <b>empaque</b> —cómo se armó la caja— pero se cuenta en '+
-      '<b>prendas afectadas</b>. «Prenda sin doblar 15» son 15 prendas dentro de las cajas revisadas. '+
-      'Los porcentajes de este tablero van sobre prendas revisadas, no sobre el despacho completo.</div>';
-  }catch(e){ console.warn('panelCajas',e); }
-}
-var _rpEmp=window.renderPeriod;
-if(typeof _rpEmp==='function'){
-  window.renderPeriod=function(){ var r=_rpEmp.apply(this,arguments); panelCajas(); return r; };
 }
 
 document.addEventListener('DOMContentLoaded',function(){ cargarEnVivo(); });
