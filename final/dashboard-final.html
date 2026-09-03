@@ -5,18 +5,29 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Auditoría Final — Interna y Talleres · LIVES</title>
 <style>
-  :root{--petrol:#0E3B36;--emer:#10B981;
+  /* Paleta del estándar LIVES v2. Los colores ya eran los correctos; lo que faltaba eran
+   las variables de sombra (--sh), radio (--r) y petróleo secundario, que son las que
+   definen el look v2: tarjetas con sombra suave en vez de borde duro, y esquinas de 12px. */
+  :root{--petrol:#0E3B36; --petrol-2:#12463F; --emer:#10B981;
     --sage:#0F7A5A; --sage-dark:#0B815E; --slate:#4E6B78; --taupe:#B45309; --rose:#DC2626;
     --tan:#F59E0B; --warm:#DCE5E2; --warm-light:#F1F6F4; --stone:#5F726C;
+    --card:#fff;
+    --sh:0 1px 3px rgba(14,59,54,.06),0 1px 2px rgba(14,59,54,.04);
+    --sh-h:0 4px 12px rgba(14,59,54,.10);
+    --r:12px;
   }
   *{box-sizing:border-box;}
-  body{margin:0;background:var(--warm-light);color:#333;font-family:Calibri,Arial,sans-serif;font-size:14px;line-height:1.4;}
+  /* tabular-nums: sin esto los números bailan al cambiar de período */
+  body{margin:0;background:var(--warm-light);color:#333;font-family:Calibri,Arial,sans-serif;
+       font-size:14px;line-height:1.45;font-variant-numeric:tabular-nums;}
   .header{background:var(--petrol);border-bottom:3px solid var(--emer);min-height:72px;display:flex;align-items:center;padding:0 24px;gap:18px;flex-wrap:wrap;}
   .header svg{height:30px;display:block;}
   .divider{width:1px;height:34px;background:rgba(255,255,255,.35);}
   .htitle{color:#fff;font-size:17px;font-weight:700;letter-spacing:.3px;}
   .hsub{color:#F1F6F4;font-size:12px;}
-  .wrap{max-width:1140px;margin:0 auto;padding:20px 24px 44px;}
+  /* 1440px en vez de 1140: el estándar v2 aprovecha más el monitor sin llegar a estirar
+   los gráficos de lado a lado, que es lo que pasa sin límite. */
+  .wrap{width:100%;max-width:1440px;margin:0 auto;padding:18px 22px 44px;}
 
   .drop{border:2px dashed var(--warm);border-radius:10px;background:#fff;padding:34px 24px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;}
   .drop:hover,.drop.over{border-color:var(--sage);background:var(--warm-light);}
@@ -25,16 +36,82 @@
   .drop .btn,.bar .btn{display:inline-block;margin-top:12px;background:var(--sage);color:#fff;font-weight:700;font-family:inherit;font-size:13px;border:none;border-radius:6px;padding:9px 18px;cursor:pointer;}
   .err{display:none;background:#FBE9E9;border:1px solid var(--rose);border-radius:8px;padding:12px 16px;color:#DC2626;font-size:13px;margin-bottom:16px;}
 
-  .bar{display:none;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--warm-light);}
+  /* Barra de filtros en tarjeta y sticky: al hacer scroll siempre se ve qué período y qué
+     filtros están puestos, que es justo lo que se preguntaba al mirar una captura suelta. */
+/* Controles del estándar v2: select y botones en Salvia, pastilla .seg para los modos. */
+  .bar select{font-family:inherit;font-size:13.5px;font-weight:700;color:var(--sage);
+    border:1px solid var(--warm);border-radius:8px;padding:7px 12px;background:#fff;cursor:pointer;}
+  .bar select:hover{border-color:var(--sage);}
+  .bar .btn{font-family:inherit;font-size:13px;font-weight:700;border-radius:8px;padding:8px 14px;
+    cursor:pointer;border:1px solid var(--warm);background:#fff;color:var(--sage);}
+  .bar .btn:hover{border-color:var(--sage);}
+  .bar .btn.primary{background:var(--sage);color:#fff;border-color:var(--sage);}
+  .bar .btn.primary:hover{background:var(--sage-dark);}
+/* KPI del estándar v2: barra de color a la izquierda, valor grande, delta en pastilla
+     y sparkline al pie. */
+/* Insight bar: una o dos frases CALCULADAS con los datos, nunca escritas a mano.
+     Dice dónde está concentrado el problema y qué pasaría si eso se corrigiera. */
+/* Pestañas del estándar v2: agrupan los paneles por tema en vez de dejarlos en un
+     scroll interminable. Al imprimir se despliegan todas (ver bloque de impresión). */
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--warm);margin:20px 0 14px;flex-wrap:wrap;}
+  .tabs button{background:none;border:none;font-family:inherit;font-size:13.5px;font-weight:700;
+    color:var(--stone);padding:10px 16px;cursor:pointer;border-bottom:3px solid transparent;
+    margin-bottom:-1px;transition:.15s;}
+  .tabs button:hover{color:var(--sage);}
+  .tabs button.active{color:var(--sage-dark);border-bottom-color:var(--sage);}
+  .tabpane{display:none;}
+  .tabpane.active{display:block;}
+  @media(max-width:600px){ .tabs button{padding:9px 11px;font-size:12.5px;} }
+  .insight{background:var(--card);border-left:4px solid var(--tan);border-radius:0 var(--r) var(--r) 0;
+    box-shadow:var(--sh);padding:12px 16px;margin:0 0 16px;font-size:13.5px;line-height:1.55;}
+  .insight b{color:var(--sage-dark);}
+  /* Bloque "¿Cómo leo este tablero?" — obligatorio al final según el estándar */
+  details.help{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);
+    padding:14px 18px;margin:22px 0 8px;}
+  details.help summary{font-size:14px;font-weight:700;color:var(--sage-dark);cursor:pointer;
+    list-style:none;}
+  details.help summary::-webkit-details-marker{display:none;}
+  details.help summary::before{content:"❓ ";}
+  details.help[open] summary{margin-bottom:10px;}
+  details.help h4{margin:14px 0 5px;font-size:12.5px;color:var(--petrol);
+    text-transform:uppercase;letter-spacing:.4px;}
+  details.help p, details.help li{font-size:13px;color:#333;line-height:1.6;margin:4px 0;}
+  details.help code{background:var(--warm-light);padding:1px 6px;border-radius:4px;
+    font-family:Consolas,monospace;font-size:12.5px;color:var(--petrol);}
+  .kpiv2{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:14px 16px;
+    position:relative;overflow:hidden;transition:box-shadow .15s,transform .15s;}
+  .kpiv2:hover{box-shadow:var(--sh-h);transform:translateY(-1px);}
+  .kpiv2::after{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--kc);}
+  .kpiv2 .kl{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--stone);}
+  .kpiv2 .krow{display:flex;align-items:baseline;gap:8px;margin-top:5px;flex-wrap:wrap;}
+  .kpiv2 .kv{font-size:26px;font-weight:800;line-height:1;color:var(--kc);}
+  .kpiv2 .ks{font-size:11.5px;color:var(--stone);margin-top:3px;line-height:1.4;}
+  .kd{font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:20px;white-space:nowrap;}
+  .kd.up{color:var(--rose);background:#FCEBEB;}
+  .kd.down{color:var(--sage);background:#E7F4EF;}
+  .kd.flat{color:var(--stone);background:var(--warm-light);}
+  .spark{display:block;margin-top:8px;}
+  .seg{display:inline-flex;background:var(--warm-light);border-radius:8px;padding:3px;gap:2px;}
+  .seg button{background:none;border:none;font-family:inherit;font-size:13px;font-weight:700;
+    color:var(--stone);padding:6px 14px;border-radius:6px;cursor:pointer;transition:.15s;}
+  .seg button:hover{color:var(--sage);}
+  .seg button.active{background:var(--sage);color:#fff;box-shadow:var(--sh);}
+  .bar{display:none;align-items:center;gap:10px;flex-wrap:wrap;background:var(--card);
+       border-radius:var(--r);box-shadow:var(--sh);padding:10px 14px;margin-bottom:14px;
+       position:sticky;top:0;z-index:15;}
   .bar .fname{font-size:12.5px;color:var(--stone);}
   .bar .fname b{color:#333;}
   .bar .btn{margin-top:0;background:#fff;border:1px solid var(--warm);color:var(--sage);font-size:12.5px;padding:7px 14px;}
   .bar .btn:hover{border-color:var(--sage);background:var(--warm-light);}
   .wsel{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:#333;font-weight:600;}
   .wsel select{font-family:inherit;font-size:14px;font-weight:700;color:var(--sage);border:1.5px solid var(--sage);border-radius:6px;padding:6px 12px;background:#fff;cursor:pointer;}
-  .modesel{display:inline-flex;border:1.5px solid var(--sage);border-radius:6px;overflow:hidden;}
-  .modesel .mbtn{background:#fff;color:var(--sage);border:none;padding:6px 14px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;}
-  .modesel .mbtn.active{background:var(--sage);color:#fff;}
+  /* .modesel/.mbtn eran el selector de la v1: una caja con borde duro. En v2 es la pastilla
+     .seg — fondo suave, botón activo en Salvia con sombra. Se redefinen las clases en vez de
+     tocar el HTML, así ningún onclick ni ninguna lógica cambia. */
+  .modesel{display:inline-flex;background:var(--warm-light);border:none;border-radius:8px;padding:3px;gap:2px;overflow:visible;}
+  .modesel .mbtn{background:none;color:var(--stone);border:none;padding:6px 14px;border-radius:6px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:.15s;}
+  .modesel .mbtn:hover{color:var(--sage);}
+  .modesel .mbtn.active{background:var(--sage);color:#fff;box-shadow:var(--sh);}
   .ficha-topbar{max-width:760px;margin:0 auto 10px;display:flex;align-items:center;gap:10px;justify-content:center;color:#fff;font-size:13px;font-weight:600;}
   .ficha-topbar select{font-family:inherit;font-size:13px;font-weight:700;color:var(--sage);border:none;border-radius:6px;padding:6px 12px;background:#fff;cursor:pointer;}
 
@@ -43,7 +120,8 @@
 
   .kdual{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px;}
   @media(max-width:760px){.kdual{grid-template-columns:1fr;}}
-  .kpanel{background:#fff;border:1px solid var(--warm);border-radius:8px;padding:16px 18px;}
+  .kpanel{background:var(--card);box-shadow:var(--sh);border-radius:var(--r);padding:16px 18px;transition:box-shadow .15s;}
+  .kpanel:hover{box-shadow:var(--sh-h);}
   .kpanel .kh{font-size:14px;font-weight:700;color:#fff;background:var(--sage);margin:-16px -18px 14px;padding:9px 18px;border-radius:8px 8px 0 0;}
   .kpanel.tall .kh{background:var(--slate);}
   .kgrid{display:flex;gap:10px;flex-wrap:wrap;align-items:stretch;}
@@ -60,14 +138,15 @@
 
   .icards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px;}
   @media(max-width:760px){.icards{grid-template-columns:1fr;}}
-  .icard{background:#fff;border:1px solid var(--warm);border-radius:8px;padding:14px 16px;border-top:3px solid var(--sage);}
+  .icard{background:#fff;box-shadow:var(--sh);border-radius:var(--r);padding:14px 16px;border-top:3px solid var(--sage);}
   .icard.bad{border-top-color:var(--rose);}
   .icard.up{border-top-color:var(--tan);}
   .icard .il{font-size:11.5px;color:var(--stone);font-weight:600;text-transform:uppercase;letter-spacing:.4px;}
   .icard .iv{font-size:22px;font-weight:700;color:#333;margin:4px 0 2px;}
   .icard .is{font-size:12px;color:var(--stone);}
 
-  .panel{background:#fff;border:1px solid var(--warm);border-radius:8px;padding:16px 18px;margin-bottom:18px;}
+  .panel{background:var(--card);box-shadow:var(--sh);border-radius:var(--r);padding:16px 18px;margin-bottom:18px;transition:box-shadow .15s;}
+  .panel:hover{box-shadow:var(--sh-h);}
   .panel .pt{font-size:15px;font-weight:700;color:#333;}
   .panel .ph{font-size:11.5px;color:var(--stone);margin-top:2px;margin-bottom:10px;}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
@@ -100,7 +179,11 @@
   #audtTbl tbody tr:nth-child(even) td:last-child{ background:#FAFCFB; }
   #audtTbl tbody tr:hover td:last-child{ background:var(--warm-light); }
   #audtTbl td:last-child .btn,#audtTbl td:last-child button{ white-space:nowrap; }
-  .cwrap{position:relative;width:100%;}
+  /* La altura la manda .cwrap, nunca el canvas. Sin clamp() los gráficos crecen
+     desproporcionados en monitores anchos, que es el error más común del estándar v1. */
+  .cwrap{position:relative;width:100%;height:clamp(220px,26vh,320px);}
+  .cwrap.tall{height:clamp(260px,34vh,400px);}
+  .cwrap canvas{position:absolute;inset:0;}
   .foot{font-size:11px;color:var(--stone);margin-top:8px;line-height:1.5;}
   #dash{display:none;}
 
@@ -213,7 +296,15 @@
     #panelPerf>*{min-width:0;}
   }
   @media print{
-    @page{size:A4 portrait;margin:11mm;}
+    /* Horizontal: el tablero es ancho y en vertical se corta o queda ilegible. */
+  @page{size:A4 landscape;margin:9mm;}
+    /* Todas las pestañas visibles al imprimir: en papel no se puede hacer clic. */
+    .tabs{display:none!important;}
+    .tabpane{display:block!important;}
+    /* La ayuda se despliega al imprimir: en papel nadie puede hacer clic para abrirla. */
+    details.help{break-inside:avoid;page-break-inside:avoid;}
+    details.help[open], details.help{display:block;}
+    details.help > *{display:revert;}
     *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
     body{background:#fff!important;}
     .no-print,#drop,#bar,#err{display:none!important;}
@@ -306,15 +397,23 @@
   .fk-it:hover{background:#EEF3F1;}
   .fk-it b{color:#333;}
 
-/* ===== Estándar LIVES: los tableros usan todo el ancho de la pantalla =====
-   Va al final del CSS a propósito, para ganarle a los anchos fijos que traían
-   los archivos originales sin tener que tocarlos uno por uno. */
-.wrap, .container, .app, .shell, .page, .content, main{
+/* ===== Ancho del tablero =====
+   ANTES: ancho completo de pantalla. AHORA: 1440px centrado, según el estándar v2.
+   Motivo del cambio: a pantalla completa en un monitor ancho los gráficos se estiran de
+   lado a lado y las líneas de tendencia se aplanan tanto que dejan de mostrar el
+   movimiento; las tablas quedan con columnas separadas por medio metro de blanco.
+   1440 es el punto donde todavía se aprovecha el monitor sin que eso pase.
+   Los demás contenedores siguen liberados, para no romper los que traían anchos fijos. */
+.container, .app, .shell, .page, .content, main{
   max-width:100% !important;
   width:100% !important;
   margin-left:0 !important;
   margin-right:0 !important;
 }
+/* ANCHO COMPLETO — decisión de Christian, se mantiene por encima del 1440px del estándar.
+   Los tableros de LIVES se ven en monitores de planta y de gerencia donde el ancho extra
+   sí se aprovecha. */
+.wrap{ max-width:100% !important; width:100% !important; margin-left:0 !important; margin-right:0 !important; }
 .wrap, .container, .content{ padding-left:22px !important; padding-right:22px !important; }
 @media(max-width:700px){
   .wrap, .container, .content{ padding-left:12px !important; padding-right:12px !important; }
@@ -407,11 +506,8 @@
     </div>
 
     <div id="dash">
-     <div id="mainView">
-      <div class="note" id="srcNote"></div>
-
-      <!-- KPIs duales -->
-      <div class="kdual">
+     <div id="mainView"><div class="note" id="srcNote"></div>
+<div class="kdual">
         <div class="kpanel">
           <div class="kh">🏭 LIVES — <span id="kwL">Sem</span></div>
           <div class="kgrid">
@@ -441,29 +537,43 @@
           </div>
         </div>
       </div>
-
-      <!-- Indicadores clave -->
-      <div class="icards">
+<div class="icards">
         <div class="icard"><div class="il">Mejor taller</div><div class="iv" id="i_best">—</div><div class="is" id="i_bests">—</div></div>
         <div class="icard bad"><div class="il">Peor taller</div><div class="iv" id="i_worst">—</div><div class="is" id="i_worsts">—</div></div>
         <div class="icard up"><div class="il">Variación vs semana previa</div><div class="iv" id="i_delta">—</div><div class="is" id="i_deltas">—</div></div>
       </div>
 
-      <!-- Tendencia mensual -->
-      <div class="panel">
+      <!-- PESTAÑAS: agrupan los paneles por tema. Antes todo iba en un scroll único y
+           para comparar dos cosas del mismo tema había que bajar media pantalla. -->
+      <div class="tabs" id="dashTabs">
+        <button type="button" class="active" onclick="tabDash(0,this)">🎯 Resumen</button>
+        <button type="button" onclick="tabDash(1,this)">📈 Tendencia</button>
+        <button type="button" onclick="tabDash(2,this)">🔍 Motivos</button>
+        <button type="button" onclick="tabDash(3,this)">🏭 Responsables</button>
+      </div>
+
+      <div class="tabpane active">
+<div class="panel" id="panelUniverso">
+        <div class="pt">🎯 De cuántas prendas estamos hablando <span id="uniPer" style="font-weight:400;color:var(--stone);font-size:13px"></span></div>
+        <div class="ph" id="uniSub"></div>
+        <div id="uniKpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px"></div>
+        <div class="insight" id="uniInsight" style="display:none"></div>
+        <div id="uniComp"></div>
+        <div id="uniTop"></div>
+      </div>
+      </div>
+      <div class="tabpane">
+<div class="panel">
         <div class="pt">📅 Tendencia mensual <span id="ttyear"></span></div>
         <div class="ph">% de aprobación vs % de rechazo por mes (todas las auditorías del año). El último mes puede estar parcial.</div>
         <div class="cwrap" style="height:240px;"><canvas id="cMensual"></canvas></div>
       </div>
-
-      <!-- Tendencia semanal -->
-      <div class="panel">
+<div class="panel">
         <div class="pt" id="trendTitle">📈 Tendencia semanal — Lives vs Talleres vs Promedio</div>
         <div class="ph" id="trendSub">% de rechazo de las últimas 5 semanas hasta la seleccionada. "Promedio" = rechazo global de la semana.</div>
         <div class="cwrap" style="height:260px;"><canvas id="cTrend"></canvas></div>
       </div>
-
-      <div class="grid2">
+<div class="grid2">
         <div class="panel" id="procesoPanel">
           <div class="pt">🔄 Resultados por proceso</div>
           <div class="ph">% de resultados por número de auditoría — 1ra, 2da, 3ra... (período seleccionado).</div>
@@ -475,9 +585,9 @@
           <div class="cwrap" style="height:240px;"><canvas id="cServicio"></canvas></div>
         </div>
       </div>
-
-      <!-- Defectos por origen -->
-      <div class="panel">
+      </div>
+      <div class="tabpane">
+<div class="panel">
         <div class="pt">🔍 Defectos por origen</div>
         <div class="ph">Incidencias de cada defecto en el período seleccionado, separadas por origen.</div>
         <div class="grid2">
@@ -491,26 +601,9 @@
           </div>
         </div>
       </div>
-
-      <!-- RESUMEN DEL UNIVERSO + TOP 3 MOTIVOS.
-           Va arriba de todo el bloque de derivados porque responde primero la pregunta
-           de fondo: de cuántas prendas estamos hablando, cuántas se miraron una por una
-           y cuántas salieron con problema. Sin eso, los conteos de abajo son números
-           sueltos que no se pueden comparar entre talleres ni entre semanas. -->
-      <div class="panel" id="panelUniverso">
-        <div class="pt">🎯 De cuántas prendas estamos hablando <span id="uniPer" style="font-weight:400;color:var(--stone);font-size:13px"></span></div>
-        <div class="ph" id="uniSub"></div>
-        <div id="uniKpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px"></div>
-        <div id="uniComp"></div>
-        <div id="uniTop"></div>
       </div>
-
-      <!-- El panel de derivados con gráfico se eliminó: mostraba lo mismo que el de
-           abajo, con menos motivos (8 contra 10), sin telas y sin porcentaje sobre el
-           lote. Se conserva uno solo para no tener dos lecturas del mismo dato. -->
-
-      <!-- TALLERES EXTERNOS + AUDITORAS DE TALLER, lado a lado, ambos con scroll interno -->
-      <div class="grid2" id="rowTallerAudt">
+      <div class="tabpane">
+<div class="grid2" id="rowTallerAudt">
         <!-- DESEMPEÑO ACUMULADO TALLERES EXTERNOS -->
         <div class="panel pairPanel" id="panelPerf">
           <div class="pt">🏭 Talleres externos — Desempeño acumulado <span id="perfRange" style="font-weight:400;color:var(--stone);font-size:12px;"></span></div>
@@ -539,9 +632,73 @@
           <div class="tblScroll"><table id="audtTbl"></table></div>
         </div>
       </div>
-     </div><!-- /mainView -->
+      </div>
+</div><!-- /mainView -->
 
      <div id="compareView" style="display:none"></div>
+
+      <!-- Bloque de ayuda: obligatorio en el estándar v2. Explica la fórmula de cada
+           indicador, aclara la jerga y dice qué queda fuera del cálculo. Va cerrado por
+           defecto para no estorbar a quien ya sabe leerlo. -->
+      <details class="help">
+        <summary>¿Cómo leo este tablero?</summary>
+
+        <h4>Los dos universos: no se comparan entre sí</h4>
+        <p><b>Defectos</b> — prendas con falla halladas en la <b>muestra inspeccionada</b>.
+        En Acabados y Auditoría Final no se revisa el lote completo: se toma una muestra
+        según la tabla AQL y se inspecciona pieza por pieza. El porcentaje se calcula
+        <code>defectos ÷ prendas muestreadas</code>.</p>
+        <p><b>Derivados</b> — prendas que hubo que <b>separar</b> al revisar el
+        <b>lote completo</b> en talleres externos. Ahí sí se mira el 100% de las prendas.
+        El porcentaje se calcula <code>derivados ÷ prendas revisadas</code>.</p>
+        <p>Los dos porcentajes salen de universos distintos, así que <b>no se suman ni se
+        comparan entre sí</b>. Lo que sí se compara es <b>qué problemas aparecen en cada
+        lado</b>: un motivo que pesa mucho en el lote y poco en la muestra es algo que el
+        muestreo no está detectando.</p>
+
+        <h4>Palabras del área</h4>
+        <p><b>Lote</b> — el conjunto de prendas que llega de un taller para auditar.<br>
+        <b>Muestra AQL</b> — la cantidad de prendas que se inspecciona de ese lote, según
+        una tabla estándar: a mayor lote, mayor muestra, pero nunca el total.<br>
+        <b>Derivar</b> — apartar una prenda del despacho porque tiene un problema que hay
+        que corregir.<br>
+        <b>Reproceso</b> — volver a auditar un lote que ya fue rechazado, después de que el
+        taller lo corrigió.<br>
+        <b>Parcial</b> — cada tanda en que llega un mismo pedido. La 1ra, 2da y 3ra
+        auditoría son lotes distintos, no la misma prenda vista varias veces.</p>
+
+        <h4>Cómo se calculan los porcentajes</h4>
+        <p>Siempre con <b>promedio ponderado</b>: se suman todos los numeradores y se
+        dividen entre la suma de todos los denominadores. Nunca se promedian porcentajes,
+        porque eso le daría el mismo peso a un lote de 50 prendas que a uno de 5,000.</p>
+
+        <h4>Qué queda fuera del cálculo</h4>
+        <p>Los <b>reprocesos</b> no suman prendas nuevas: son las mismas piezas ya contadas
+        en la auditoría que fue rechazada.<br>
+        Las auditorías por <b>licencia</b> tampoco entran en los indicadores.<br>
+        Los <b>derivados</b> solo existen en talleres externos: en Auditoría Final interna
+        no se revisa el lote completo, así que ahí ese dato no aplica.</p>
+
+        <h4>Sobre los semáforos y las metas</h4>
+        <p>El área de Calidad <b>todavía no ha declarado una meta</b> de derivados ni de
+        defectos. Por eso este tablero <b>no pinta semáforos de color</b> ni dice si un
+        número está bien o mal: mostraría un criterio inventado.<br>
+        Donde hay comparación es contra la <b>media real del período</b>, y así está
+        rotulado. Cuando Calidad defina las metas, se agregan.</p>
+
+        <h4>Cuándo un porcentaje no es confiable</h4>
+        <p>Un porcentaje sobre pocas prendas se mueve muchísimo con una sola falla. Por eso
+        las series con muestra pequeña salen <b>en gris</b> y al final del ranking, y las
+        tendencias solo grafican los períodos con volumen suficiente. Cuando eso pasa, el
+        panel lo dice debajo del gráfico.</p>
+
+        <h4>De dónde vienen los datos</h4>
+        <p>De dos fuentes que se juntan por el código de auditoría: el <b>formulario
+        digital</b> que llenan las auditoras y el <b>registro histórico</b> que se digita.
+        El detalle fino por categoría y subtipo solo existe en las auditorías del
+        formulario; cuando un panel muestra solo esa parte, lo indica con el porcentaje de
+        cobertura.</p>
+      </details>
 
       <div class="foot" id="foot"></div>
     </div>
@@ -1946,8 +2103,9 @@ function renderUniverso(){
      Ahora se limpian de verdad y se deja un mensaje que dice qué filtro no arrojó nada,
      para que se entienda que es el filtro y no una falla. */
   if(!rows.length){
-    ['uniKpis','uniComp','uniTop'].forEach(function(id){
-      var e=document.getElementById(id); if(e) e.innerHTML='';
+    ['uniKpis','uniComp','uniTop','uniInsight'].forEach(function(id){
+      var e=document.getElementById(id);
+      if(e){ e.innerHTML=''; if(id==='uniInsight') e.style.display='none'; }
     });
     var partes=[];
     if(typeof FILTRO_CLI!=='undefined' && FILTRO_CLI) partes.push('cliente <b>'+FILTRO_CLI+'</b>');
@@ -2007,7 +2165,10 @@ function renderUniverso(){
   var per = (typeof periodoActualDer==='function') ? periodoActualDer() : {modo:'year',valor:null};
   var perTxt;
   if(per.modo==='week'  && per.valor!=null) perTxt='Semana '+per.valor+' de '+(STATE.year||'');
-  else if(per.modo==='month' && per.valor!=null) perTxt=(MESES[per.valor-1]||per.valor)+' '+(STATE.year||'');
+  /* CORREGIDO: el selector de mes usa índices 0-11 (0=Ene … 8=Set), igual que monthOf().
+     La etiqueta restaba uno y mostraba el mes anterior: decía "Agosto" con datos de
+     setiembre. El filtro siempre estuvo bien; lo que mentía era el título. */
+  else if(per.modo==='month' && per.valor!=null) perTxt=(MESES[per.valor]||per.valor)+' '+(STATE.year||'');
   else perTxt='Año '+(STATE.year||'')+' completo';
 
   var chips = '<span style="display:inline-block;background:var(--petrol);color:#fff;border-radius:20px;'+
@@ -2028,11 +2189,62 @@ function renderUniverso(){
     '<b>lote completo</b> en talleres externos; los <b>defectos</b> salen de la '+
     '<b>muestra inspeccionada</b> (AQL). Cada porcentaje dice sobre cuál está calculado.';
 
-  function kpi(v,l,sub,color){
-    return '<div style="background:#fff;border:1px solid var(--warm);border-radius:12px;padding:14px 16px;box-shadow:0 1px 3px rgba(14,59,54,.06)">'+
-      '<div style="font-size:24px;font-weight:800;color:'+(color||'#0E3B36')+';line-height:1.1">'+v+'</div>'+
-      '<div style="font-size:12px;font-weight:700;color:#333;margin-top:3px">'+l+'</div>'+
-      '<div style="font-size:11px;color:#5F726C;margin-top:2px;line-height:1.4">'+sub+'</div></div>';
+  /* ===== KPI del estándar v2: valor + delta + sparkline =====
+     El delta necesita período anterior y el sparkline necesita histórico. Cuando no
+     existen, el componente se OMITE — nunca se rellena con ceros ni con datos inventados,
+     que es lo que pide la skill. */
+  function serieHistorica(campoNum, campoDen){
+    /* Devuelve los últimos períodos del mismo tipo que se está viendo (semana o mes),
+       con el valor del indicador en cada uno. Se usa para el delta y el sparkline. */
+    try{
+      var per = periodoActualDer();
+      if(per.modo==='year') return null;           // en vista anual no hay serie comparable
+      var base = STATE.rows || [];                  // ya filtrado por cliente y taller
+      var clave = (per.modo==='week')
+        ? function(r){ return Number(r['SEMANA'])||null; }
+        : function(r){ var m=monthOf(r['FECHA']); return (m==null)?null:m; };
+      var num={}, den={};
+      base.forEach(function(r){
+        var k=clave(r); if(k==null) return;
+        num[k]=(num[k]||0)+campoNum(r);
+        den[k]=(den[k]||0)+campoDen(r);
+      });
+      var ks=Object.keys(num).map(Number).sort(function(a,b){return a-b;});
+      var serie=ks.map(function(k){ return {k:k, v: den[k]? (num[k]/den[k]*100) : null}; })
+                  .filter(function(x){ return x.v!==null; });
+      return {serie:serie, actual:per.valor};
+    }catch(e){ return null; }
+  }
+  function sparkSVG(vals, color){
+    if(!vals || vals.length<3) return '';          // con menos de 3 puntos no dice nada
+    var w=120, h=26, mx=Math.max.apply(null,vals), mn=Math.min.apply(null,vals);
+    var rango=(mx-mn)||1;
+    var pts=vals.map(function(v,i){
+      var x=(i/(vals.length-1))*w;
+      var y=h-2-((v-mn)/rango)*(h-4);
+      return x.toFixed(1)+','+y.toFixed(1);
+    }).join(' ');
+    return '<svg class="spark" width="100%" height="26" viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none">'+
+      '<polyline points="'+pts+'" fill="none" stroke="'+color+'" stroke-width="1.8" '+
+      'stroke-linejoin="round" stroke-linecap="round" opacity=".85"/></svg>';
+  }
+  function deltaHTML(actual, previo, color){
+    if(previo==null || actual==null) return '';    // sin período anterior, se omite
+    var dif = actual - previo;
+    if(Math.abs(dif) < 0.005) return '<span class="kd flat">sin cambio</span>';
+    var sube = dif > 0;
+    /* En calidad, subir es malo: más defectos o más derivados. Por eso el rojo va arriba. */
+    return '<span class="kd '+(sube?'up':'down')+'">'+(sube?'▲':'▼')+' '+
+           Math.abs(dif).toFixed(2)+' pts</span>';
+  }
+  function kpi(v,l,sub,color,extra){
+    extra = extra || {};
+    return '<div class="kpiv2" style="--kc:'+(color||'#0E3B36')+'">'+
+      '<div class="kl">'+l+'</div>'+
+      '<div class="krow"><div class="kv">'+v+'</div>'+(extra.delta||'')+'</div>'+
+      '<div class="ks">'+sub+'</div>'+
+      (extra.spark||'')+
+    '</div>';
   }
   /* Último resguardo: si quedaron derivados pero el denominador salió en cero, se usa el
      lote total en vez de mostrar "sobre 0 prendas · 0%", que no significa nada. */
@@ -2040,13 +2252,90 @@ function renderUniverso(){
   var tasaDer = loteTaller? (ders/loteTaller*100).toFixed(2) : null;
   var tasaDef = muestra? (defs/muestra*100).toFixed(2) : null;
   var pctInsp = lote? (muestra/lote*100).toFixed(1) : null;
+  /* Series para el delta y el sparkline. Se calculan sobre el mismo universo de cada
+     indicador: derivados sobre el lote de talleres externos, defectos sobre la muestra. */
+  function nDer(r){ var t=0; derParse(r['DERIVADOS']).forEach(function(d){t+=d.cant;}); return t; }
+  function dDer(r){
+    var ext=String(r['INT/EXT']||'')==='EXTERNO';
+    var hay=String(r['DERIVADOS']||'').trim()!=='';
+    if(!ext && !hay) return 0;
+    return Number(r['LOTE_CONTABLE']!=null&&r['LOTE_CONTABLE']!==''?r['LOTE_CONTABLE']:r['LOTE'])||0;
+  }
+  function nDef(r){ var a={}; defCount(r['DEFECTOS'],a); var t=0; for(var k in a) t+=a[k]; return t; }
+  function dDef(r){ return Number(r['MUESTRA_CONTABLE']!=null&&r['MUESTRA_CONTABLE']!==''?r['MUESTRA_CONTABLE']:r['MUESTRA'])||0; }
+
+  function extras(serieObj, color){
+    if(!serieObj || !serieObj.serie || serieObj.serie.length<2) return {};
+    var s=serieObj.serie, act=serieObj.actual;
+    var idx=-1;
+    for(var i=0;i<s.length;i++){ if(Number(s[i].k)===Number(act)) idx=i; }
+    var out={};
+    if(idx>0) out.delta = deltaHTML(s[idx].v, s[idx-1].v, color);
+    out.spark = sparkSVG(s.map(function(x){return x.v;}), color);
+    return out;
+  }
+  var exDer = extras(serieHistorica(nDer,dDer), '#B45309');
+  var exDef = extras(serieHistorica(nDef,dDef), '#DC2626');
+
   document.getElementById('uniKpis').innerHTML =
     kpi(lote.toLocaleString('es-PE'),'Prendas en los lotes','Total que pasó por auditoría · '+nAud+' auditorías')+
     kpi(muestra.toLocaleString('es-PE'),'Prendas inspeccionadas',(pctInsp!=null?('Muestra AQL · '+pctInsp+'% del lote'):'Muestra AQL'))+
     kpi(ders.toLocaleString('es-PE')+(tasaDer!=null?(' <span style="font-size:14px;font-weight:700">· '+tasaDer+'%</span>'):''),
-        'Prendas derivadas','Sobre '+loteTaller.toLocaleString('es-PE')+' del lote de talleres externos','#B45309')+
+        'Prendas derivadas','Sobre '+loteTaller.toLocaleString('es-PE')+' del lote de talleres externos','#B45309',exDer)+
     kpi(defs.toLocaleString('es-PE')+(tasaDef!=null?(' <span style="font-size:14px;font-weight:700">· '+tasaDef+'%</span>'):''),
-        'Defectos en muestra','Sobre las '+muestra.toLocaleString('es-PE')+' prendas inspeccionadas','#DC2626');
+        'Defectos en muestra','Sobre las '+muestra.toLocaleString('es-PE')+' prendas inspeccionadas','#DC2626',exDef);
+
+  /* ---- INSIGHT BAR ----
+     Dos frases calculadas: dónde está concentrado el problema y cuánto bajaría el
+     indicador si eso se corrigiera. Nunca se atribuye una causa que los datos no
+     muestren, y si no hay con qué calcularla, el bloque se omite entero. */
+  (function(){
+    var caja=document.getElementById('uniInsight'); if(!caja) return;
+    var frases=[];
+
+    // 1) Concentración: cuántos motivos explican el 80% de los derivados
+    var lista=Object.keys(motNum).map(function(k){return {k:k,v:motNum[k]};})
+                .sort(function(a,b){return b.v-a.v;});
+    if(lista.length>=2 && ders>0){
+      var acum=0, n80=0;
+      for(var i=0;i<lista.length;i++){ acum+=lista[i].v; n80++; if(acum/ders>=0.8) break; }
+      frases.push('<b>'+n80+'</b> de '+lista.length+' motivos explican el <b>80%</b> de las '+
+        ders.toLocaleString('es-PE')+' prendas derivadas. El principal es <b>'+lista[0].k+'</b> con '+
+        lista[0].v.toLocaleString('es-PE')+' ('+(lista[0].v/ders*100).toFixed(1)+'%).');
+    }
+
+    // 2) El "y si": cuánto bajaría la tasa si el motivo principal desapareciera
+    if(lista.length && loteTaller>0 && ders>0){
+      var sinEl = (ders - lista[0].v) / loteTaller * 100;
+      frases.push('Si <b>'+lista[0].k+'</b> se eliminara, la tasa de derivados pasaría de <b>'+
+        (ders/loteTaller*100).toFixed(2)+'%</b> a <b>'+sinEl.toFixed(2)+'%</b>.');
+    }
+
+    // 3) Concentración por taller, solo si hay más de uno con volumen
+    var tal=Object.keys(motTallerDen).filter(function(t){ return motTallerDen[t]>0; });
+    if(tal.length>=2){
+      var porTaller={};
+      Object.keys(motTallerNum).forEach(function(mot){
+        Object.keys(motTallerNum[mot]).forEach(function(t){
+          porTaller[t]=(porTaller[t]||0)+motTallerNum[mot][t];
+        });
+      });
+      var rank=Object.keys(porTaller).map(function(t){
+        return {t:t, v:porTaller[t], d:motTallerDen[t]||0,
+                p:(motTallerDen[t]? porTaller[t]/motTallerDen[t]*100 : 0)};
+      }).filter(function(x){ return x.d>0; }).sort(function(a,b){return b.v-a.v;});
+      if(rank.length && ders>0){
+        var top=rank[0];
+        frases.push('<b>'+top.t+'</b> concentra el <b>'+(top.v/ders*100).toFixed(0)+
+          '%</b> de las prendas derivadas ('+top.v.toLocaleString('es-PE')+' de '+
+          top.d.toLocaleString('es-PE')+' revisadas · '+top.p.toFixed(2)+'%).');
+      }
+    }
+
+    if(!frases.length){ caja.style.display='none'; return; }
+    caja.style.display='';
+    caja.innerHTML = frases.join(' ');
+  })();
 
   /* ---- COMPARATIVO: lo que ve la muestra contra lo que separa el lote ----
      Con el filtro de taller puesto, este contraste responde algo que ningún panel respondía:
@@ -2394,6 +2683,23 @@ if(typeof _rpDer==='function'){
      universo y el comparativo muestra-vs-lote— se llamaba únicamente desde el render inicial,
      así que al cambiar de semana o de mes ese bloque se quedaba con las cifras del año y
      parecía congelado. */
+  /* Cambio de pestaña. Chart.js no dimensiona bien dentro de un contenedor oculto, así que
+     al mostrar una pestaña se fuerza el redibujado de sus gráficos: sin esto, los de las
+     pestañas que no estaban abiertas al cargar salen en blanco o con altura cero. */
+  window.tabDash=function(i,btn){
+    document.querySelectorAll('#dashTabs button').forEach(function(b){ b.classList.remove('active'); });
+    if(btn) btn.classList.add('active');
+    document.querySelectorAll('.tabpane').forEach(function(p,k){ p.classList.toggle('active', k===i); });
+    setTimeout(function(){
+      try{
+        document.querySelectorAll('.tabpane.active canvas').forEach(function(c){
+          var ch=(window.Chart&&Chart.getChart)?Chart.getChart(c):null; if(ch) ch.resize();
+        });
+      }catch(e){}
+      try{ if(typeof ocultarPanelesVacios==='function') ocultarPanelesVacios(); }catch(e){}
+    },40);
+  };
+
   window.renderPeriod=function(){
     var r=_rpDer.apply(this,arguments);
     try{ derPanel(); }catch(e){ console.warn('derPanel',e); }
