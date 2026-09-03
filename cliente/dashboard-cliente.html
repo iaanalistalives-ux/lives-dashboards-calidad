@@ -185,12 +185,14 @@
       <input id="file" type="file" accept=".xlsx,.xlsm,.xls" style="display:none">
     </div>
     <div id="err" class="err"></div>
+    <div id="cliFilterNote" style="display:none;background:#fff8e6;border:1px solid #f0d98c;color:#7a5b00;border-radius:8px;padding:8px 14px;font-size:12.5px;margin-bottom:10px;"></div>
     <div id="bar" class="bar">
       
       <span class="wsel" id="yearWrap">Vista: <span class="modesel"><span id="yearBtns"></span><button id="compareBtn" class="mbtn" type="button" onclick="showCompare()">📊 Comparativo</button></span></span>
       <span class="modesel" id="modeWrap"><button id="modeWeek" class="mbtn active" type="button" onclick="setMode('week')">Semana</button><button id="modeMonth" class="mbtn" type="button" onclick="setMode('month')">Mes</button><button id="modeYear" class="mbtn" type="button" onclick="setMode('year')">Año</button></span>
       <span class="wsel" id="weekWrap">Semana: <select id="weekSel"></select></span>
       <span class="wsel" id="monthWrap" style="display:none">Mes: <select id="monthSel"></select></span>
+      <span class="wsel" id="cliFilterWrap">Cliente: <select id="cliFilterSel"><option value="">Todos</option></select></span>
       <button id="printBtn" class="btn" type="button" onclick="printDash()" style="background:#fff;border:1px solid var(--warm);color:var(--sage);">🖨 Imprimir A4</button>
       <button id="changeBtn" class="btn" type="button" onclick="document.getElementById('file').click()">Cambiar archivo</button>
       <button id="exportBtn" class="btn" type="button" onclick="exportFrozen()" style="background:var(--sage);color:#fff;border:none;">⬇ Exportar para enviar</button>
@@ -311,7 +313,7 @@ const MESES=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","
 const MINN=8;
 let charts=[];const reg=c=>{charts.push(c);return c;};
 function clearCharts(){charts.forEach(c=>c.destroy());charts=[];}
-let STATE=null, CURMODE="week", CURYEAR=null, CURVIEW="year", CURFICHA=null;
+let STATE=null, CURMODE="week", CURYEAR=null, CURVIEW="year", CURFICHA=null, CURCLI="";
 
 const centerPct={id:"centerPct",afterDraw(chart,a,o){if(!o||o.text==null)return;const{ctx,chartArea:ca}=chart;ctx.save();ctx.font="700 22px Calibri, Arial";ctx.fillStyle=ROSE;ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(o.text,(ca.left+ca.right)/2,(ca.top+ca.bottom)/2);ctx.restore();}};
 const valueLabel={id:"valueLabel",afterDatasetsDraw(chart,a,opts){const{ctx}=chart;ctx.save();const meta=chart.getDatasetMeta(0);meta.data.forEach((bar,i)=>{const raw=chart.data.datasets[0].data[i];const extra=opts.extra?opts.extra[i]:"";const suf=opts.suffix||"";ctx.fillStyle="#333";ctx.font="700 11px Calibri, Arial";ctx.textBaseline="middle";if(chart.options.indexAxis==="y"){ctx.textAlign="left";ctx.fillText(raw+suf+(extra||""),bar.x+6,bar.y);}else{ctx.textAlign="center";ctx.fillText(raw+suf,bar.x,bar.y-8);}});ctx.restore();}};
@@ -325,6 +327,13 @@ drop.addEventListener("drop",e=>{if(e.dataTransfer.files[0])handleFile(e.dataTra
 drop.addEventListener("click",e=>{if(e.target.tagName!=="BUTTON")fileInput.click();});
 document.getElementById("weekSel").addEventListener("change",e=>renderPeriod("week",+e.target.value));
 document.getElementById("monthSel").addEventListener("change",e=>renderPeriod("month",+e.target.value));
+document.getElementById("cliFilterSel").addEventListener("change",e=>{
+  CURCLI=e.target.value;
+  // re-renderiza el período actual (o año completo) con el filtro ya aplicado
+  if(CURMODE==="week")renderPeriod("week",+document.getElementById("weekSel").value);
+  else if(CURMODE==="month")renderPeriod("month",+document.getElementById("monthSel").value);
+  else renderPeriod("year",null);
+});
 function showErr(m){const el=document.getElementById("err");el.style.display="block";el.innerHTML="⚠ "+m;}
 function setMode(m){CURMODE=m;document.getElementById("modeWeek").classList.toggle("active",m==="week");document.getElementById("modeMonth").classList.toggle("active",m==="month");document.getElementById("modeYear").classList.toggle("active",m==="year");document.getElementById("weekWrap").style.display=m==="week"?"inline-flex":"none";document.getElementById("monthWrap").style.display=m==="month"?"inline-flex":"none";if(m==="week")renderPeriod("week",+document.getElementById("weekSel").value);else if(m==="month")renderPeriod("month",+document.getElementById("monthSel").value);else renderPeriod("year",null);}
 
@@ -389,6 +398,13 @@ function selectYear(y){
   document.getElementById("modeWrap").style.display="inline-flex";
   const sel=document.getElementById("weekSel");sel.innerHTML=STATE.weeks.map(w=>`<option value="${w}">Semana ${w}</option>`).join("");sel.value=STATE.weeks[STATE.weeks.length-1];
   const msel=document.getElementById("monthSel");msel.innerHTML=STATE.months.map(m=>`<option value="${m}">${MESES[m]} ${y}</option>`).join("");msel.value=STATE.months[STATE.months.length-1];
+  const cliSel=document.getElementById("cliFilterSel");
+  if(cliSel){
+    const clientes=STATE.cli.list.map(c=>c.k).sort();
+    cliSel.innerHTML='<option value="">Todos</option>'+clientes.map(c=>`<option value="${c}">${c}</option>`).join("");
+    cliSel.value=CURCLI&&clientes.includes(CURCLI)?CURCLI:"";
+    if(!clientes.includes(CURCLI))CURCLI="";
+  }
   setMode("week");
   renderPerf();
 }
@@ -457,7 +473,16 @@ function computeClients(rows){
 function renderPeriod(mode,value){
   clearCharts();
   const S=STATE,isMonth=mode==="month",isYear=mode==="year";
-  const wrows=isYear?S.rows:(isMonth?S.rows.filter(r=>monthOf(r["FECHA"])===value):S.rows.filter(r=>Number(r["SEMANA"])===value));
+  // Filtro global de cliente (Parte 4 del estándar): se aplica una sola vez, aquí, antes
+  // de calcular cualquier KPI/gráfico/tabla — así todo el panel queda filtrado de una vez,
+  // en vez de filtrar panel por panel (donde tarde o temprano uno se queda sin filtrar).
+  const wrowsBase=isYear?S.rows:(isMonth?S.rows.filter(r=>monthOf(r["FECHA"])===value):S.rows.filter(r=>Number(r["SEMANA"])===value));
+  const wrows=CURCLI?wrowsBase.filter(r=>r["CLIENTE"]===CURCLI):wrowsBase;
+  const cliFilterNote=document.getElementById("cliFilterNote");
+  if(cliFilterNote){
+    if(CURCLI){cliFilterNote.style.display="";cliFilterNote.textContent=`Filtrado por cliente ${CURCLI} · ${wrows.length} auditoría(s) de ${wrowsBase.length} del período.`;}
+    else{cliFilterNote.style.display="none";}
+  }
   const plabel=isYear?("Año "+(S.year||"")):(isMonth?(MESES[value]+" "+(S.year||"")):("Sem "+value));
   const cnt=(a,res)=>a.filter(r=>r["RESULTADO"]===res).length;
   const n=wrows.length,ap=cnt(wrows,"APROBADO"),re=n-ap,apPct=pct(ap,n),rePct=pct(re,n);
