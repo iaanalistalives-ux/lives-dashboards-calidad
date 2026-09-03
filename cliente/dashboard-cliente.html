@@ -280,6 +280,10 @@
     .fc-kpis{grid-template-columns:repeat(2,1fr);}
   }
 
+  /* Un contenedor que se queda sin contenido no debe dejar una tarjeta blanca
+     vacía en medio del tablero (el bloque de Focos hace eso en vista Año). */
+  .focos:empty,.panel:empty,#sinDatos:empty{display:none!important;}
+
   @media print{
     @page{size:A4 landscape;margin:9mm;}
     *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
