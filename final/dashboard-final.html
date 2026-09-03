@@ -71,7 +71,10 @@
   .verdict{padding:14px;gap:12px;}
   .verdict .dot{width:36px;height:36px;font-size:18px;}
   .verdict .t{font-size:16px;}
-  .verdict,.icard,.focos{box-shadow:none;border:1px solid var(--warm);break-inside:avoid;page-break-inside:avoid;}
+  .verdict,.icard,/* Bloque "Dónde atacar primero". Va al FINAL del tablero, no al inicio: primero se lee
+     qué pasó (KPIs, veredicto, tendencias) y recién después dónde meter la mano. */
+  .focos{background:var(--card);box-shadow:var(--sh);border:none;border-radius:var(--r);
+         padding:16px 18px;margin:18px 0 8px;break-inside:avoid;page-break-inside:avoid;}
 
   /* Insight bar: una o dos frases CALCULADAS con los datos, nunca escritas a mano.
      Dice dónde está concentrado el problema y qué pasaría si eso se corrigiera. */
@@ -442,17 +445,21 @@
   .scopebtn{background:#fff;border:1.5px solid var(--slate);color:var(--slate);border-radius:6px;padding:6px 12px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;}
   .scopebtn:hover{background:var(--warm-light);}
   .focos{background:linear-gradient(180deg,#fff,#FAFCFB);border:1.5px solid var(--warm,#DCE5E2);border-radius:12px;padding:14px 16px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
-  .fk-hd{font-size:14px;font-weight:800;color:var(--slate,#40566B);margin-bottom:12px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;}
+  .fk-hd{font-size:14px;font-weight:800;color:var(--petrol);margin-bottom:14px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;}
   .fk-hd span{font-size:11px;font-weight:600;color:var(--stone,#5F726C);}
   .fk-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+  @media(max-width:900px){.fk-grid{grid-template-columns:1fr;}}
   @media(max-width:760px){.fk-grid{grid-template-columns:1fr;}}
-  .fk-tile{background:#fff;border:1px solid var(--warm-light,#F1F6F4);border-radius:10px;padding:12px 14px;}
+  .fk-tile{background:var(--warm-light);border:none;border-radius:var(--r);padding:13px 15px;min-width:0;}
   .fk-t{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--stone,#5F726C);margin-bottom:8px;}
   .fk-big{font-size:30px;font-weight:800;line-height:1;}
   .fk-big small{font-size:13px;font-weight:700;margin-left:3px;}
   .fk-lbl{font-size:12px;color:#333;font-weight:600;margin-top:3px;}
   .fk-list{display:flex;flex-direction:column;gap:4px;margin-top:9px;}
-  .fk-it{font-size:12px;color:var(--slate,#40566B);background:var(--warm-light,#F1F6F4);border-radius:6px;padding:5px 9px;cursor:pointer;}
+  .fk-it{display:flex;align-items:center;flex-wrap:wrap;font-size:12.5px;color:#333;
+         background:var(--card);border-radius:8px;padding:8px 11px;margin-bottom:6px;
+         cursor:pointer;transition:box-shadow .15s,transform .15s;}
+  .fk-it:hover{box-shadow:var(--sh-h);transform:translateY(-1px);}
   .fk-it:hover{background:#EEF3F1;}
   .fk-it b{color:#333;}
 
@@ -3152,42 +3159,110 @@ if(document.readyState!=='loading'){ cargarEnVivo(); cargarDetalleFino(); }
   function lfAggRows(col,rows){var m={};rows.forEach(function(r){var k=r[col];if(k==null||k==="")return;(m[k]=m[k]||{n:0,ap:0});m[k].n++;if(approved(r))m[k].ap++;});return m;}
   function lfComputePerf(col,rows,minN){var m=lfAggRows(col,rows);return Object.keys(m).map(function(k){var o=m[k];return {k:k,n:o.n,pct:+(o.ap/o.n*100).toFixed(1)};}).filter(function(r){return r.n>=minN;});}
   function lfRenderFocos(){
-    var host=document.getElementById("focos");if(!host||!S())return;
-    var col=CFG.entCol,feLab=CFG.entLabel.toLowerCase(),MFL=(typeof MESES!=="undefined")?MESES:MF;
-    var pp=lfPeriodNow();if(pp.kind==="acum"){host.innerHTML="";return;}
-    var wrows=scoped(pp),plabel=pLabel(pp);
-    var pv=lfPrevPeriod(pp),prevKey=pv.prevKey,prevRows=pv.prevRows;
-    var minN=pp.kind==="week"?3:8;
-    var curTok=pKey(pp);
-    var P=lfComputePerf(col,wrows,minN);
-    var crit=P.filter(function(r){var c=estado(r.pct)[1];return c==="cri"||c==="ale";}).sort(function(a,b){return a.pct-b.pct;});
-    var rev=P.filter(function(r){return estado(r.pct)[1]==="rev";}).sort(function(a,b){return a.pct-b.pct;});
-    var det=[];
-    if(prevKey!=null){var A=lfAggRows(col,wrows),B=lfAggRows(col,prevRows);Object.keys(A).forEach(function(k){if(!B[k])return;var a=A[k],b=B[k];if(a.n<minN||b.n<minN)return;var d=+((a.ap/a.n-b.ap/b.n)*100).toFixed(1);if(d<0)det.push({k:k,d:d});});det.sort(function(x,y){return x.d-y.d;});}
-    var spike=null;
-    if(prevKey!=null){var DA={},DB={};wrows.forEach(function(r){dcount(r["DEFECTOS"],DA);});prevRows.forEach(function(r){dcount(r["DEFECTOS"],DB);});Object.keys(DA).forEach(function(d){var dl=DA[d]-(DB[d]||0);if(!spike||dl>spike.delta)spike={d:d,delta:dl};});}
-    var curLbl=pp.kind==="month"?MFL[pp.value]:("Sem "+pp.value);
-    var prevLbl=prevKey!=null?(pp.kind==="month"?MFL[prevKey]:("Sem "+prevKey)):null;
-    var perNoun=pp.kind==="month"?"mes":"semana";
-    var perTxt=pp.kind==="month"?"mes seleccionado":"semana seleccionada";
-    var t1=crit.length
-      ?'<div class="fk-big" style="color:#B05656">'+crit.length+'</div><div class="fk-lbl">'+feLab+'(s) en alerta/crítico</div><div class="fk-list">'+crit.slice(0,3).map(function(r){return '<span class="fk-it" onclick="generarFicha(\''+esc2(r.k)+'\',\''+curTok+'\')"><b>'+r.k+'</b> · '+r.pct+'%</span>';}).join("")+'</div>'
-      :rev.length
-      ?'<div class="fk-big" style="color:#C98A5E">'+rev.length+'</div><div class="fk-lbl">en revisión (ninguno crítico)</div><div class="fk-list">'+rev.slice(0,3).map(function(r){return '<span class="fk-it" onclick="generarFicha(\''+esc2(r.k)+'\',\''+curTok+'\')"><b>'+r.k+'</b> · '+r.pct+'%</span>';}).join("")+'</div>'
-      :'<div class="fk-big" style="color:var(--sage)">\u2713</div><div class="fk-lbl">Ning\u00FAn '+feLab+' en alerta</div>';
-    var t2=det.length
-      ?'<div class="fk-big" style="color:#B05656">'+det[0].d+'<small>pts</small></div><div class="fk-lbl">Mayor ca\u00EDda de aprobaci\u00F3n</div><div class="fk-list">'+det.slice(0,3).map(function(r){return '<span class="fk-it" onclick="generarFicha(\''+esc2(r.k)+'\',\''+curTok+'\')"><b>'+r.k+'</b> · '+r.d+'pts</span>';}).join("")+'</div>'
-      :(prevKey!=null?'<div class="fk-big" style="color:var(--sage)">\u2014</div><div class="fk-lbl">Sin ca\u00EDdas relevantes vs. '+perNoun+' previo(a)</div>':'<div class="fk-big" style="color:var(--stone)">\u2014</div><div class="fk-lbl">Sin per\u00EDodo previo para comparar</div>');
-    var t3=(spike&&spike.delta>0)
-      ?'<div class="fk-big" style="color:#B05656">+'+spike.delta+'</div><div class="fk-lbl">'+spike.d+'</div><div class="fk-list"><span class="fk-it" onclick="openDefectFicha(\''+esc2(spike.d)+'\',\''+curTok+'\')">Ver ficha del defecto \u2192</span></div>'
-      :(prevKey!=null?'<div class="fk-big" style="color:var(--sage)">\u2014</div><div class="fk-lbl">Ning\u00FAn defecto al alza en '+(pp.kind==="month"?"el mes":"la semana")+'</div>':'<div class="fk-big" style="color:var(--stone)">\u2014</div><div class="fk-lbl">Sin per\u00EDodo previo para comparar</div>');
-    host.innerHTML='<div class="fk-hd">\uD83C\uDFAF Focos \u00B7 '+plabel+' <span>'+perTxt+(prevLbl?(" \u00B7 comparado con "+perNoun+" anterior ("+prevLbl+")"):" \u00B7 sin per\u00EDodo anterior")+' \u00B7 clic para abrir la ficha</span></div>'+
-      '<div class="fk-grid"><div class="fk-tile"><div class="fk-t">\uD83D\uDD34 En alerta/cr\u00EDtico \u2014 '+plabel+'</div>'+t1+'</div>'+
-      '<div class="fk-tile"><div class="fk-t">\uD83D\uDCC9 Mayor deterioro'+(prevLbl?(" \u00B7 "+prevLbl+"\u2192"+curLbl):"")+'</div>'+t2+'</div>'+
-      '<div class="fk-tile"><div class="fk-t">\u26A0\uFE0F Defecto en alza'+(prevLbl?(" \u00B7 vs "+prevLbl):"")+'</div>'+t3+'</div></div>';
+    /* ===== LOS 3 PEORES — reemplaza al bloque de "Focos" =====
+       El bloque anterior comparaba contra el período previo, y cuando no había movimiento
+       mostraba "Sin caídas relevantes vs. semana previa", que no le sirve a nadie: ocupa
+       espacio y no dice qué hacer.
+       Estos tres rankings siempre tienen contenido mientras haya auditorías, y siempre
+       apuntan a algo accionable: qué cliente, qué taller y qué defecto atacar primero.
+       Al tocar cualquiera se abre su ficha con el universo completo. */
+    var host=document.getElementById("focos"); if(!host||!S()) return;
+    var pp=lfPeriodNow();
+    var wrows=scoped(pp), plabel=pLabel(pp);
+    if(!wrows.length){ host.innerHTML=""; host.style.display="none"; return; }
+    host.style.display="";
+
+    /* Mínimo de auditorías para entrar al ranking. Es sensible al tipo de vista: en una
+       semana el volumen normal es bajo, y exigir 8 dejaría todo fuera; en el año, con 3 no
+       se puede concluir nada. */
+    var MIN = (pp.kind==="week") ? 2 : (pp.kind==="month" ? 3 : 5);
+
+    function peoresPorRechazo(col){
+      var m={};
+      wrows.forEach(function(r){
+        var k=String(r[col]||"").trim();
+        if(col==="SERVICIO" && !k) k = (String(r["INT/EXT"]||"")==="INTERNO") ? "LIVES" : "";
+        if(!k) return;
+        (m[k]=m[k]||{n:0,re:0});
+        m[k].n++;
+        if(!approved(r)) m[k].re++;
+      });
+      var todos = Object.keys(m).map(function(k){
+        return {k:k, n:m[k].n, re:m[k].re, pct:+(m[k].re/m[k].n*100).toFixed(1)};
+      }).filter(function(x){ return x.re>0; });
+      /* Si con el mínimo no queda nadie, se baja a 1 y se marca "muestra baja" en vez de
+         mostrar "Sin registros". El bloque siempre tiene que decir algo accionable: con
+         pocas auditorías el dato es menos firme, pero sigue siendo el peor del período y
+         eso es lo que se necesita saber. */
+      var conMin = todos.filter(function(x){ return x.n>=MIN; });
+      var usar = conMin.length ? conMin : todos;
+      var bajo = conMin.length===0;
+      return usar.sort(function(a,b){ return b.pct-a.pct || b.n-a.n; })
+                 .slice(0,3).map(function(x){ x.pocas = bajo || x.n<MIN; return x; });
+    }
+
+    /* DERIVADOS, no defectos de muestra. Son las prendas que hubo que separar al revisar el
+       lote completo en talleres externos: es el problema que se ataca en el taller, y su
+       universo es el lote revisado, no la muestra. */
+    function peoresDerivados(){
+      var acc={}, lote=0;
+      wrows.forEach(function(r){
+        var ext = String(r["INT/EXT"]||"")==="EXTERNO";
+        var hay = String(r["DERIVADOS"]||"").trim()!=="";
+        if(ext || hay) lote += Number(r["LOTE_CONTABLE"]!=null&&r["LOTE_CONTABLE"]!==""?r["LOTE_CONTABLE"]:r["LOTE"])||0;
+        derParse(r["DERIVADOS"]).forEach(function(d){ acc[d.nombre]=(acc[d.nombre]||0)+d.cant; });
+      });
+      return Object.keys(acc).map(function(k){
+        return {k:k, v:acc[k], den:lote, pct: lote? +(acc[k]/lote*100).toFixed(2) : 0};
+      }).sort(function(a,b){ return b.v-a.v; }).slice(0,3);
+    }
+
+    /* Semáforo relativo a la media del período: Calidad no ha declarado meta, así que se
+       compara contra el promedio real y se dice que es el promedio, no una meta. */
+    var totN=wrows.length, totRe=wrows.filter(function(r){ return !approved(r); }).length;
+    var media = totN ? (totRe/totN*100) : 0;
+    function nivel(p){
+      if(p <= media) return ["ok","#0F7A5A","#E7F4EF"];
+      if(p <= media*1.5) return ["warn","#B45309","#FEF3E2"];
+      return ["bad","#DC2626","#FCEBEB"];
+    }
+
+    function tile(titulo, sub, items, tipo){
+      var filas = items.length ? items.map(function(x,i){
+        var p = (tipo==="def") ? x.pct : x.pct;
+        var col = (tipo==="def") ? ["","#B45309","#FEF3E2"] : nivel(x.pct);
+        var det = (tipo==="def")
+          ? (x.v.toLocaleString("es-PE")+" de "+x.den.toLocaleString("es-PE")+" revisadas · "+p+"%")
+          : (x.re+" rechazadas de "+x.n+" auditorías · "+p+"%");
+        var fn = (tipo==="def") ? ("derDetalle("+JSON.stringify(x.k).replace(/"/g,"&quot;")+")")
+               : (tipo==="cli") ? ("generarFichaCliente("+JSON.stringify(x.k).replace(/"/g,"&quot;")+", curPeriodTok())")
+               : ("generarFicha("+JSON.stringify(x.k).replace(/"/g,"&quot;")+", curPeriodTok())");
+        return '<div class="fk-it" onclick="'+fn+'" title="Toca para ver su detalle">'+
+          '<span style="display:inline-flex;width:19px;height:19px;border-radius:50%;background:'+col[2]+
+            ';color:'+col[1]+';font-size:10.5px;font-weight:800;align-items:center;justify-content:center;margin-right:7px;flex:none">'+(i+1)+'</span>'+
+          '<b style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+x.k+'</b>'+
+          '<span style="font-weight:800;color:'+col[1]+';margin-left:8px;white-space:nowrap">'+p+'%</span>'+
+          '<div style="flex-basis:100%;font-size:11px;color:var(--stone);margin:1px 0 0 26px">'+det+
+            (x.pocas?' <span style="background:#FEF3E2;color:#B45309;border-radius:10px;padding:1px 7px;font-weight:700">muestra baja</span>':'')+'</div>'+
+        '</div>';
+      }).join("") : '<div style="font-size:12px;color:var(--stone);padding:6px 0">Sin rechazos en este período. 👍</div>';
+      return '<div class="fk-tile"><div class="fk-t">'+titulo+'</div>'+
+             '<div style="font-size:11px;color:var(--stone);margin:-2px 0 7px">'+sub+'</div>'+filas+'</div>';
+    }
+
+    host.innerHTML =
+      '<div class="fk-hd">🎯 Dónde atacar primero · '+plabel+
+        ' <span style="font-weight:400;color:var(--stone);font-size:11.5px">'+
+        'los 3 con mayor % de rechazo · el color compara contra el promedio del período ('+media.toFixed(1)+
+        '%), no contra una meta · toca cualquiera para ver su detalle</span></div>'+
+      '<div class="fk-grid">'+
+        tile("👔 3 peores clientes", "% de rechazo sobre sus propias auditorías", peoresPorRechazo("CLIENTE"), "cli")+
+        tile("🏭 3 peores talleres", "% de rechazo sobre sus propias auditorías", peoresPorRechazo("SERVICIO"), "tal")+
+        tile("⚠️ 3 derivados más frecuentes", "prendas separadas al revisar el lote completo", peoresDerivados(), "def")+
+      '</div>';
   }
   window.lfRenderFocos=lfRenderFocos;
-  function mountFocos(){if(document.getElementById("focos"))return true;var mv=document.getElementById("mainView")||document.getElementById("dash");if(!mv)return false;var sn=document.getElementById("srcNote");var f=document.createElement("div");f.className="focos";f.id="focos";if(sn&&sn.parentNode===mv)mv.insertBefore(f,sn.nextSibling);else mv.insertBefore(f,mv.firstChild);return true;}
+  function mountFocos(){if(document.getElementById("focos"))return true;var mv=document.getElementById("mainView")||document.getElementById("dash");if(!mv)return false;var sn=document.getElementById("srcNote");var f=document.createElement("div");f.className="focos";f.id="focos";mv.appendChild(f);/* al final del tablero: primero se lee qué pasó, después dónde atacar */return true;}
   // ---- fusión/renombrado de valores (ej. CHILLON -> YOSATEX) ----
   function lfNormalize(){if(!CFG.renameMap)return false;var st=S();if(!st)return false;var arr=st.allRows||st.rows||[];var ch=false;arr.forEach(function(r){var v=r[CFG.renameCol];if(v!=null&&CFG.renameMap[v]!=null){r[CFG.renameCol]=CFG.renameMap[v];ch=true;}});return ch;}
   // ---- lente de % de rechazo por cliente ----
