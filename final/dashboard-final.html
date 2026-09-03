@@ -498,7 +498,7 @@
            y cuántas salieron con problema. Sin eso, los conteos de abajo son números
            sueltos que no se pueden comparar entre talleres ni entre semanas. -->
       <div class="panel" id="panelUniverso">
-        <div class="pt">🎯 De cuántas prendas estamos hablando</div>
+        <div class="pt">🎯 De cuántas prendas estamos hablando <span id="uniPer" style="font-weight:400;color:var(--stone);font-size:13px"></span></div>
         <div class="ph" id="uniSub"></div>
         <div id="uniKpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px"></div>
         <div id="uniComp"></div>
@@ -1942,21 +1942,36 @@ function renderUniverso(){
     });
   });
 
-  // Si hay filtro puesto hay que decirlo: un porcentaje sobre 40 prendas filtradas no se
-  // lee igual que uno sobre 14.000, y quien decide tiene que saber sobre cuánto decide.
-  var filtroTxt='';
-  if(FILTRO_CLI || FILTRO_TAL){
-    var partes=[];
-    if(FILTRO_CLI) partes.push('cliente <b>'+FILTRO_CLI+'</b>');
-    if(FILTRO_TAL) partes.push('taller <b>'+FILTRO_TAL+'</b>');
-    filtroTxt='<div style="background:#EEF7F4;border-left:3px solid var(--sage);border-radius:0 6px 6px 0;'+
-      'padding:7px 11px;margin:8px 0 0;font-size:12px;color:#0B815E">Filtrado por '+partes.join(' y ')+
-      ' · <b>'+nAud+'</b> auditoría(s) de '+(STATE.rowsTotalAnio||nAud)+' del año.</div>';
-  }
+  /* QUÉ PERÍODO Y QUÉ FILTROS SE ESTÁN VIENDO.
+     El panel siempre respondió a los filtros, pero no lo decía en ninguna parte: quien lo
+     miraba no podía saber si esas cifras eran de la semana, del mes o del año, y lo primero
+     que preguntaba era "¿y esto de qué tiempo es?".
+     Ahora lo dice arriba, con el mismo texto para todos los filtros activos. */
+  var MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto',
+             'Setiembre','Octubre','Noviembre','Diciembre'];
+  var per = (typeof periodoActualDer==='function') ? periodoActualDer() : {modo:'year',valor:null};
+  var perTxt;
+  if(per.modo==='week'  && per.valor!=null) perTxt='Semana '+per.valor+' de '+(STATE.year||'');
+  else if(per.modo==='month' && per.valor!=null) perTxt=(MESES[per.valor-1]||per.valor)+' '+(STATE.year||'');
+  else perTxt='Año '+(STATE.year||'')+' completo';
+
+  var chips = '<span style="display:inline-block;background:var(--petrol);color:#fff;border-radius:20px;'+
+    'padding:3px 12px;font-size:12px;font-weight:700;margin-right:6px">📅 '+perTxt+'</span>';
+  if(FILTRO_CLI) chips += '<span style="display:inline-block;background:var(--sage);color:#fff;border-radius:20px;'+
+    'padding:3px 12px;font-size:12px;font-weight:700;margin-right:6px">👔 '+FILTRO_CLI+'</span>';
+  if(FILTRO_TAL) chips += '<span style="display:inline-block;background:var(--slate);color:#fff;border-radius:20px;'+
+    'padding:3px 12px;font-size:12px;font-weight:700;margin-right:6px">🏭 '+FILTRO_TAL+'</span>';
+  chips += '<span style="font-size:12px;color:var(--stone);margin-left:4px">· <b>'+nAud+'</b> auditoría(s)'+
+    ((FILTRO_CLI||FILTRO_TAL) ? (' de '+(STATE.rowsTotalAnio||nAud)+' del año') : '')+'</span>';
+
+  var elPer=document.getElementById('uniPer');
+  if(elPer) elPer.textContent='· '+perTxt;
   document.getElementById('uniSub').innerHTML =
+    '<div style="margin:2px 0 9px">'+chips+'</div>'+
+    'Todas las cifras de este bloque son de ese período y esos filtros. '+
     'Dos universos distintos, nunca sumados: los <b>derivados</b> salen de revisar el '+
     '<b>lote completo</b> en talleres externos; los <b>defectos</b> salen de la '+
-    '<b>muestra inspeccionada</b> (AQL). Cada porcentaje dice sobre cuál está calculado.'+filtroTxt;
+    '<b>muestra inspeccionada</b> (AQL). Cada porcentaje dice sobre cuál está calculado.';
 
   function kpi(v,l,sub,color){
     return '<div style="background:#fff;border:1px solid var(--warm);border-radius:12px;padding:14px 16px;box-shadow:0 1px 3px rgba(14,59,54,.06)">'+
@@ -2014,7 +2029,8 @@ function renderUniverso(){
       '</div>';
     }
     cont.innerHTML =
-      '<div style="font-size:13px;font-weight:800;color:#0E3B36;margin:16px 0 3px">La muestra contra el lote</div>'+
+      '<div style="font-size:13px;font-weight:800;color:#0E3B36;margin:16px 0 3px">La muestra contra el lote'+
+        ' <span style="font-weight:400;color:#5F726C;font-size:12px">· '+perTxt+'</span></div>'+
       '<div style="font-size:11.5px;color:#5F726C;margin-bottom:11px">Izquierda: lo que encontró la inspección por muestreo. Derecha: lo que hubo que separar al revisar el lote completo. '+
         'Son universos distintos, así que <b>los porcentajes no se comparan entre sí</b> — lo que se compara es qué problemas salen en cada lado. '+
         'Toca cualquiera para ver su detalle. Con el filtro de taller puesto, esto muestra si el muestreo de ese taller está detectando lo que después se separa.</div>'+
@@ -2039,7 +2055,8 @@ function renderUniverso(){
 
 
   document.getElementById('uniTop').innerHTML =
-    '<div style="font-size:13px;font-weight:800;color:#0E3B36;margin-bottom:4px">Los 3 motivos que más pesan</div>'+
+    '<div style="font-size:13px;font-weight:800;color:#0E3B36;margin-bottom:4px">Los 3 motivos que más pesan'+
+      ' <span style="font-weight:400;color:#5F726C;font-size:12px">· '+perTxt+'</span></div>'+
     '<div style="font-size:11.5px;color:#5F726C;margin-bottom:10px">Toca cualquiera para abrir su ficha completa.</div>'+
     '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">'+
     top.map(function(t,i){
