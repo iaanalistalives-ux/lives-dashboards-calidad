@@ -126,6 +126,7 @@
       <div class="sm" id="loadSub">Conectando con la base de datos de Segundas.</div>
     </div>
     <div id="err" class="err"></div>
+    <div id="cliFilterNote" style="display:none;background:#fff8e6;border:1px solid #f0d98c;color:#7a5b00;border-radius:8px;padding:8px 14px;font-size:12.5px;margin-bottom:10px;"></div>
     <div id="bar" class="bar">
       
       <span class="wsel" id="yearWrap">Vista: <span class="modesel"><span id="yearBtns"></span><button id="compareBtn" class="mbtn" type="button" onclick="showCompare()">📊 Comparativo</button></span></span>
@@ -137,6 +138,7 @@
         </span>
       </span>
       <span class="wsel" id="monthWrap" style="display:none">Mes: <span id="monthPills" class="pdbtns"></span></span>
+      <span class="wsel" id="cliFilterWrap">Cliente: <select id="cliFilterSel"><option value="">Todos</option></select></span>
       <button id="printBtn" class="btn" type="button" onclick="printDash()" style="background:#fff;border:1px solid var(--warm);color:var(--sage);">🖨 Imprimir A4</button>
       <button id="refreshBtn" class="btn" type="button" onclick="cargarDesdeSheet(true)">🔄 Actualizar</button>
       <button id="exportBtn" class="btn" type="button" onclick="exportFrozen()" style="background:var(--sage);color:#fff;border:none;">⬇ Exportar para enviar</button>
@@ -314,7 +316,7 @@ const META=2;
     return fix;
   }
 let charts=[];const reg=c=>{charts.push(c);return c;};function clearCharts(){charts.forEach(c=>c.destroy());charts=[];}
-let STATE=null,CURMODE="week",CURVAL=null,CURYEAR=null,CURVIEW="year",CURF={kind:null,key:null};
+let STATE=null,CURMODE="week",CURVAL=null,CURYEAR=null,CURVIEW="year",CURF={kind:null,key:null},CURCLI="";
 let SELWEEKS=[],SELMONTHS=[]; // selección múltiple de semanas/meses (arrays; 1 elemento = selección simple)
 function curTok(){if(CURMODE==="year")return "acum";var v=Array.isArray(CURVAL)?CURVAL[CURVAL.length-1]:CURVAL;return CURMODE==="week"?("w:"+v):("m:"+v);}
 
@@ -408,6 +410,12 @@ async function cargarDesdeSheet(manual){
 }
 // Si este archivo es un export congelado (window.__EMBEDSTATE__ ya presente, ver más abajo),
 // NO se conecta al Sheet en vivo — se queda con la foto congelada tal como se exportó.
+document.getElementById("cliFilterSel").addEventListener("change",e=>{
+  CURCLI=e.target.value;
+  if(CURMODE==="week")renderPeriod("week",SELWEEKS.slice());
+  else if(CURMODE==="month")renderPeriod("month",SELMONTHS.slice());
+  else renderPeriod("year",null);
+});
 if(!window.__EMBEDSTATE__){
   cargarDesdeSheet(false);
   setInterval(()=>cargarDesdeSheet(false), 5*60*1000); // se refresca sola cada 5 minutos
@@ -541,6 +549,13 @@ function selectYear(y){
   buildWeekPills(wl);SELWEEKS=wl.length?[wl[wl.length-1]]:[];syncWeekPillsUI();
   const ml=monthsOfYear();
   buildMonthPills(ml,y);SELMONTHS=ml.length?[ml[ml.length-1]]:[];syncMonthPillsUI();
+  const cliSel=document.getElementById("cliFilterSel");
+  if(cliSel){
+    const clientes=[...new Set(ydata().map(r=>r.cli).filter(v=>v!=null&&v!==""))].sort();
+    cliSel.innerHTML='<option value="">Todos</option>'+clientes.map(c=>`<option value="${c}">${c}</option>`).join("");
+    if(!clientes.includes(CURCLI))CURCLI="";
+    cliSel.value=CURCLI;
+  }
   renderDesempeno();
   setMode("year"); // por defecto, año completo acumulado; Semana/Mes son un drill-down explícito
 }
@@ -579,7 +594,14 @@ function renderPeriod(mode,valueOrArr){
   const conf=isYear?aY:(isMonth?repMonths(values):repWeeks(values));
   const periodPct=pc(conf.seg,conf.conf);
   const plabel=isYear?("Acumulado "+Y):periodLabel(mode,values,Y);
-  const drows=isYear?ydata():dataPeriod(mode,values);
+  const drowsBase=isYear?ydata():dataPeriod(mode,values);
+  // Filtro global de cliente (una sola vez aquí, antes de armar cualquier KPI/gráfico/ranking)
+  const drows=CURCLI?drowsBase.filter(r=>r.cli===CURCLI):drowsBase;
+  const cliFilterNote=document.getElementById("cliFilterNote");
+  if(cliFilterNote){
+    if(CURCLI){cliFilterNote.style.display="";cliFilterNote.textContent=`Filtrado por cliente ${CURCLI} · ${nf(drows.reduce((s,r)=>s+r.cant,0))} segundas de ${nf(drowsBase.reduce((s,r)=>s+r.cant,0))} del período.`;}
+    else{cliFilterNote.style.display="none";}
+  }
 
   // ----- tendencia anual (solo en modo Año, solo si hay ≥2 años para comparar) -----
   // Incluye tanto los anios del Excel subido (STATE.years) como los anios historicos incrustados
