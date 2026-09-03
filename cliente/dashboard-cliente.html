@@ -233,6 +233,7 @@
           <div class="pt">👔 Resultados por cliente</div>
           <div class="ph">% de aprobación por cliente (período seleccionado). La etiqueta muestra el % y, entre paréntesis, las auditorías.</div>
           <div class="cwrap" style="height:280px;"><canvas id="cCliente"></canvas></div>
+          <div id="cliLowNote" style="display:none;font-size:11px;color:var(--stone,#889);margin-top:6px;"></div>
         </div>
         <div class="panel">
           <div class="pt">🔍 Defectos más comunes</div>
@@ -345,7 +346,7 @@ function extractRows(wb){
   return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:null});
 }
 function yearOf(f){if(f instanceof Date)return f.getFullYear();if(typeof f==="string"){const m=f.match(/(20\d{2})/);if(m)return +m[1];}return null;}
-function monthOf(f){if(f instanceof Date)return f.getMonth();if(typeof f==="string"){const d=new Date(f);if(!isNaN(d))return d.getMonth();const m=f.match(/-(\d{2})-/);if(m)return +m[1]-1;}return null;}
+function monthOf(f){if(f instanceof Date)return f.getMonth();if(typeof f==="string"){const m=f.match(/^(\d{4})-(\d{2})-(\d{2})/);if(m)return +m[2]-1;const d=new Date(f);if(!isNaN(d))return d.getMonth();}return null;}
 function isRech(r){return r["RESULTADO"]==="RECHAZADO";}
 function num(v){const n=Number(v);return isFinite(n)?n:0;}
 function defCount(v,acc){if(v==null)return;String(v).split("-").forEach(p=>{p=p.trim();if(!p)return;const m=p.match(/^(.*?)(\d+)\s*$/);if(m){const n=m[1].trim();if(n)acc[n]=(acc[n]||0)+parseInt(m[2],10);}else if(!/^\d+$/.test(p))acc[p]=(acc[p]||0)+1;});}
@@ -489,13 +490,14 @@ function renderPeriod(mode,value){
   reg(new Chart(document.getElementById("dDonut"),{type:"doughnut",data:{labels:["Aprobado","Rechazado"],datasets:[{data:[ap,re],backgroundColor:[SAGE,ROSE],borderWidth:0}]},options:{cutout:"68%",responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},centerPct:{text:n?rePct+"%":"—"},tooltip:{callbacks:{label:c=>c.label+": "+c.raw}}}},plugins:[centerPct]}));
   document.getElementById("donutLbl").textContent=plabel+" · "+rePct+"% rechazo";
 
-  // mejor/peor cliente del período
+  // mejor/peor cliente del período — mismo criterio: solo entre clientes con muestra suficiente
   const sm={};wrows.forEach(r=>{const k=r["CLIENTE"];if(k==null||k==="")return;(sm[k]=sm[k]||{n:0,ap:0});sm[k].n++;if(r["RESULTADO"]==="APROBADO")sm[k].ap++;});
   const serv=Object.keys(sm).map(k=>({k,n:sm[k].n,ap:+(sm[k].ap/sm[k].n*100).toFixed(1)}));
-  if(serv.length){const best=serv.reduce((a,b)=>b.ap>a.ap||(b.ap===a.ap&&b.n>a.n)?b:a);const worst=serv.reduce((a,b)=>b.ap<a.ap||(b.ap===a.ap&&b.n>a.n)?b:a);
+  const servOK=serv.filter(r=>r.n>=MINN);
+  if(servOK.length){const best=servOK.reduce((a,b)=>b.ap>a.ap||(b.ap===a.ap&&b.n>a.n)?b:a);const worst=servOK.reduce((a,b)=>b.ap<a.ap||(b.ap===a.ap&&b.n>a.n)?b:a);
     document.getElementById("i_best").textContent=best.ap+"%";document.getElementById("i_bests").textContent=best.k+" · "+best.n+" aud.";
     document.getElementById("i_worst").textContent=worst.ap+"%";document.getElementById("i_worsts").textContent=worst.k+" · "+worst.n+" aud.";}
-  else{document.getElementById("i_best").textContent="—";document.getElementById("i_bests").textContent="Sin datos";document.getElementById("i_worst").textContent="—";document.getElementById("i_worsts").textContent="Sin datos";}
+  else{document.getElementById("i_best").textContent="—";document.getElementById("i_bests").textContent="Ningún cliente con "+MINN+"+ auditorías este período";document.getElementById("i_worst").textContent="—";document.getElementById("i_worsts").textContent="Ningún cliente con "+MINN+"+ auditorías este período";}
   document.getElementById("i_cli").textContent=serv.length;
   document.getElementById("i_clis").textContent=serv.map(s=>s.k).slice(0,5).join(", ")+(serv.length>5?"…":"");
 
@@ -515,9 +517,20 @@ function renderPeriod(mode,value){
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"top",labels:{boxWidth:14,usePointStyle:true}},tooltip:{callbacks:{label:c=>c.dataset.label+": "+c.raw+"%"}}},scales:{x:{grid:{display:false},border:{color:WARM}},y:{min:0,max:100,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}}}}}));
 
   // resultados por cliente (período, horizontal, % aprob desc)
-  const cli=serv.slice().sort((a,b)=>b.ap-a.ap);
-  reg(new Chart(document.getElementById("cCliente"),{type:"bar",data:{labels:cli.map(r=>r.k),datasets:[{data:cli.map(r=>r.ap),backgroundColor:cli.map(r=>r.ap>=85?SAGE:r.ap>=70?TAN:ROSE),borderRadius:2,barThickness:22}]},
-    options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,layout:{padding:{right:64}},plugins:{legend:{display:false},valueLabel:{suffix:"%",extra:cli.map(r=>"  ("+r.n+")")},tooltip:{callbacks:{label:c=>cli[c.dataIndex].ap+"% aprob · "+cli[c.dataIndex].n+" aud"}}},scales:{x:{min:0,max:100,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}},y:{grid:{display:false},border:{color:WARM}}}},plugins:[valueLabel]}));
+  // Antes: ordenaba solo por % de aprobación, sin importar cuántas auditorías tenía cada
+  // cliente ese período — un cliente con 1 sola auditoría podía salir primero en rojo o
+  // verde, arriba de otro con 20. Ahora: los clientes con menos de MINN auditorías se van
+  // al final, en gris, y se los saca del "mejor/peor" para no rankear con muestra chica.
+  const cliOK=serv.filter(r=>r.n>=MINN).sort((a,b)=>b.ap-a.ap);
+  const cliLow=serv.filter(r=>r.n<MINN).sort((a,b)=>b.n-a.n);
+  const cli=cliOK.concat(cliLow);
+  reg(new Chart(document.getElementById("cCliente"),{type:"bar",data:{labels:cli.map(r=>r.k+(r.n<MINN?" ⚠":"")),datasets:[{data:cli.map(r=>r.ap),backgroundColor:cli.map(r=>r.n<MINN?"#c9c9c9":(r.ap>=85?SAGE:r.ap>=70?TAN:ROSE)),borderRadius:2,barThickness:22}]},
+    options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,layout:{padding:{right:64}},plugins:{legend:{display:false},valueLabel:{suffix:"%",extra:cli.map(r=>"  ("+r.n+")")},tooltip:{callbacks:{label:c=>cli[c.dataIndex].ap+"% aprob · "+cli[c.dataIndex].n+" aud"+(cli[c.dataIndex].n<MINN?" · muestra chica, no se compara":"")}}},scales:{x:{min:0,max:100,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}},y:{grid:{display:false},border:{color:WARM}}}},plugins:[valueLabel]}));
+  const cliNote=document.getElementById("cliLowNote");
+  if(cliNote){
+    if(cliLow.length){cliNote.style.display="";cliNote.textContent=`⚠ ${cliLow.length} cliente(s) con menos de ${MINN} auditorías este período (en gris, al final) — no se ordenan junto a los demás porque una sola auditoría puede mover el % mucho.`;}
+    else{cliNote.style.display="none";}
+  }
 
   // defectos top período
   const dacc={};wrows.forEach(r=>defCount(r["DEFECTOS"],dacc));
