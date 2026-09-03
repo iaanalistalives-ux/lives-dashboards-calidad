@@ -2258,18 +2258,33 @@ function ocultarPanelesVacios(){
         vis[0].style.gridColumn = 'span 12';        // solo: ancho completo
         return;
       }
-      // se cuenta cuántas columnas pediría cada uno según su clase
-      var pedido = vis.map(function(c){
-        return c.classList.contains('col8') ? 8 : (c.classList.contains('col6') ? 6 :
-               (c.classList.contains('col4') ? 4 : 12));
+      /* Se agrupan por FILA REAL, según la posición vertical en pantalla.
+         Antes se sumaban las columnas de todos los paneles del grid y se comparaba el total
+         contra 12. Eso falla en cuanto hay más de una fila: con un col8 arriba y un col8+col4
+         abajo, el total da 20 (no múltiplo de 12) pero el problema está solo en la primera
+         fila, que se queda con 4 columnas muertas al costado.
+         Midiendo la posición se sabe qué paneles comparten fila y se corrige solo la que
+         tiene el hueco. */
+      var filas = {};
+      vis.forEach(function(c){
+        var y = Math.round(c.getBoundingClientRect().top);
+        // se agrupa con tolerancia: dos paneles de la misma fila pueden diferir un píxel
+        var clave = Object.keys(filas).find(function(k){ return Math.abs(k - y) < 12; });
+        if(clave === undefined) clave = y;
+        (filas[clave] = filas[clave] || []).push(c);
       });
-      var total = pedido.reduce(function(a,b){ return a+b; }, 0);
-      if(total % 12 !== 0){
-        /* La fila no cierra: quedaría un hueco. Se reparte en partes iguales, que siempre
-           cierra y deja los paneles parejos en vez de uno grande y un vacío. */
-        var ancho = (vis.length === 2) ? 6 : (vis.length === 3 ? 4 : 12);
-        vis.forEach(function(c){ c.style.gridColumn = 'span '+ancho; });
-      }
+      Object.keys(filas).forEach(function(k){
+        var fila = filas[k];
+        var suma = fila.reduce(function(acc,c){
+          return acc + (c.classList.contains('col8') ? 8 :
+                       (c.classList.contains('col6') ? 6 :
+                       (c.classList.contains('col4') ? 4 : 12)));
+        }, 0);
+        if(suma === 12) return;                  // la fila cierra: no se toca
+        if(fila.length === 1){ fila[0].style.gridColumn = 'span 12'; return; }
+        var ancho = (fila.length === 2) ? 6 : (fila.length === 3 ? 4 : 12);
+        fila.forEach(function(c){ c.style.gridColumn = 'span '+ancho; });
+      });
     });
   }catch(e){ console.warn('ocultarPanelesVacios', e); }
 }
