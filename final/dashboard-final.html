@@ -202,6 +202,9 @@
   .tblScroll .pill{ font-size:10.5px; padding:3px 9px; border-radius:20px; font-weight:700; white-space:nowrap; }
 
   @media(max-width:900px){
+    /* El comparativo muestra-vs-lote se apila en pantallas chicas: en dos columnas de
+       180px los nombres de motivo no se leen. */
+    .compGrid{grid-template-columns:1fr!important;}
     #uniKpis{grid-template-columns:repeat(2,1fr)!important;}
     #uniTop>div:last-child{grid-template-columns:1fr!important;}
     /* Preexistente: este panel medía 760px en un celular de 390 y empujaba toda la
@@ -391,6 +394,12 @@
       </span>
       <span class="wsel" id="weekWrap">Semana: <select id="weekSel"></select></span>
       <span class="wsel" id="monthWrap" style="display:none">Mes: <select id="monthSel"></select></span>
+      <!-- Filtros de cliente y taller: afectan TODO el tablero. Sin ellos no se puede
+           responder "¿y este taller cómo va?", que es la pregunta que siempre llega. -->
+      <span class="wsel" id="cliWrap">Cliente: <select id="cliSel" onchange="setFiltroEnt()"></select></span>
+      <span class="wsel" id="talWrap">Taller: <select id="talSel" onchange="setFiltroEnt()"></select></span>
+      <button id="limpiaFil" class="btn" type="button" onclick="limpiarFiltroEnt()"
+              style="display:none;background:#fff;border:1px solid var(--rose);color:var(--rose);">✕ Quitar filtros</button>
       <button id="printBtn" class="btn" type="button" onclick="printDash()" style="background:#fff;border:1px solid var(--warm);color:var(--sage);">🖨 Imprimir A4</button>
       <button id="changeBtn" class="btn" type="button" onclick="document.getElementById('file').click()">Cambiar archivo</button>
       <button id="exportBtn" class="btn" type="button" onclick="exportFrozen()" style="background:var(--sage);color:#fff;border:none;">⬇ Exportar para enviar</button>
@@ -492,6 +501,7 @@
         <div class="pt">🎯 De cuántas prendas estamos hablando</div>
         <div class="ph" id="uniSub"></div>
         <div id="uniKpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px"></div>
+        <div id="uniComp"></div>
         <div id="uniTop"></div>
       </div>
 
@@ -725,6 +735,7 @@ function buildState(raw, fname, frozen){
   if(frozen){chBtn.style.display="none";exBtn.style.display="none";badge.style.display="inline-block";}
   else{chBtn.style.display="";exBtn.style.display="";badge.style.display="none";}
   buildYearControl();
+  try{ llenarSelectoresEnt(); }catch(e){}
   selectYear(STATE.maxYear);
 }
 function buildYearControl(){
@@ -733,9 +744,53 @@ function buildYearControl(){
     return `<button class="mbtn ybtn" data-y="${y}" type="button" onclick="selectYear(${y})">${y}${isHist?' <small style="opacity:.75;font-weight:400;">hist.</small>':''}</button>`;
   }).join("");
 }
+/* ============================================================================
+   FILTROS DE CLIENTE Y TALLER
+   Se aplican en selectYear(), que es donde se arma todo el estado. Filtrando aquí quedan
+   filtrados TODOS los paneles de una sola vez: KPIs, gráficos, tablas, fichas y tendencias.
+   ========================================================================== */
+var FILTRO_CLI='', FILTRO_TAL='';
+function tallerDe(r){
+  return String(r['SERVICIO']||'').trim() || (String(r['INT/EXT']||'')==='INTERNO' ? 'LIVES' : '');
+}
+function aplicarFiltroEnt(rows){
+  if(!FILTRO_CLI && !FILTRO_TAL) return rows;
+  return rows.filter(function(r){
+    if(FILTRO_CLI && String(r['CLIENTE']||'').trim()!==FILTRO_CLI) return false;
+    if(FILTRO_TAL && tallerDe(r)!==FILTRO_TAL) return false;
+    return true;
+  });
+}
+function llenarSelectoresEnt(){
+  var base = STATE.allRows || [];
+  function op(id, vals, etq, act){
+    var el=document.getElementById(id); if(!el) return;
+    el.innerHTML='<option value="">'+etq+'</option>'+vals.map(function(v){
+      return '<option value="'+v+'"'+(v===act?' selected':'')+'>'+v+'</option>'; }).join('');
+  }
+  op('cliSel', [...new Set(base.map(r=>String(r['CLIENTE']||'').trim()).filter(Boolean))].sort(), 'Todos', FILTRO_CLI);
+  op('talSel', [...new Set(base.map(tallerDe).filter(Boolean))].sort(), 'Todos', FILTRO_TAL);
+}
+function setFiltroEnt(){
+  var c=document.getElementById('cliSel'), t=document.getElementById('talSel');
+  FILTRO_CLI=c?c.value:''; FILTRO_TAL=t?t.value:'';
+  var b=document.getElementById('limpiaFil');
+  if(b) b.style.display=(FILTRO_CLI||FILTRO_TAL)?'':'none';
+  selectYear(CURYEAR);
+}
+function limpiarFiltroEnt(){
+  FILTRO_CLI=''; FILTRO_TAL='';
+  var c=document.getElementById('cliSel'), t=document.getElementById('talSel');
+  if(c)c.value=''; if(t)t.value='';
+  var b=document.getElementById('limpiaFil'); if(b) b.style.display='none';
+  selectYear(CURYEAR);
+}
+
 function selectYear(y){
   CURYEAR=y;CURVIEW="year";CURFICHA=null;
-  const rows = STATE.years.includes(y) ? STATE.allRows.filter(r=>r.__y===y) : refRows(y);
+  const rowsSinFiltro = STATE.years.includes(y) ? STATE.allRows.filter(r=>r.__y===y) : refRows(y);
+  const rows = aplicarFiltroEnt(rowsSinFiltro);
+  STATE.rowsTotalAnio = rowsSinFiltro.length;
   STATE.rows=rows;STATE.year=y;
   STATE.weeks=[...new Set(rows.map(r=>Number(r["SEMANA"])))].sort((a,b)=>a-b);
   const mm={};rows.forEach(r=>{const m=monthOf(r["FECHA"]);if(m==null)return;(mm[m]=mm[m]||{n:0,r:0});mm[m].n++;if(isRech(r))mm[m].r++;});
@@ -1271,10 +1326,21 @@ function renderPeriod(mode,value){
   // % defectos sobre muestreo por servicio (LIVES = internas)
   const ms={};
   wrows.forEach(r=>{const lab=(r["INT/EXT"]==="INTERNO")?"LIVES":(r["SERVICIO"]||"—");(ms[lab]=ms[lab]||{def:0,mu:0});ms[lab].def+=defUnits(r["DEFECTOS"]);ms[lab].mu+=num(r["MUESTRA"]);});
-  let svc=Object.keys(ms).map(k=>({k,v:ms[k].mu?+(ms[k].def/ms[k].mu*100).toFixed(1):0})).filter(o=>o.v>0).sort((a,b)=>b.v-a.v).slice(0,6);
+  /* Se ordenaba solo por porcentaje, con denominadores de 32 a 12.629 prendas: un taller
+     con 64 muestreadas encabezaba el ranking porque un defecto le mueve punto y medio.
+     Ahora el tooltip trae el denominador y las de muestra insuficiente van en gris al final. */
+  const MIN_MUESTRA=100;
+  let svc=Object.keys(ms).map(k=>({k, v:ms[k].mu?+(ms[k].def/ms[k].mu*100).toFixed(1):0,
+      mu:ms[k].mu, df:ms[k].def, poca:ms[k].mu<MIN_MUESTRA}))
+    .filter(o=>o.v>0)
+    .sort((a,b)=> (a.poca!==b.poca) ? (a.poca?1:-1) : (b.v-a.v))
+    .slice(0,6);
   reg(new Chart(document.getElementById("cServicio"),{type:"bar",
-    data:{labels:svc.map(s=>s.k),datasets:[{data:svc.map(s=>s.v),backgroundColor:svc.map(s=>s.v>=2.5?ROSE:s.v>=1.5?TAN:s.v>=0.8?TAUPE:SAGE),borderRadius:4}]},
-    options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:18}},plugins:{legend:{display:false},valueLabel:{suffix:"%"},tooltip:{callbacks:{label:c=>c.raw+"% def./muestreo"}}},
+    data:{labels:svc.map(s=>s.k),datasets:[{data:svc.map(s=>s.v),backgroundColor:svc.map(s=>s.poca?"#B9C6C2":(s.v>=2.5?ROSE:s.v>=1.5?TAN:s.v>=0.8?TAUPE:SAGE)),borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:18}},plugins:{legend:{display:false},valueLabel:{suffix:"%"},
+      tooltip:{callbacks:{label:c=>{const o=svc[c.dataIndex];
+        return [o.df+" defectos de "+o.mu.toLocaleString("es-PE")+" muestreadas = "+o.v+"%",
+                o.poca? "⚠ Muestra pequeña (menos de "+MIN_MUESTRA+"): poco confiable":""].filter(Boolean);}}}},
       scales:{x:{grid:{display:false},border:{color:WARM},ticks:{font:{size:10},maxRotation:30,minRotation:0}},y:{min:0,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}}}},plugins:[valueLabel]}));
 
   // defectos por origen
@@ -1810,7 +1876,7 @@ function renderUniverso(){
   cont.style.display='';
 
   var lote=0, muestra=0, defs=0, ders=0, nAud=rows.length, loteTaller=0;
-  var motNum={}, motTallerNum={}, motTallerDen={}, motSemNum={}, semDen={};
+  var motNum={}, motTallerNum={}, motTallerDen={}, motSemNum={}, semDen={}, defNum={};
   rows.forEach(function(r){
     var L=Number(r['LOTE_CONTABLE']!=null&&r['LOTE_CONTABLE']!==''?r['LOTE_CONTABLE']:r['LOTE'])||0;
     var M=Number(r['MUESTRA_CONTABLE']!=null&&r['MUESTRA_CONTABLE']!==''?r['MUESTRA_CONTABLE']:r['MUESTRA'])||0;
@@ -1821,7 +1887,7 @@ function renderUniverso(){
     if(sem) semDen[sem]=(semDen[sem]||0)+L;
     if(externo){ loteTaller+=L; motTallerDen[taller]=(motTallerDen[taller]||0)+L; }
     (function(){ var acc={}; defCount(r['DEFECTOS'],acc);
-      for(var k in acc) defs+=acc[k]; })();
+      for(var k in acc){ defs+=acc[k]; defNum[k]=(defNum[k]||0)+acc[k]; } })();
     derParse(r['DERIVADOS']).forEach(function(d){
       ders+=d.cant;
       motNum[d.nombre]=(motNum[d.nombre]||0)+d.cant;
@@ -1832,10 +1898,21 @@ function renderUniverso(){
     });
   });
 
+  // Si hay filtro puesto hay que decirlo: un porcentaje sobre 40 prendas filtradas no se
+  // lee igual que uno sobre 14.000, y quien decide tiene que saber sobre cuánto decide.
+  var filtroTxt='';
+  if(FILTRO_CLI || FILTRO_TAL){
+    var partes=[];
+    if(FILTRO_CLI) partes.push('cliente <b>'+FILTRO_CLI+'</b>');
+    if(FILTRO_TAL) partes.push('taller <b>'+FILTRO_TAL+'</b>');
+    filtroTxt='<div style="background:#EEF7F4;border-left:3px solid var(--sage);border-radius:0 6px 6px 0;'+
+      'padding:7px 11px;margin:8px 0 0;font-size:12px;color:#0B815E">Filtrado por '+partes.join(' y ')+
+      ' · <b>'+nAud+'</b> auditoría(s) de '+(STATE.rowsTotalAnio||nAud)+' del año.</div>';
+  }
   document.getElementById('uniSub').innerHTML =
     'Dos universos distintos, nunca sumados: los <b>derivados</b> salen de revisar el '+
     '<b>lote completo</b> en talleres externos; los <b>defectos</b> salen de la '+
-    '<b>muestra inspeccionada</b> (AQL). Cada porcentaje dice sobre cuál está calculado.';
+    '<b>muestra inspeccionada</b> (AQL). Cada porcentaje dice sobre cuál está calculado.'+filtroTxt;
 
   function kpi(v,l,sub,color){
     return '<div style="background:#fff;border:1px solid var(--warm);border-radius:12px;padding:14px 16px;box-shadow:0 1px 3px rgba(14,59,54,.06)">'+
@@ -1860,6 +1937,52 @@ function renderUniverso(){
   if(!top.length){ document.getElementById('uniTop').innerHTML=''; return; }
   var sems=Object.keys(semDen).map(Number).sort(function(a,b){return a-b;});
   var MIN=200;
+
+  /* ---- COMPARATIVO: lo que ve la muestra contra lo que separa el lote ----
+     Con el filtro de taller puesto, este contraste responde algo que ningún panel respondía:
+     ¿la inspección por muestreo está detectando lo que después hay que separar prenda por
+     prenda? Un motivo que pesa mucho a la derecha y poco a la izquierda es algo que el
+     muestreo no está viendo.
+     Los dos PORCENTAJES no se comparan entre sí (salen de universos distintos): lo que se
+     compara es qué problemas aparecen en cada lado. Por eso cada columna lleva su
+     denominador escrito y su propia escala. */
+  (function(){
+    var cont=document.getElementById('uniComp'); if(!cont) return;
+    function top7(obj, denom){
+      var arr=Object.keys(obj).map(function(k){return {k:k,v:obj[k]};})
+                .sort(function(a,b){return b.v-a.v;}).slice(0,7);
+      var mx=arr.length?arr[0].v:1;
+      return arr.map(function(x){
+        return {k:x.k, v:x.v, pct: denom? (x.v/denom*100):0, w:Math.max(5,Math.round(x.v/mx*100))};
+      });
+    }
+    function col(tit, sub, lista, color, universo, totalMot, tasa, fn, uLabel){
+      return '<div style="min-width:0">'+
+        '<div style="background:'+color+';color:#fff;border-radius:8px;padding:9px 12px;margin-bottom:10px">'+
+          '<div style="font-size:12.5px;font-weight:800">'+tit+'</div>'+
+          '<div style="font-size:11.5px;opacity:.92;margin-top:2px">'+sub+'</div>'+
+          '<div style="font-size:11.5px;opacity:.95;margin-top:5px"><b>'+totalMot.toLocaleString('es-PE')+
+            '</b> sobre <b>'+universo.toLocaleString('es-PE')+'</b> '+uLabel+' · <b>'+tasa+'%</b></div>'+
+        '</div>'+
+        (lista.length? lista.map(function(x){
+          return '<div onclick="'+fn+'('+JSON.stringify(x.k).replace(/"/g,'&quot;')+')" style="cursor:pointer;display:flex;align-items:center;gap:9px;margin:6px 0">'+
+            '<div style="width:126px;min-width:0;font-size:11.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+x.k+'</div>'+
+            '<div style="flex:1;min-width:0;background:#F1F6F4;border-radius:4px;height:14px;overflow:hidden"><div style="width:'+x.w+'%;height:100%;background:'+color+';border-radius:4px"></div></div>'+
+            '<div style="width:106px;text-align:right;font-size:11.5px;font-weight:700;color:#5F726C;font-variant-numeric:tabular-nums">'+
+              x.v.toLocaleString('es-PE')+' · '+x.pct.toFixed(2)+'%</div></div>';
+        }).join('') : '<div style="font-size:12px;color:#5F726C;padding:6px 0">Sin registros en este período.</div>')+
+      '</div>';
+    }
+    cont.innerHTML =
+      '<div style="font-size:13px;font-weight:800;color:#0E3B36;margin:16px 0 3px">La muestra contra el lote</div>'+
+      '<div style="font-size:11.5px;color:#5F726C;margin-bottom:11px">Izquierda: lo que encontró la inspección por muestreo. Derecha: lo que hubo que separar al revisar el lote completo. '+
+        'Son universos distintos, así que <b>los porcentajes no se comparan entre sí</b> — lo que se compara es qué problemas salen en cada lado. '+
+        'Toca cualquiera para ver su detalle. Con el filtro de taller puesto, esto muestra si el muestreo de ese taller está detectando lo que después se separa.</div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px" class="compGrid">'+
+        col('Defectos · muestra inspeccionada','Inspección AQL', top7(defNum,muestra), '#DC2626', muestra, defs, (tasaDef||'0'), 'defDetalleUni','prendas inspeccionadas')+
+        col('Derivados · lote completo','Revisión 100% en talleres externos', top7(motNum,loteTaller), '#B45309', loteTaller, ders, (tasaDer||'0'), 'derDetalle','prendas revisadas')+
+      '</div>';
+  })();
 
   document.getElementById('uniTop').innerHTML =
     '<div style="font-size:13px;font-weight:800;color:#0E3B36;margin-bottom:4px">Los 3 motivos que más pesan</div>'+
@@ -1896,6 +2019,79 @@ function renderUniverso(){
                    (mejor.p!=null?(' de '+mejor.d.toLocaleString('es-PE')+' · '+mejor.p+'%'):'')) : '')+
         '</div>'+ spark +'</div>';
     }).join('')+'</div>';
+}
+
+/* Ficha de un DEFECTO de la muestra. Espeja la de derivados, pero su universo es la
+   muestra inspeccionada, no el lote: el denominador de cada línea son las prendas
+   muestreadas de ese taller o cliente. */
+function defDetalleUni(tipo){
+  var rows=filasPeriodoDer(), det=[], total=0, muestraTot=0;
+  var numT={}, denT={}, numC={}, denC={}, semN={}, semD={};
+  rows.forEach(function(r){
+    var m=Number(r['MUESTRA_CONTABLE']!=null&&r['MUESTRA_CONTABLE']!==''?r['MUESTRA_CONTABLE']:r['MUESTRA'])||0;
+    var taller=String(r['SERVICIO']||'')||(String(r['INT/EXT']||'')==='INTERNO'?'LIVES':'—');
+    var cli=String(r['CLIENTE']||'—'), sem=Number(r['SEMANA'])||0;
+    muestraTot+=m; denT[taller]=(denT[taller]||0)+m; denC[cli]=(denC[cli]||0)+m;
+    if(sem) semD[sem]=(semD[sem]||0)+m;
+    var acc={}; defCount(r['DEFECTOS'],acc);
+    var q=acc[tipo]||0;
+    if(q){
+      total+=q; numT[taller]=(numT[taller]||0)+q; numC[cli]=(numC[cli]||0)+q;
+      if(sem) semN[sem]=(semN[sem]||0)+q;
+      det.push({fecha:String(r['FECHA']||''),taller:taller,cliente:cli,
+                estilo:String(r['ESTILO']||''),color:String(r['COLOR']||''),muestra:m,cant:q});
+    }
+  });
+  det.sort(function(a,b){return b.cant-a.cant;});
+  function lista(num,den){
+    var arr=Object.keys(num).map(function(k){var d=den[k]||0;
+      return [k,num[k],d,d? +(num[k]/d*100).toFixed(2):null];})
+      .sort(function(a,b){return b[1]-a[1];}).slice(0,8);
+    if(!arr.length) return '<span style="font-size:11.5px;color:#5F726C">Sin registros.</span>';
+    return arr.map(function(x){
+      var e=(x[3]==null)?'':' <span style="opacity:.7">de '+x[2].toLocaleString('es-PE')+' · '+x[3]+'%</span>';
+      return '<div class="dmF"><span>'+x[0]+'</span><b>'+x[1].toLocaleString('es-PE')+e+'</b></div>';
+    }).join('');
+  }
+  var MIN=40, tend='';
+  var sems=Object.keys(semD).map(Number).sort(function(a,b){return a-b;});
+  var pts=sems.map(function(w){var d=semD[w]||0;
+    return {w:w,d:d,n:semN[w]||0,p:d>=MIN?+((semN[w]||0)/d*100).toFixed(2):null};})
+    .filter(function(x){return x.p!==null;});
+  if(pts.length>=2){
+    var mx=Math.max.apply(null,pts.map(function(x){return x.p;}))||1;
+    tend='<div class="dmT" style="margin-top:14px">Tendencia semanal · % de la muestra inspeccionada</div>'+
+      '<div style="display:flex;align-items:flex-end;gap:6px;height:112px;padding:8px 2px 0;border-bottom:1px solid #DCE5E2">'+
+      pts.map(function(x){
+        return '<div style="flex:1;text-align:center" title="Semana '+x.w+': '+x.n+' de '+x.d+' = '+x.p+'%">'+
+          '<div style="font-size:9.5px;color:#5F726C">'+x.p+'%</div>'+
+          '<div style="height:'+Math.max(3,Math.round(x.p/mx*86))+'px;background:#DC2626;border-radius:3px 3px 0 0"></div>'+
+          '<div style="font-size:10px;color:#5F726C;margin-top:3px">S'+x.w+'</div></div>';
+      }).join('')+'</div>'+
+      '<div style="font-size:11.5px;color:#5F726C;margin-top:5px">Solo semanas con al menos '+MIN+' prendas muestreadas: con menos, un defecto mueve el porcentaje varios puntos.</div>';
+  }
+  var m=document.getElementById('derModal');
+  if(!m){ m=document.createElement('div'); m.id='derModal'; m.className='derMod';
+    m.onclick=function(e){ if(e.target===m) m.style.display='none'; }; document.body.appendChild(m); }
+  m.innerHTML='<div class="derModC">'+
+    '<div class="derModH">'+tipo+' · '+total.toLocaleString('es-PE')+' incidencias'+
+      (muestraTot?' <span style="font-weight:400;opacity:.85">de '+muestraTot.toLocaleString('es-PE')+' prendas inspeccionadas · '+(total/muestraTot*100).toFixed(2)+'%</span>':'')+
+      '<button type="button" onclick="document.getElementById(\'derModal\').style.display=\'none\'">&times;</button></div>'+
+    '<div class="derModB">'+
+      '<div style="font-size:12px;color:#5F726C;margin-bottom:10px">Defecto hallado en la <b>muestra AQL</b>, no en el lote completo. Cada línea se calcula sobre las prendas muestreadas de ese taller o cliente.</div>'+
+      '<div class="dmGrid">'+
+        '<div class="dmCol"><div class="dmT">Por taller</div>'+lista(numT,denT)+'</div>'+
+        '<div class="dmCol"><div class="dmT">Por cliente</div>'+lista(numC,denC)+'</div>'+
+      '</div>'+tend+
+      '<div class="dmT" style="margin-top:14px">Auditorías donde apareció</div>'+
+      '<div class="dmTbl"><table><thead><tr><th>Fecha</th><th>Taller</th><th>Cliente</th><th>Estilo</th>'+
+        '<th>Color</th><th>Muestra</th><th>Defectos</th></tr></thead><tbody>'+
+        det.slice(0,100).map(function(x){
+          return '<tr><td>'+x.fecha+'</td><td>'+x.taller+'</td><td>'+x.cliente+'</td><td>'+x.estilo+'</td>'+
+            '<td>'+x.color+'</td><td class="nu">'+(x.muestra||'—')+'</td><td class="nu"><b>'+x.cant+'</b></td></tr>';
+        }).join('')+'</tbody></table></div>'+
+    '</div></div>';
+  m.style.display='flex';
 }
 
 /* Detalle de un derivado: de dónde viene. */
