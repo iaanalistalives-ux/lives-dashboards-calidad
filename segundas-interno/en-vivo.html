@@ -301,6 +301,52 @@
     body.print-ficha .ficha-card{box-shadow:none;max-width:100%;border-radius:0;}
   }
 
+
+  /* ---- comparativo entre años (módulo lfs-annual) ---- */
+  .elead{background:var(--card);border-left:4px solid var(--rose);border-radius:0 var(--r) var(--r) 0;box-shadow:var(--sh);padding:15px 18px;margin-bottom:16px;}
+  .elead .eltx{font-size:14.5px;font-weight:600;color:#333;line-height:1.5;}
+  .elead b{color:var(--rose);}
+  .esec{margin-bottom:22px;}
+  .est{font-weight:700;font-size:13px;letter-spacing:1.3px;text-transform:uppercase;color:var(--slate);margin-bottom:11px;border-bottom:1px solid var(--warm);padding-bottom:6px;}
+  .echips{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px;align-items:stretch;}
+  .echip{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:0;overflow:hidden;display:flex;flex-direction:column;}
+  .echip .banda{display:block;height:5px;background:var(--slate);}
+  .echip .ecuerpo{padding:14px 16px 16px;display:flex;flex-direction:column;gap:2px;flex:1;}
+  .echip .eyr{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--stone);}
+  .echip .epc{font-size:30px;font-weight:700;line-height:1;letter-spacing:-.5px;margin-top:4px;}
+  .echip .ear{font-size:12.5px;font-weight:700;min-height:16px;}
+  .echip .ent{font-size:11.5px;color:var(--stone);margin-top:auto;padding-top:4px;}
+  .emoney{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:14px;align-items:stretch;}
+  .emny{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:0;overflow:hidden;text-align:center;display:flex;flex-direction:column;}
+  .emny .banda{display:block;height:5px;background:var(--taupe);}
+  .emny .ecuerpo{padding:14px 12px 16px;flex:1;display:flex;flex-direction:column;justify-content:center;}
+  .emny .emv{font-size:24px;font-weight:700;color:var(--taupe);line-height:1;}
+  .emny .emy{font-size:11.5px;font-weight:700;color:var(--stone);margin-top:5px;}
+  .emny.etot{background:var(--petrol);}
+  .emny.etot .banda{background:var(--emer);}
+  .emny.etot .emv{color:#fff;font-size:26px;}
+  .emny.etot .emy{color:#8FB3AC;}
+  .egrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  @media(max-width:900px){.egrid{grid-template-columns:1fr;}}
+  .ecard{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:16px 18px;}
+  .ect{font-weight:700;font-size:15px;color:#333;margin-bottom:12px;}
+  .ecw{height:clamp(240px,30vh,320px);position:relative;}
+  .ebar{display:flex;align-items:center;gap:9px;margin:8px 0;}
+  .ebar .elb{width:118px;font-size:12.5px;font-weight:600;color:#333;text-align:right;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .ebar .etr{flex:1;background:var(--warm-light);border-radius:5px;height:20px;overflow:hidden;}
+  .ebar .efl{height:100%;border-radius:5px;}
+  .ebar .evl{width:78px;font-size:12px;font-weight:700;color:var(--stone);flex-shrink:0;}
+  .econc{display:flex;align-items:center;gap:16px;margin-bottom:12px;}
+  .econc .ebig{font-size:46px;font-weight:700;color:var(--slate);line-height:.9;}
+  .econc .etx{font-size:13.5px;color:#333;font-weight:600;}
+  .econc .etx span{color:var(--stone);font-weight:400;font-size:12.5px;}
+  .enp{font-size:11px;color:var(--stone);font-style:italic;margin-top:8px;}
+  .eins{background:var(--warm-light);border-radius:var(--r);padding:12px 16px 12px 30px;}
+  .eins li{font-size:13.5px;color:#333;margin:6px 0;line-height:1.45;}
+  .eins li b{color:var(--sage-dark);}
+  .eup{color:var(--rose);font-weight:700;} .edn{color:var(--sage);font-weight:700;} .eflt{color:var(--stone);font-weight:700;}
+  .tup{color:var(--sage-dark);font-weight:700;} .tdn{color:var(--rose);font-weight:700;} .tfl{color:var(--taupe);font-weight:700;}
+  #hSub{display:none!important;}
   /* ---- propios de Segundas ---- */
   .kpi.meta .banda{background:var(--tan);} .kpi.meta .v{color:var(--taupe);}
   .pdbtns{display:inline-flex;flex-wrap:wrap;gap:5px;max-width:640px;vertical-align:middle;}
@@ -1461,10 +1507,14 @@ if(window.__EMBEDSTATE__){try{
       var p=pctYear(y);var pr=i>0?pctYear(ys[i-1]):null;var d=pr!=null?+(p-pr).toFixed(2):null;
       var over=p>META;var arr=d==null?'&nbsp;':(d>0?'<span class="eup">\u25B2 +'+d+'</span>':(d<0?'<span class="edn">\u25BC '+d+'</span>':'<span class="eflt">\u2192 0</span>'));
       var note=over?'sobre meta':'en meta';if(partial(y))note='a la fecha';
-      return '<div class="echip"><div class="eyr">'+y+(partial(y)?' *':'')+'</div><div class="epc" style="color:'+(over?'var(--red,#DC2626)':'var(--sage,#10B981)')+'">'+p+'%</div><div class="ear">'+arr+'</div><div class="ent">'+note+'</div></div>';
+      var col=over?'var(--rose)':'var(--sage)';
+      return '<div class="echip"><span class="banda" style="background:'+col+'"></span><div class="ecuerpo">'+
+             '<div class="eyr">'+y+(partial(y)?' *':'')+'</div>'+
+             '<div class="epc" style="color:'+col+'">'+p+'%</div>'+
+             '<div class="ear">'+arr+'</div><div class="ent">'+note+'</div></div></div>';
     }).join("");
     var moneys=ys.map(moneyYear);var totM=moneys.reduce(function(s,v){return s+v;},0);
-    var mcards=ys.map(function(y,i){return '<div class="emny"><div class="emv">'+fmtM(moneys[i])+'</div><div class="emy">'+y+(partial(y)?' *':'')+'</div></div>';}).join("")+'<div class="emny etot"><div class="emv">'+fmtM(totM)+'</div><div class="emy">Acumulado '+ys[0]+'\u2013'+latest+'</div></div>';
+    var mcards=ys.map(function(y,i){return '<div class="emny"><span class="banda"></span><div class="ecuerpo"><div class="emv">'+fmtM(moneys[i])+'</div><div class="emy">'+y+(partial(y)?' *':'')+'</div></div></div>';}).join("")+'<div class="emny etot"><span class="banda"></span><div class="ecuerpo"><div class="emv">'+fmtM(totM)+'</div><div class="emy">Acumulado '+ys[0]+'\u2013'+latest+'</div></div></div>';
     var areaCur=yrShare(latest,"area","area"),areaPrev=prevY?yrShare(prevY,"area","area"):null;
     var areaT=topN(areaCur,5),areaMax=areaT.length?areaT[0].p:1;
     var concBlocks='<div class="ecard"><div class="ect">\u2699\uFE0F \u00C1reas generadoras \u00B7 '+latest+(partial(latest)?' (a la fecha)':'')+'</div>'+hbars(areaT,areaPrev,"var(--sage,#10B981)","var(--slate,#4E6B78)",areaMax)+'<div class="enp">Flecha \u25B2\u25BC = cambio vs '+(prevY||"")+'. Las 2 primeras concentran el grueso.</div></div>';
@@ -1491,10 +1541,10 @@ if(window.__EMBEDSTATE__){try{
       +'<div class="esec"><div class="est">\u00BFD\u00F3nde y en qu\u00E9 se concentra?</div><div class="egrid">'+concBlocks+'</div></div>'
       +'<div class="esec"><div class="est">En resumen</div><ul class="eins">'+ins.map(function(t){return '<li>'+t+'</li>';}).join("")+'</ul></div>';
 
-    var SAGE="#10B981",TAUPE="#B45309",ROSE="#DC2626",RED="#DC2626",WARML="#F1F6F4";
+    var SAGE="#0F7A5A",TAUPE="#B45309",ROSE="#DC2626",RED="#DC2626",TAN2="#F59E0B",WARML="#F1F6F4";
     var pcts=ys.map(pctYear);
-    reg(new Chart(document.getElementById("cePct"),{type:"line",data:{labels:ys,datasets:[{label:"% de segundas",data:pcts,borderColor:SAGE,backgroundColor:"rgba(105,137,98,.08)",borderWidth:3,pointRadius:5,pointBackgroundColor:ys.map(function(y){return pctYear(y)>META?RED:SAGE;}),fill:true,tension:.25},{label:"Meta 2.00%",data:ys.map(function(){return META;}),borderColor:ROSE,borderWidth:1.5,borderDash:[6,4],pointRadius:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"top",labels:{boxWidth:14,usePointStyle:true}},tooltip:{callbacks:{label:function(c){return c.dataset.label+": "+c.raw+"%";}}}},scales:{x:{grid:{display:false}},y:{min:0,suggestedMax:4.5,grid:{color:WARML},ticks:{callback:function(v){return v+"%";}}}}}}));
-    reg(new Chart(document.getElementById("ceMoney"),{type:"bar",data:{labels:ys,datasets:[{data:moneys,backgroundColor:ys.map(function(y){return partial(y)?"#F59E0B":(pctYear(y)>META?RED:TAUPE);}),borderRadius:5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return "$"+Math.round(c.raw).toLocaleString();}}}},scales:{x:{grid:{display:false}},y:{grid:{color:WARML},ticks:{callback:function(v){return "$"+(v/1000)+"K";}}}}}}));
+    reg(new Chart(document.getElementById("cePct"),{type:"line",data:{labels:ys,datasets:[{label:"% de segundas",data:pcts,borderColor:SAGE,backgroundColor:function(c){var a=c.chart.chartArea;if(!a)return"transparent";var g=c.chart.ctx.createLinearGradient(0,a.top,0,a.bottom);g.addColorStop(0,"rgba(15,122,90,.22)");g.addColorStop(1,"rgba(255,255,255,0)");return g;},fill:true,borderWidth:3.5,tension:.35,pointRadius:5,pointBorderColor:"#fff",pointBorderWidth:2.5,pointBackgroundColor:ys.map(function(y){return pctYear(y)>META?RED:SAGE;})},{label:"Meta 2.00%",data:ys.map(function(){return META;}),borderColor:TAN2,borderWidth:1.5,borderDash:[6,5],pointRadius:0,sinEtiquetas:true}]},options:{responsive:true,maintainAspectRatio:false,animation:{duration:900,easing:"easeOutCubic",delay:function(c){return (c.type==="data"&&c.mode==="default")?c.dataIndex*45:0;}},layout:{padding:{top:30}},plugins:{legend:{position:"bottom",labels:{boxWidth:12,usePointStyle:true}},etiquetasTendencia:{fmt:function(v){return v.toFixed(2)+"%";}},tooltip:{callbacks:{label:function(c){return c.dataset.label+": "+c.raw+"%";}}}},scales:{x:{grid:{display:false}},y:{min:0,suggestedMax:4.5,grid:{color:WARML},ticks:{callback:function(v){return v+"%";}}}}},plugins:[etiquetasTendencia]}));
+    reg(new Chart(document.getElementById("ceMoney"),{type:"bar",data:{labels:ys,datasets:[{data:moneys,backgroundColor:ys.map(function(y){return partial(y)?"#F59E0B":TAUPE;}),borderRadius:5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return "$"+Math.round(c.raw).toLocaleString();}}}},scales:{x:{grid:{display:false}},y:{grid:{color:WARML},ticks:{callback:function(v){return "$"+(v/1000)+"K";}}}}}}));
     var hoy=new Date().toLocaleDateString("es-PE",{day:"numeric",month:"long",year:"numeric"});
     var ft=document.getElementById("foot");if(ft)ft.innerHTML="Confidencial \u2014 Uso Interno \u00B7 Calidad Manufactura LIVES \u00B7 "+(KIND==="gerencia"?"Gerencia":"Interno")+" \u00B7 Comparativo ejecutivo \u00B7 * a\u00F1o en curso parcial \u00B7 Generado el "+hoy;
   }
