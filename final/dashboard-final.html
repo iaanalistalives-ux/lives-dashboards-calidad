@@ -102,6 +102,17 @@
   details.help p, details.help li{font-size:13px;color:#333;line-height:1.6;margin:4px 0;}
   details.help code{background:var(--warm-light);padding:1px 6px;border-radius:4px;
     font-family:Consolas,monospace;font-size:12.5px;color:var(--petrol);}
+/* KPI PROTAGONISTA (v2.1): el indicador principal va sobre fondo Petróleo con el número
+     grande en blanco. Hace que en una pantalla de 11 tarjetas se sepa cuál mirar primero.
+     Solo uno por tablero: si se aplica a varios, deja de destacar ninguno. */
+  .kpiv2.hero{background:var(--petrol);}
+  .kpiv2.hero::after{background:var(--emer);}
+  .kpiv2.hero .kl{color:#8FB3AC;}
+  .kpiv2.hero .kv{color:#fff;font-size:34px;}
+  .kpiv2.hero .ks{color:#8FB3AC;}
+  .kpiv2.hero .kd.up{color:#FFC9C9;background:rgba(220,38,38,.30);}
+  .kpiv2.hero .kd.down{color:#9BE8CB;background:rgba(16,185,129,.22);}
+  .kpiv2.hero .kd.flat{color:#B9CFC9;background:rgba(255,255,255,.12);}
   .kpiv2{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:14px 16px;
     position:relative;overflow:hidden;transition:box-shadow .15s,transform .15s;}
   .kpiv2:hover{box-shadow:var(--sh-h);transform:translateY(-1px);}
@@ -160,7 +171,7 @@
   .donutwrap .dleg b{font-size:20px;color:var(--rose);display:block;line-height:1.1;}
   .donutwrap .dleg .dl2{color:#333;}
 
-  .icards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px;}
+  .icards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px;;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));}
   @media(max-width:760px){.icards{grid-template-columns:1fr;}}
   .icard{background:#fff;box-shadow:var(--sh);border-radius:var(--r);padding:14px 16px;border-top:3px solid var(--sage);}
   .icard.bad{border-top-color:var(--rose);}
@@ -178,6 +189,24 @@
   /* Cuando en un grid de dos queda un solo panel visible, ese ocupa el ancho completo
      en vez de dejar la mitad de la pantalla en blanco. */
   .grid2.unoSolo{grid-template-columns:1fr;}
+/* GRILLA DE 12 COLUMNAS (v2). Reemplaza al grid2 de mitades iguales cuando el panel
+     principal y su detalle no pesan lo mismo: el gráfico va en 8 columnas y su tarjeta de
+     apoyo en 4, que es la proporción que hace que se lean como un par y no como dos
+     bloques sueltos compitiendo por atención. */
+  .grid12{display:grid;grid-template-columns:repeat(12,1fr);gap:14px;align-items:start;}
+  .col12{grid-column:span 12;} .col8{grid-column:span 8;}
+  .col6{grid-column:span 6;}  .col4{grid-column:span 4;}
+  .grid12 > *{min-width:0;}
+  @media(max-width:1100px){ .col8,.col6,.col4{grid-column:span 12;} }
+  /* Franja de color en el borde superior del panel: agrupa visualmente los que hablan del
+     mismo tema sin tener que leer el título. */
+  .panel{position:relative;}
+  .tira{position:absolute;left:0;right:0;top:0;height:4px;background:var(--warm);
+        border-radius:var(--r) var(--r) 0 0;}
+  .tira.resultado{background:var(--sage);}
+  .tira.riesgo{background:var(--rose);}
+  .tira.volumen{background:var(--slate);}
+  .tira.motivo{background:var(--taupe);}
   /* Sin min-width:0 una columna 1fr nunca baja del ancho de su contenido: la tabla de
      685px estiraba el panel a 725px dentro de una pantalla de 390 y desbordaba la página
      entera. Con esto la columna se encoge y el scroll queda dentro de la tabla, que es
@@ -582,7 +611,7 @@
       </div>
 
       <div class="tabpane active">
-<div class="panel" id="panelUniverso">
+<div class="panel" id="panelUniverso"><span class="tira volumen"></span>
         <div class="pt">🎯 De cuántas prendas estamos hablando <span id="uniPer" style="font-weight:400;color:var(--stone);font-size:13px"></span></div>
         <div class="ph" id="uniSub"></div>
         <div id="uniKpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px"></div>
@@ -592,31 +621,33 @@
       </div>
       </div>
       <div class="tabpane">
-<div class="panel">
+        <div class="grid12">
+<div class="panel col8"><span class="tira resultado"></span>
         <div class="pt">📅 Tendencia mensual <span id="ttyear"></span></div>
         <div class="ph">% de aprobación vs % de rechazo por mes (todas las auditorías del año). El último mes puede estar parcial.</div>
         <div class="cwrap" style="height:240px;"><canvas id="cMensual"></canvas></div>
       </div>
-<div class="panel">
+<div class="panel col8"><span class="tira resultado"></span>
         <div class="pt" id="trendTitle">📈 Tendencia semanal — Lives vs Talleres vs Promedio</div>
         <div class="ph" id="trendSub">% de rechazo de las últimas 5 semanas hasta la seleccionada. "Promedio" = rechazo global de la semana.</div>
         <div class="cwrap" style="height:260px;"><canvas id="cTrend"></canvas></div>
       </div>
-<div class="grid2">
-        <div class="panel" id="procesoPanel">
+        <div class="panel col4" id="procesoPanel"><span class="tira volumen"></span>
           <div class="pt">🔄 Resultados por proceso</div>
           <div class="ph">% de resultados por número de auditoría — 1ra, 2da, 3ra... (período seleccionado).</div>
           <div class="cwrap" style="height:240px;"><canvas id="cProceso"></canvas></div>
         </div>
-        <div class="panel">
+        <div class="panel col4"><span class="tira riesgo"></span>
           <div class="pt">📐 % Defectos sobre muestreo</div>
           <div class="ph">Defectos encontrados ÷ piezas muestreadas, por servicio (período seleccionado).</div>
           <div class="cwrap" style="height:240px;"><canvas id="cServicio"></canvas></div>
         </div>
+
       </div>
       </div>
       <div class="tabpane">
-<div class="panel">
+        <div class="grid12">
+        <div class="panel col8"><span class="tira motivo"></span>
         <div class="pt">🔍 Defectos por origen</div>
         <div class="ph">Incidencias de cada defecto en el período seleccionado, separadas por origen.</div>
         <div class="grid2">
@@ -631,10 +662,11 @@
         </div>
       </div>
       </div>
+      </div>
       <div class="tabpane">
-<div class="grid2" id="rowTallerAudt">
+<div class="grid12" id="rowTallerAudt">
         <!-- DESEMPEÑO ACUMULADO TALLERES EXTERNOS -->
-        <div class="panel pairPanel" id="panelPerf">
+        <div class="panel pairPanel col8" id="panelPerf"><span class="tira volumen"></span>
           <div class="pt">🏭 Talleres externos — Desempeño acumulado <span id="perfRange" style="font-weight:400;color:var(--stone);font-size:12px;"></span></div>
           <div class="ph">% de aprobación del período activo (semana, mes o año, según el filtro de arriba), ordenado por <b>% de rechazo</b> (mayor rechazo primero). ▲▼ = tendencia del último mes con datos vs el anterior. Talleres con menos de 8 auditorías <b>en el período mostrado</b> se marcan "muestra baja" (no concluyente). DETALLE abre la ficha completa.</div>
           <div class="perfk">
@@ -647,7 +679,7 @@
         </div>
 
         <!-- COMPARATIVO AUDITORAS DE TALLER (ACABADOS EXTERNOS) -->
-        <div class="panel pairPanel" id="audtPanel" style="display:none;">
+        <div class="panel pairPanel col4" id="audtPanel" style="display:none;"><span class="tira resultado"></span>
           <div class="pt">🧑‍💼 Auditoras de taller — Comparativo de aprobación/rechazo en LIVES</div>
           <div class="ph">Del período activo (semana, mes o año, según el filtro de arriba). Solo auditorías de acabados externos con auditora de taller informada (dato manual del Excel). % Rechazo = veces que esa auditoría fue <b>rechazada al reauditarse en LIVES</b>, sobre el total de auditorías de esa auditora en el período. Clic en un encabezado para ordenar.</div>
           <div class="perfk" style="grid-template-columns:repeat(3,1fr);">
@@ -1422,11 +1454,17 @@ function renderPeriod(mode,value){
   const usable = servOk.length ? servOk : serv;   // si ninguno llega al mínimo, se avisa abajo
   const pocos  = servOk.length === 0;
 
+  /* Si no hay dato, la tarjeta se OCULTA entera en vez de mostrar un guion con una
+     explicación al lado. Una tarjeta con "—" ocupa el mismo espacio que una con dato y
+     obliga a leerla para descubrir que no dice nada. Y cuando se oculta una, la fila se
+     reacomoda sola para que no quede el hueco. */
   function pintar(idV, idS, obj, nota){
-    document.getElementById(idV).textContent = obj ? (obj.ap+"% aprob.") : "—";
-    document.getElementById(idS).textContent = obj
-      ? (obj.k+" · "+obj.n+" aud."+(nota?(" · "+nota):""))
-      : (nota||"—");
+    var v=document.getElementById(idV), sN=document.getElementById(idS);
+    var card=v.closest(".icard");
+    if(!obj){ if(card) card.style.display="none"; return; }
+    if(card) card.style.display="";
+    v.textContent = obj.ap+"% aprob.";
+    sN.textContent = obj.k+" · "+obj.n+" aud."+(nota?(" · "+nota):"");
   }
 
   if(usable.length >= 2){
@@ -2361,7 +2399,7 @@ function renderUniverso(){
   }
   function kpi(v,l,sub,color,extra){
     extra = extra || {};
-    return '<div class="kpiv2" style="--kc:'+(color||'#0E3B36')+'">'+
+    return '<div class="kpiv2'+(extra.hero?' hero':'')+'" style="--kc:'+(color||'#0E3B36')+'">'+
       '<div class="kl">'+l+'</div>'+
       '<div class="krow"><div class="kv">'+v+'</div>'+(extra.delta||'')+'</div>'+
       '<div class="ks">'+sub+'</div>'+
@@ -2403,7 +2441,7 @@ function renderUniverso(){
     kpi(lote.toLocaleString('es-PE'),'Prendas en los lotes','Total que pasó por auditoría · '+nAud+' auditorías')+
     kpi(muestra.toLocaleString('es-PE'),'Prendas inspeccionadas',(pctInsp!=null?('Muestra AQL · '+pctInsp+'% del lote'):'Muestra AQL'))+
     kpi(ders.toLocaleString('es-PE')+(tasaDer!=null?(' <span style="font-size:14px;font-weight:700">· '+tasaDer+'%</span>'):''),
-        'Prendas derivadas','Sobre '+loteTaller.toLocaleString('es-PE')+' del lote de talleres externos','#B45309',exDer)+
+        'Prendas derivadas','Sobre '+loteTaller.toLocaleString('es-PE')+' del lote de talleres externos','#B45309',Object.assign({hero:true},exDer))+
     kpi(defs.toLocaleString('es-PE')+(tasaDef!=null?(' <span style="font-size:14px;font-weight:700">· '+tasaDef+'%</span>'):''),
         'Defectos en muestra','Sobre las '+muestra.toLocaleString('es-PE')+' prendas inspeccionadas','#DC2626',exDef);
 
@@ -3103,7 +3141,7 @@ if(document.readyState!=='loading'){ cargarEnVivo(); cargarDetalleFino(); }
   function lfNormalize(){if(!CFG.renameMap)return false;var st=S();if(!st)return false;var arr=st.allRows||st.rows||[];var ch=false;arr.forEach(function(r){var v=r[CFG.renameCol];if(v!=null&&CFG.renameMap[v]!=null){r[CFG.renameCol]=CFG.renameMap[v];ch=true;}});return ch;}
   // ---- lente de % de rechazo por cliente ----
   function lfPeriodNow(){try{var cm=curMode();if(cm==="week")return {kind:"week",value:+document.getElementById("weekSel").value};if(cm==="month")return {kind:"month",value:+document.getElementById("monthSel").value};return {kind:"acum"};}catch(e){return {kind:"acum"};}}
-  function lfMountCliRej(){if(!CFG.clientLens||document.getElementById("lfCliRejPanel"))return;var anchor=document.getElementById(CFG.defCanvas);var panel=anchor&&anchor.closest(".panel");if(!panel||!panel.parentNode)return;var p=document.createElement("div");p.className="panel";p.id="lfCliRejPanel";p.innerHTML='<div class="pt">👔 % de rechazo por cliente</div><div class="ph"><b>Toca un cliente</b> para abrir su ficha con la tendencia de derivados sobre su propio lote. Clientes con mayor % de rechazo en el período (mín. 3 auditorías).</div><div class="cwrap" style="height:300px;"><canvas id="lfCliRej"></canvas></div>';panel.parentNode.insertBefore(p,panel.nextSibling);}
+  function lfMountCliRej(){if(!CFG.clientLens||document.getElementById("lfCliRejPanel"))return;var anchor=document.getElementById(CFG.defCanvas);var panel=anchor&&anchor.closest(".panel");if(!panel||!panel.parentNode)return;var p=document.createElement("div");p.className="panel col4";p.id="lfCliRejPanel";p.innerHTML='<span class="tira riesgo"></span><div class="pt">👔 % de rechazo por cliente</div><div class="ph"><b>Toca un cliente</b> para abrir su ficha con la tendencia de derivados sobre su propio lote. Clientes con mayor % de rechazo en el período (mín. 3 auditorías).</div><div class="cwrap" style="height:300px;"><canvas id="lfCliRej"></canvas></div>';panel.parentNode.insertBefore(p,panel.nextSibling);}
   function lfRenderCliRej(){
     if(!CFG.clientLens)return;
     var panelEl=document.getElementById("lfCliRejPanel");
