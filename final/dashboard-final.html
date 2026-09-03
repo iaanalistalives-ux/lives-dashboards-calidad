@@ -49,7 +49,31 @@
   .bar .btn.primary:hover{background:var(--sage-dark);}
 /* KPI del estándar v2: barra de color a la izquierda, valor grande, delta en pastilla
      y sparkline al pie. */
-/* Insight bar: una o dos frases CALCULADAS con los datos, nunca escritas a mano.
+/* Banda de veredicto. Calidad NO ha declarado meta de rechazo, así que aquí no se pinta
+     semáforo de meta: se compara contra el período anterior con datos y la frase lo dice
+     explícitamente. Si no hay período anterior, se dice eso mismo en vez de inventar. */
+  .verdict{display:flex;align-items:center;gap:16px;background:var(--card);border-radius:var(--r);
+           box-shadow:var(--sh);padding:16px 20px;margin-bottom:14px;border-left:6px solid var(--slate);
+           border-top-left-radius:0;border-bottom-left-radius:0;}
+  .verdict .dot{width:44px;height:44px;border-radius:50%;background:#EDF1F2;color:var(--slate);
+                display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;flex:none;}
+  .verdict .t{font-size:19px;font-weight:700;color:var(--slate);line-height:1.2;}
+  .verdict .s{font-size:13px;color:#333;margin-top:3px;}
+  .verdict.ok{border-left-color:var(--sage);}
+  .verdict.ok .dot{background:#E7F4EF;color:var(--sage);}
+  .verdict.ok .t{color:var(--sage);}
+  .verdict.warn{border-left-color:var(--tan);}
+  .verdict.warn .dot{background:#FEF3E2;color:var(--taupe);}
+  .verdict.warn .t{color:var(--taupe);}
+  .verdict.bad{border-left-color:var(--rose);}
+  .verdict.bad .dot{background:#FCEBEB;color:var(--rose);}
+  .verdict.bad .t{color:var(--rose);}
+  .verdict{padding:14px;gap:12px;}
+  .verdict .dot{width:36px;height:36px;font-size:18px;}
+  .verdict .t{font-size:16px;}
+  .verdict,.icard,.focos{box-shadow:none;border:1px solid var(--warm);break-inside:avoid;page-break-inside:avoid;}
+
+  /* Insight bar: una o dos frases CALCULADAS con los datos, nunca escritas a mano.
      Dice dónde está concentrado el problema y qué pasaría si eso se corrigiera. */
 /* Pestañas del estándar v2: agrupan los paneles por tema en vez de dejarlos en un
      scroll interminable. Al imprimir se despliegan todas (ver bloque de impresión). */
@@ -543,6 +567,11 @@
         <div class="icard up"><div class="il">Variación vs semana previa</div><div class="iv" id="i_delta">—</div><div class="is" id="i_deltas">—</div></div>
       </div>
 
+      <div class="verdict" id="verdict" style="display:none">
+        <div class="dot" id="verdictDot">—</div>
+        <div><div class="t" id="verdictT">—</div><div class="s" id="verdictS">—</div></div>
+      </div>
+
       <!-- PESTAÑAS: agrupan los paneles por tema. Antes todo iba en un scroll único y
            para comparar dos cosas del mismo tema había que bajar media pantalla. -->
       <div class="tabs" id="dashTabs">
@@ -767,6 +796,39 @@ function clearCharts(){charts.forEach(c=>c.destroy());charts=[];}
 let STATE=null, CURYEAR=null, CURVIEW="year";
 
 /* doughnut center text */
+/* ===== v2.1: estilo de tendencia y valor visible sobre cada punto ===== */
+const AREA=(ctx,rgb)=>{const{chartArea}=ctx.chart;if(!chartArea)return"transparent";
+  const g=ctx.chart.ctx.createLinearGradient(0,chartArea.top,0,chartArea.bottom);
+  g.addColorStop(0,"rgba("+rgb+",.22)");g.addColorStop(1,"rgba(255,255,255,0)");return g;};
+const serieTendencia=(color,rgb)=>({borderColor:color,borderWidth:3.5,tension:.35,fill:true,
+  backgroundColor:c=>AREA(c,rgb),pointRadius:5,pointHoverRadius:8,pointBackgroundColor:color,
+  pointBorderColor:"#fff",pointBorderWidth:2.5,pointHoverBorderWidth:3});
+const ANIM={duration:900,easing:"easeOutCubic",delay:c=>(c.type==="data"&&c.mode==="default")?c.dataIndex*45:0};
+const etiquetasTendencia={id:"etiquetasTendencia",afterDatasetsDraw(chart,args,opts){
+  const ctx=chart.ctx,fmt=(opts&&opts.fmt)||(v=>v.toFixed(1)+"%");
+  const div=window.matchMedia("(max-width:600px)").matches?7:14;
+  chart.data.datasets.forEach((ds,di)=>{
+    if(ds.sinEtiquetas)return;
+    const meta=chart.getDatasetMeta(di);if(meta.hidden)return;
+    const paso=Math.max(1,Math.ceil(meta.data.length/div));
+    meta.data.forEach((pt,i)=>{
+      const ultimo=i===meta.data.length-1;
+      if(!ultimo&&i%paso!==0)return;
+      const v=ds.data[i];if(v===null||v===undefined)return;
+      const txt=fmt(v);ctx.save();ctx.font="700 11.5px Calibri, Arial, sans-serif";
+      const w=ctx.measureText(txt).width,x=pt.x,y=pt.y-18;
+      const rx=x-w/2-7,ry=y-9.5,rw=w+14,rh=19,r=9.5;
+      ctx.beginPath();ctx.moveTo(rx+r,ry);
+      ctx.arcTo(rx+rw,ry,rx+rw,ry+rh,r);ctx.arcTo(rx+rw,ry+rh,rx,ry+rh,r);
+      ctx.arcTo(rx,ry+rh,rx,ry,r);ctx.arcTo(rx,ry,rx+rw,ry,r);ctx.closePath();
+      ctx.fillStyle="#fff";ctx.shadowColor="rgba(14,59,54,.18)";ctx.shadowBlur=4;ctx.shadowOffsetY=1;
+      ctx.fill();ctx.shadowColor="transparent";
+      ctx.fillStyle=ds.borderColor||SAGE;ctx.textAlign="center";ctx.textBaseline="middle";
+      ctx.fillText(txt,x,y);ctx.restore();
+    });
+  });
+}};
+
 const centerPct={id:"centerPct",afterDraw(chart,a,o){if(!o||o.text==null)return;const{ctx,chartArea:ca}=chart;ctx.save();ctx.font="700 18px Calibri, Arial";ctx.fillStyle=ROSE;ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(o.text,(ca.left+ca.right)/2,(ca.top+ca.bottom)/2);ctx.restore();}};
 /* value labels for bars */
 const valueLabel={id:"valueLabel",afterDatasetsDraw(chart,a,opts){const{ctx}=chart;ctx.save();const meta=chart.getDatasetMeta(0);meta.data.forEach((bar,i)=>{const raw=chart.data.datasets[0].data[i];const suf=opts.suffix||"";ctx.fillStyle="#333";ctx.font="700 11px Calibri, Arial";ctx.textBaseline="middle";if(chart.options.indexAxis==="y"){ctx.textAlign="left";ctx.fillText(raw+suf,bar.x+6,bar.y);}else{ctx.textAlign="center";ctx.fillText(raw+suf,bar.x,bar.y-8);}});ctx.restore();}};
@@ -1347,13 +1409,40 @@ function renderPeriod(mode,value){
   const sm={};
   tal.forEach(r=>{const k=r["SERVICIO"];if(k==null||k==="")return;(sm[k]=sm[k]||{n:0,ap:0});sm[k].n++;if(r["RESULTADO"]==="APROBADO")sm[k].ap++;});
   const serv=Object.keys(sm).map(k=>({k,n:sm[k].n,ap:+(sm[k].ap/sm[k].n*100).toFixed(1)}));
-  if(serv.length){
-    const best=serv.reduce((a,b)=>b.ap>a.ap||(b.ap===a.ap&&b.n>a.n)?b:a);
-    const worst=serv.reduce((a,b)=>b.ap<a.ap||(b.ap===a.ap&&b.n>a.n)?b:a);
-    document.getElementById("i_best").textContent=best.ap+"% aprob.";
-    document.getElementById("i_bests").textContent=best.k+" · "+best.n+" aud.";
-    document.getElementById("i_worst").textContent=worst.ap+"% aprob.";
-    document.getElementById("i_worsts").textContent=worst.k+" · "+worst.n+" aud.";
+  /* CORREGIDO: con un solo taller en el período, best y worst devolvían EL MISMO, y el
+     tablero mostraba "Mejor taller: MARUDI 100%" y "Peor taller: MARUDI 100%" como si
+     fueran dos hallazgos distintos. Un peor taller con 100% de aprobación es imposible.
+     Además no se exigía un mínimo de auditorías: un taller con una sola auditoría aprobada
+     encabezaba el ranking, cuando con un dato no se puede decir que sea el mejor de nada.
+     Ahora: mínimo 2 auditorías para entrar, y si después de eso no quedan al menos dos
+     talleres distintos, se muestra el único que hay y el otro recuadro dice por qué no
+     hay comparación, en vez de repetir el mismo nombre. */
+  const MIN_AUD_TALLER = 2;
+  const servOk = serv.filter(function(x){ return x.n >= MIN_AUD_TALLER; });
+  const usable = servOk.length ? servOk : serv;   // si ninguno llega al mínimo, se avisa abajo
+  const pocos  = servOk.length === 0;
+
+  function pintar(idV, idS, obj, nota){
+    document.getElementById(idV).textContent = obj ? (obj.ap+"% aprob.") : "—";
+    document.getElementById(idS).textContent = obj
+      ? (obj.k+" · "+obj.n+" aud."+(nota?(" · "+nota):""))
+      : (nota||"—");
+  }
+
+  if(usable.length >= 2){
+    const best  = usable.reduce((a,b)=> (b.ap>a.ap || (b.ap===a.ap && b.n>a.n)) ? b : a);
+    const worst = usable.reduce((a,b)=> (b.ap<a.ap || (b.ap===a.ap && b.n>a.n)) ? b : a);
+    if(best.k === worst.k){
+      // mismo taller en los dos extremos: todos empataron en el mismo porcentaje
+      pintar("i_best","i_bests",best, pocos?"muestra baja":"");
+      pintar("i_worst","i_worsts",null,"Todos los talleres del período tienen el mismo % — no hay peor");
+    }else{
+      pintar("i_best","i_bests",best, pocos?"muestra baja":"");
+      pintar("i_worst","i_worsts",worst, pocos?"muestra baja":"");
+    }
+  }else if(usable.length === 1){
+    pintar("i_best","i_bests",usable[0], pocos?"muestra baja":"");
+    pintar("i_worst","i_worsts",null,"Un solo taller en el período — no hay con quién comparar");
   }else{
     document.getElementById("i_best").textContent="—";document.getElementById("i_bests").textContent="Sin talleres en este período";
     document.getElementById("i_worst").textContent="—";document.getElementById("i_worsts").textContent="Sin talleres en este período";
@@ -1377,14 +1466,47 @@ function renderPeriod(mode,value){
     card.style.borderTopColor=d>0?ROSE:(d<0?SAGE:TAN);
   }else{iv.textContent=curPr+"%";iv.style.color="#333";is.textContent=`Rechazo global ${lblOf(value)} (sin período previo)`;}
 
+  /* ===== BANDA DE VEREDICTO =====
+     Una frase en palabras antes de cualquier número, que es lo que pide el estándar.
+     Calidad NO ha declarado meta de rechazo, así que aquí no se pinta semáforo de meta:
+     se compara contra el período anterior con datos y la frase lo dice explícitamente.
+     Si no hay período anterior, se dice eso mismo en vez de inventar una referencia. */
+  (function(){
+    var box=document.getElementById("verdict"); if(!box) return;
+    var dot=document.getElementById("verdictDot"),
+        tt =document.getElementById("verdictT"),
+        sub=document.getElementById("verdictS");
+    box.className="verdict";
+    if(!cur || !cur.n){ box.style.display="none"; return; }
+    box.style.display="flex";
+    var uds = cur.r+" auditoría"+(cur.r===1?"":"s")+" rechazada"+(cur.r===1?"":"s")+" de "+nf(cur.n);
+    var etqPer = isYear ? ("el año "+(S.year||"")) : lblOf(value);
+    if(isYear || !prevObj){
+      dot.textContent="=";
+      tt.textContent="Sin período anterior para comparar";
+      sub.textContent="Rechazo de "+curPr+"% en "+etqPer+". "+uds+
+        ". Calidad no ha fijado una meta, así que este número no se compara contra nada más.";
+      return;
+    }
+    var pvPr=pct(prevObj.r,prevObj.n), d=+(curPr-pvPr).toFixed(1);
+    if(d<0){ box.classList.add("ok");   dot.textContent="\u2713"; tt.textContent="Mejor que "+lblOf(prevKey); }
+    else if(d>0){ box.classList.add("warn"); dot.textContent="!"; tt.textContent="Peor que "+lblOf(prevKey); }
+    else { dot.textContent="="; tt.textContent="Igual que "+lblOf(prevKey); }
+    var mov = d>0 ? ("subió "+d+" puntos") : (d<0 ? ("bajó "+Math.abs(d)+" puntos") : "sin cambio");
+    sub.textContent="Rechazo de "+curPr+"% en "+etqPer+" contra "+pvPr+"% en "+lblOf(prevKey)+": "+mov+
+      ". "+uds+". Calidad no ha fijado una meta, así que la comparación es contra el período anterior.";
+  })();
+
   // mensual
   reg(new Chart(document.getElementById("cMensual"),{type:"line",
     data:{labels:S.monthly.labels,datasets:[
-      {label:"% Aprobación",data:S.monthly.aprob,borderColor:SAGE,backgroundColor:"rgba(105,137,98,.08)",borderWidth:2.5,pointRadius:3,pointBackgroundColor:SAGE,tension:.3,fill:false},
-      {label:"% Rechazo",data:S.monthly.rech,borderColor:ROSE,backgroundColor:"rgba(211,152,152,.10)",borderWidth:2.5,pointRadius:3,pointBackgroundColor:ROSE,tension:.3,fill:false}
+      /* Estilo de tendencia v2.1: línea más gruesa, área degradada bajo la curva y puntos
+         con borde blanco. Es lo que hace que la tendencia se lea de un vistazo. */
+      Object.assign({label:"% Aprobación",data:S.monthly.aprob}, serieTendencia(SAGE,"15,122,90")),
+      Object.assign({label:"% Rechazo",data:S.monthly.rech}, serieTendencia(ROSE,"220,38,38"))
     ]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"top",labels:{boxWidth:14,usePointStyle:true}},tooltip:{callbacks:{label:c=>c.dataset.label+": "+c.raw+"%"}}},
-      scales:{x:{grid:{display:false},border:{color:WARM}},y:{min:0,max:100,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}}}}}));
+      scales:{x:{grid:{display:false},border:{color:WARM}},y:{min:0,max:100,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}}}},plugins:[etiquetasTendencia]}));
 
   // tendencia (semanal: últimas 5 hasta value; mensual: hasta 6 meses hasta value; año: todos los meses)
   const tk=isYear?S.months.slice():(isMonth?S.months.filter(m=>m<=value).slice(-6):S.weeks.filter(w=>w<=value).slice(-5));
@@ -1394,12 +1516,12 @@ function renderPeriod(mode,value){
   const proLine=tk.map(k=>pct(tsrc[k].r,tsrc[k].n));
   reg(new Chart(document.getElementById("cTrend"),{type:"line",
     data:{labels:tk.map(k=>(isYear||isMonth)?MESES[k]:"Sem "+k),datasets:[
-      {label:"Rechazo Lives",data:livLine,borderColor:ROSE,pointBackgroundColor:ROSE,pointRadius:5,tension:.3,fill:false,borderWidth:2.5},
-      {label:"Rechazo Talleres",data:talLine,borderColor:SLATE,pointBackgroundColor:SLATE,pointRadius:5,tension:.3,fill:false,borderWidth:2.5},
+      Object.assign({label:"Rechazo Lives",data:livLine}, serieTendencia(ROSE,"220,38,38")),
+      Object.assign({label:"Rechazo Talleres",data:talLine}, serieTendencia(SLATE,"78,107,120")),
       {label:"Promedio global",data:proLine,borderColor:TAUPE,pointBackgroundColor:TAUPE,pointRadius:4,tension:.3,fill:false,borderWidth:2,borderDash:[5,3]}
     ]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"top",labels:{boxWidth:14,usePointStyle:true}},tooltip:{callbacks:{label:c=>c.dataset.label+": "+c.raw+"%"}}},
-      scales:{x:{grid:{display:false},border:{color:WARM}},y:{min:0,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}}}}}));
+      scales:{x:{grid:{display:false},border:{color:WARM}},y:{min:0,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}}}},plugins:[etiquetasTendencia]}));
 
   // proceso: separado dinámicamente por número de auditoría real presente en el período
   // filtrado (1RA, 2DA, 3RA, 4TA, 5TA...) — nunca agrupa 2DA y 3RA juntas.
@@ -2515,7 +2637,16 @@ function derDetalle(tipo){
   // las auditorías que tuvieron derivados. Antes usaba derFilas() (solo las que tenían algo),
   // y eso achicaba el denominador e inflaba la tasa: el panel decía 3.65% sobre 58,426 y la
   // ficha del mismo motivo decía 3.55% sobre 13,197. Dos cifras para el mismo dato.
-  var rows=filasPeriodoDer().filter(function(r){ return String(r['INT/EXT']||'')==='EXTERNO'; });
+  /* CORREGIDO: aquí se filtraba SOLO por INT/EXT==='EXTERNO', pero las tarjetas de arriba
+     cuentan además cualquier fila que tenga derivados, venga marcada como venga. Resultado:
+     la tarjeta decía "CONTAMINADO · 47 prendas" y al abrirla la ficha decía "2 prendas".
+     Dos números para el mismo dato y el mismo período.
+     Los derivados solo existen en talleres externos, así que una fila con derivados
+     pertenece a ese universo por definición, diga lo que diga la columna. Se usa el mismo
+     criterio que las tarjetas para que las cifras coincidan siempre. */
+  var rows=filasPeriodoDer().filter(function(r){
+    return String(r['INT/EXT']||'')==='EXTERNO' || String(r['DERIVADOS']||'').trim()!=='';
+  });
   var det=[], total=0;
   // Denominador del universo: las prendas realmente revisadas en esas auditorías.
   // Sin esto las cifras son absolutas y no se puede comparar un taller grande
