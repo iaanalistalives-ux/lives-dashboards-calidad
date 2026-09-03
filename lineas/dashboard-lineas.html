@@ -837,7 +837,7 @@ function renderCompare(){
   const ys=STATE.years,cols=[SAGE,SLATE,TAUPE,TAN,ROSE,SLATE];
   const yrows=y=>STATE.allRows.filter(r=>r.__y===y);
   const apN=rs=>rs.filter(r=>r["RESULTADO"]==="APROBADO").length;
-  let kp="";ys.forEach((y,i)=>{const rs=yrows(y),n=rs.length,a=apN(rs),p=n?+(a/n*100).toFixed(1):0;kp+=`<div class="kpi"><div class="v" style="color:${cols[i%cols.length]}">${p}%</div><div class="l">% Aprob. ${y}</div><div class="s">${nf(n)} aud · ${n-a} rech</div></div>`;});
+  let kp="";ys.forEach((y,i)=>{const rs=yrows(y),n=rs.length,a=apN(rs),p=n?+(a/n*100).toFixed(1):0;kp+=`<div class="kpi neutro"><span class="banda" style="background:${cols[i%cols.length]}"></span><div class="cuerpo"><div class="l">% Aprob. ${y}</div><div class="row"><span class="v" style="color:${cols[i%cols.length]}">${p}%</span></div><div class="s">${nf(n)} aud · ${n-a} rech</div></div></div>`;});
   const monthsSet=[...new Set(STATE.allRows.map(r=>monthOf(r["FECHA"])).filter(m=>m!=null))].sort((a,b)=>a-b);
   const apByYM=(y,m)=>{const rs=yrows(y).filter(r=>monthOf(r["FECHA"])===m);return rs.length?+(apN(rs)/rs.length*100).toFixed(1):null;};
   const reByYM=(y,m)=>{const rs=yrows(y).filter(r=>monthOf(r["FECHA"])===m);return rs.length?+(rs.filter(isRech).length/rs.length*100).toFixed(1):null;};
@@ -853,12 +853,13 @@ function renderCompare(){
   document.getElementById("compareView").innerHTML=`
     <div class="note"><b>Comparativo de años</b> · ${ys.join(" · ")} · ${CFG.compareNote} Calidad no ha fijado meta: cada mes se colorea contra el promedio de aprobación de su propio año (${ys.map(y=>y+": "+(avgY[y]==null?"—":avgY[y]+"%")).join(" · ")}).</div>
     <div class="kpis">${kp}</div>
-    <div class="panel"><div class="pt">📉 % de rechazo por mes — todos los años</div><div class="ph">Una línea por año (mes calendario). Menor es mejor.</div>
-      <div class="cwrap" style="height:300px;"><canvas id="cCmpMes"></canvas></div>
+    <div class="grid">
+    <div class="panel col12"><span class="tira riesgo"></span><div class="pt">% de rechazo por mes — todos los años</div><div class="ph">Una línea por año (mes calendario). Menor es mejor.</div>
+      <div class="cwrap tall"><canvas id="cCmpMes"></canvas></div>
       <div style="overflow-x:auto;margin-top:10px;"><table id="cmpTbl">${tbl}</table></div>
     </div>
     <div class="panel col12"><span class="tira resultado"></span><div class="pt">% de aprobación por ${elab.toLowerCase()}, por año</div><div class="ph">${elab}s con más auditorías (acumulado de todos los años). Una barra por año; sin meta declarada, la lectura es la comparación entre años.</div>
-      <div class="cwrap" style="height:${Math.max(260,topE.length*40)}px;"><canvas id="cCmpEnt"></canvas></div></div>`;
+      <div class="cwrap tall"><canvas id="cCmpEnt"></canvas></div></div></div>`;
   reg(new Chart(document.getElementById("cCmpMes"),{type:"line",data:{labels:monthsSet.map(m=>MESES[m]),datasets:dsR},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"top",labels:{boxWidth:14,usePointStyle:true}},tooltip:{callbacks:{label:c=>c.dataset.label+": "+(c.raw==null?"—":c.raw+"%")}}},scales:{x:{grid:{display:false},border:{color:WARM}},y:{min:0,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}}}}}));
   reg(new Chart(document.getElementById("cCmpEnt"),{type:"bar",data:{labels:topE,datasets:eDs},options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"top",labels:{boxWidth:14,usePointStyle:true}},tooltip:{callbacks:{label:c=>c.dataset.label+": "+c.raw+"% aprob"}}},scales:{x:{min:0,max:100,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}},y:{grid:{display:false},border:{color:WARM},ticks:{font:{size:10}}}}}}));
   const hoy=new Date().toLocaleDateString("es-PE",{day:"numeric",month:"long",year:"numeric"});
