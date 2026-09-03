@@ -1857,16 +1857,49 @@ function panelTieneDatos(pan){
       }
     }
   }
-  // 2) Tablas con filas
-  if (pan.querySelector('tbody tr')) return true;
+  // 2) Tablas con filas.
+  //    Una tabla con encabezado y cero filas no es dato: el panel "Desempeño acumulado"
+  //    quedaba visible con su título diciendo "(Sem 0)" y nada debajo.
+  var tb = pan.querySelector('tbody');
+  if (tb && tb.querySelector('tr')) return true;
+  if (tb && !tb.querySelector('tr')) return false;   // hay tabla, pero está vacía
   // 3) Listas de barras / fichas / KPIs con contenido
   if (pan.querySelector('.derB, .dmF, .perfk .c, [data-d]')) return true;
-  // 4) Cualquier bloque de texto propio que no sea el título ni la explicación
+  // 4) Un canvas dibujado pero con todos sus valores en cero tampoco cuenta como dato:
+  //    se veía una cuadrícula vacía con ejes, que es peor que no mostrar nada.
+  //    (ya cubierto arriba: si ningún dataset trae un valor != 0, no retornó true)
+
+  // 5) Cualquier bloque de texto propio que no sea el título ni la explicación.
+  //    Se exige más longitud que antes: con 30 caracteres pasaban paneles que solo
+  //    tenían un "—" o una leyenda suelta, y quedaban visibles y vacíos.
   var cuerpo = pan.querySelectorAll(':scope > div:not(.pt):not(.ph):not(.note)');
   for (var m=0;m<cuerpo.length;m++){
-    if ((cuerpo[m].textContent||'').trim().length > 30) return true;
+    var txt=(cuerpo[m].textContent||'').replace(/\s+/g,' ').trim();
+    if (txt.length > 60 && !/^sin (registros|datos|talleres)/i.test(txt)) return true;
   }
   return false;
+}
+/* Un panel cuyos KPIs están TODOS en cero no aporta nada: es un recuadro que dice
+   "0 auditorías, 0 prendas, 0 aprobadas". Peor aún, el título llega a decir "Sem 0".
+   Con un filtro que no arroja datos hay que ocultarlo, no dibujarlo en ceros. */
+function todoEnCero(pan){
+  var nums = pan.querySelectorAll('.k .v, .kv, .perfk .c, .ekpis .v');
+  var vistos = 0, ceros = 0;
+  Array.prototype.forEach.call(nums, function(n){
+    var t = (n.textContent||'').replace(/[.,\s%]/g,'').trim();
+    if(t==='' || t==='—') return;
+    vistos++;
+    if(/^0+$/.test(t)) ceros++;
+  });
+  if(vistos===0){
+    // sin elementos marcados: se mira el texto suelto del panel
+    var t=(pan.innerText||'').replace(/\s+/g,' ');
+    var m=t.match(/\b\d[\d.,]*\b/g);
+    if(!m) return false;
+    var noCero=m.filter(function(x){ return !/^0+$/.test(x.replace(/[.,]/g,'')); });
+    return noCero.length===0;
+  }
+  return ceros===vistos;
 }
 function ocultarPanelesVacios(){
   try{
@@ -1874,7 +1907,7 @@ function ocultarPanelesVacios(){
     Array.prototype.forEach.call(todos, function(pan){
       // Respeta los paneles que ya se ocultan por su propia lógica de negocio
       if (pan.dataset.ocultoPorLogica === '1') return;
-      var hay = panelTieneDatos(pan);
+      var hay = panelTieneDatos(pan) && !todoEnCero(pan);
       pan.style.display = hay ? '' : 'none';
       pan.dataset.vacio = hay ? '0' : '1';
     });
@@ -1907,8 +1940,30 @@ function renderUniverso(){
   var cont=document.getElementById('panelUniverso');
   if(!cont) return;
   var rows=filasPeriodoDer();
-  if(!rows.length){ cont.style.display='none'; return; }
+  /* SIN DATOS: antes solo se ocultaba el panel, pero los bloques de adentro (KPIs,
+     comparativo, top 3) se quedaban con las cifras del filtro anterior. Si el usuario
+     volvía a mostrar el panel veía datos que ya no correspondían.
+     Ahora se limpian de verdad y se deja un mensaje que dice qué filtro no arrojó nada,
+     para que se entienda que es el filtro y no una falla. */
+  if(!rows.length){
+    ['uniKpis','uniComp','uniTop'].forEach(function(id){
+      var e=document.getElementById(id); if(e) e.innerHTML='';
+    });
+    var partes=[];
+    if(typeof FILTRO_CLI!=='undefined' && FILTRO_CLI) partes.push('cliente <b>'+FILTRO_CLI+'</b>');
+    if(typeof FILTRO_TAL!=='undefined' && FILTRO_TAL) partes.push('taller <b>'+FILTRO_TAL+'</b>');
+    var sub=document.getElementById('uniSub');
+    if(sub) sub.innerHTML='<div style="background:#F1F6F4;border-radius:10px;padding:16px 18px;'+
+      'font-size:13px;color:#5F726C;line-height:1.6">No hay auditorías'+
+      (partes.length? (' de '+partes.join(' y ')) : '')+' en el período elegido.<br>'+
+      '<span style="font-size:12px">Prueba con otro período, o quita los filtros con el botón de arriba.</span></div>';
+    var elPer=document.getElementById('uniPer'); if(elPer) elPer.textContent='';
+    cont.style.display='';   // se muestra el mensaje, no un recuadro vacío
+    cont.dataset.ocultoPorLogica='1';   // este panel decide por su cuenta
+    return;
+  }
   cont.style.display='';
+  cont.dataset.ocultoPorLogica='0';
 
   var lote=0, muestra=0, defs=0, ders=0, nAud=rows.length, loteTaller=0;
   var motNum={}, motTallerNum={}, motTallerDen={}, motSemNum={}, semDen={}, defNum={};
