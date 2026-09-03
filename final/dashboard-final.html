@@ -1920,7 +1920,16 @@ function renderUniverso(){
     var sem=Number(r['SEMANA'])||0;
     lote+=L; muestra+=M;
     if(sem) semDen[sem]=(semDen[sem]||0)+L;
-    if(externo){ loteTaller+=L; motTallerDen[taller]=(motTallerDen[taller]||0)+L; }
+    /* CORREGIDO: el denominador de derivados sumaba el lote SOLO cuando INT/EXT decía
+       exactamente 'EXTERNO', pero los derivados se contaban siempre. Si el valor venía
+       distinto o vacío (histórico con otro formato, o una fila sin clasificar), quedaba
+       "55 derivados sobre 0 prendas revisadas · 0%", que es imposible: si hubo derivados,
+       hubo un lote de donde salieron.
+       Ahora suma el lote de cualquier fila que TENGA derivados, además de las externas.
+       Los derivados solo existen en talleres externos, así que una fila con derivados
+       pertenece a ese universo por definición, diga lo que diga la columna. */
+    var tieneDer = String(r['DERIVADOS']||'').trim() !== '';
+    if(externo || tieneDer){ loteTaller+=L; motTallerDen[taller]=(motTallerDen[taller]||0)+L; }
     (function(){ var acc={}; defCount(r['DEFECTOS'],acc);
       for(var k in acc){ defs+=acc[k]; defNum[k]=(defNum[k]||0)+acc[k]; } })();
     derParse(r['DERIVADOS']).forEach(function(d){
@@ -1955,6 +1964,9 @@ function renderUniverso(){
       '<div style="font-size:12px;font-weight:700;color:#333;margin-top:3px">'+l+'</div>'+
       '<div style="font-size:11px;color:#5F726C;margin-top:2px;line-height:1.4">'+sub+'</div></div>';
   }
+  /* Último resguardo: si quedaron derivados pero el denominador salió en cero, se usa el
+     lote total en vez de mostrar "sobre 0 prendas · 0%", que no significa nada. */
+  if(ders>0 && loteTaller===0) loteTaller = lote;
   var tasaDer = loteTaller? (ders/loteTaller*100).toFixed(2) : null;
   var tasaDef = muestra? (defs/muestra*100).toFixed(2) : null;
   var pctInsp = lote? (muestra/lote*100).toFixed(1) : null;
