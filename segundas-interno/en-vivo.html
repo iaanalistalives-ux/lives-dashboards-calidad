@@ -153,7 +153,7 @@
       <!-- tendencia mensual -->
       <div class="panel">
         <div class="pt" id="mTitle">📅 Tendencia mensual 2026</div>
-        <div class="ph" id="mSub">% de segundas por mes (rangos fijos de semana). Meta 2.5%.</div>
+        <div class="ph" id="mSub">% de segundas por mes (rangos fijos de semana). Meta 2%.</div>
         <div class="cwrap" style="height:250px;"><canvas id="cMes"></canvas></div>
         <div style="overflow-x:auto;margin-top:10px;"><table id="mTbl"></table></div>
       </div>
@@ -196,7 +196,8 @@
           <div style="overflow-x:auto;"><table id="estRank"></table></div>
         </div>
         <div class="panel khide" data-kind="interno">
-          <div class="pt">🧵 Telas más recurrentes</div><div class="ph">Telas que más aparecen en REPORTE DE TELAS en el período. Toca "DETALLE" para más información.</div>
+          <div class="pt">🧵 Telas más recurrentes</div><div class="ph">Telas con mayor cantidad de segundas en el período (dato de tela viene del reporte que sube Athina — las semanas migradas del histórico no lo traen). Toca "DETALLE" para más información.</div>
+          <div id="telasCoverage" style="font-size:11px;color:var(--stone);margin-bottom:6px;"></div>
           <div style="overflow-x:auto;"><table id="telasRank"></table></div>
         </div>
       </div>
@@ -208,11 +209,11 @@
         <div class="kpi"><div class="v" id="dConf">—</div><div class="l" id="dConfL">Confeccionadas 2026</div></div>
         <div class="kpi"><div class="v" id="dSeg">—</div><div class="l" id="dSegL">Segundas 2026</div></div>
         <div class="kpi primary"><div class="v" id="dPct" style="color:var(--rose)">—</div><div class="l" id="dPctL">% Acum. 2026</div></div>
-        <div class="kpi meta"><div class="v">2.50%</div><div class="l">Meta</div></div>
+        <div class="kpi meta"><div class="v">2.00%</div><div class="l">Meta</div></div>
       </div>
       <div class="panel" id="anualTrendPanel" style="display:none;">
         <div class="pt">📈 Tendencia anual — % de segundas por año</div>
-        <div class="ph">Acumulado de cada año completo. Meta 2.5%.</div>
+        <div class="ph">Acumulado de cada año completo. Meta 2%.</div>
         <div class="cwrap" style="height:230px;"><canvas id="cAnual"></canvas></div>
       </div>
       <div class="panel">
@@ -289,7 +290,7 @@ Chart.defaults.font.family="Calibri, Arial, sans-serif";Chart.defaults.font.size
 Chart.defaults.plugins.tooltip.backgroundColor="rgba(51,51,51,0.95)";Chart.defaults.plugins.tooltip.padding=10;Chart.defaults.plugins.tooltip.cornerRadius=4;
 const nf=n=>Number(n).toLocaleString("es-PE");
 const MESES=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
-const META=2.5;
+const META=2;
 // Mapeo semana->mes (0=Ene...11=Dic) para el ano en curso ("latest"). Ya NO es una tabla fija a mano:
   // se recalcula automaticamente cada vez que se sube el Excel (ver computeFix() y su llamada en buildState),
   // usando el mes calendario real (mcal) que ya trae cada fila de REPORTES. Para cada numero de semana, se toma
@@ -330,20 +331,55 @@ const drop=document.getElementById("drop");
 // ⚠ Completar con el ID del Sheet (el que está en la URL, entre /d/ y /edit) antes de usar.
 const SHEET_ID="132AodMryBN4fbdSFuepe-VM6xsLJcXHf8DtgvpF5MaI";
 const TAB_DATA="DATA_SEGUNDAS", TAB_REP="REPORTES";
+// Lee vía CSV (tqx=out:csv), no JSON: gviz con out:json le asigna UN SOLO tipo a cada
+// columna según la mayoría de sus celdas, y toda celda que no calce con ese tipo llega
+// vacía en silencio. Confirmado en este Sheet: la columna PRECIO de REPORTES mezcla
+// números planos ("10064.05") con texto con formato de moneda ("$9,110.25") — con JSON,
+// la mitad de esas semanas llegaban con PRECIO vacío sin ningún error visible. CSV
+// devuelve todo como texto tal cual se ve en la hoja, sin tipado, así que num() (que ya
+// limpia símbolos como "$" y "," antes de convertir) lo interpreta bien sea cual sea el
+// formato de la celda.
+function parseCSV(text){
+  const rows=[]; let row=[]; let field=""; let inQuotes=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(inQuotes){
+      if(c==='"'){ if(text[i+1]==='"'){field+='"';i++;} else inQuotes=false; }
+      else field+=c;
+    }else{
+      if(c==='"') inQuotes=true;
+      else if(c===','){ row.push(field); field=""; }
+      else if(c==='\r'){ /* ignorar, el \n que sigue cierra la fila */ }
+      else if(c==='\n'){ row.push(field); rows.push(row); row=[]; field=""; }
+      else field+=c;
+    }
+  }
+  if(field.length||row.length){ row.push(field); rows.push(row); }
+  return rows.filter(r=>r.length>1||r[0]!=="");
+}
 async function gvizFetch(tab){
-  const url=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tab)}`;
+  const url=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab)}`;
   const r=await fetch(url); const t=await r.text();
-  const j=JSON.parse(t.substring(t.indexOf("{"),t.lastIndexOf("}")+1));
-  const cols=j.table.cols.map(c=>c.label||c.id);
-  return (j.table.rows||[]).map(row=>{const o={};(row.c||[]).forEach((c,i)=>{o[cols[i]]=c?c.v:null;});return o;});
+  const rows=parseCSV(t);
+  if(!rows.length)return [];
+  const cols=rows[0];
+  return rows.slice(1).map(row=>{const o={};cols.forEach((c,i)=>{o[c]=row[i]!==undefined&&row[i]!==""?row[i]:null;});return o;});
 }
 // gviz devuelve fechas como "Date(2026,7,15)" si la celda quedó tipada como fecha real en el Sheet;
 // si quedó como texto plano ("2026-08-15") la deja tal cual. Normalizamos siempre a "YYYY-MM-DD".
+// Con CSV, una fecha guardada como texto plano llega igual ("2026-08-15"). Pero si Sheets
+// la auto-convirtió a fecha real (pasa seguido al pegar/escribir "YYYY-MM-DD" con Apps
+// Script), el CSV la exporta con el formato regional de la hoja — típicamente "M/D/YYYY".
+// Se contemplan los tres formatos posibles para no romper si el tipo de celda cambia.
 function gvizDateISO(v){
   if(v==null)return null;
-  const s=String(v);
-  const m=s.match(/^Date\((\d+),(\d+),(\d+)/);
+  const s=String(v).trim();
+  let m=s.match(/^Date\((\d+),(\d+),(\d+)/); // formato viejo de gviz JSON, por compatibilidad
   if(m)return m[1]+"-"+String(+m[2]+1).padStart(2,"0")+"-"+String(+m[3]).padStart(2,"0");
+  m=s.match(/^(\d{4})-(\d{2})-(\d{2})/); // ISO, tal como lo escribe Code.gs
+  if(m)return m[0];
+  m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); // M/D/YYYY, típico del CSV si Sheets la tipó como fecha
+  if(m)return m[3]+"-"+m[1].padStart(2,"0")+"-"+m[2].padStart(2,"0");
   return s;
 }
 let _cargandoSheet=false;
@@ -565,20 +601,20 @@ function renderPeriod(mode,valueOrArr){
         scales:{x:{grid:{display:false},border:{color:WARM}},y:{min:0,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}}}}}));
   } else if(atp){ atp.style.display="none"; }
 
-  document.getElementById("srcNote").innerHTML=`<b>Fuente:</b> <i>${STATE.fname}</i> · Año <b>${Y}</b> · ${isMonth?((latest()?"Mes (rangos fijos): ":"Mes: ")+plabel.replace(" "+Y,"")):plabel}${values.length>1?" ("+values.length+" "+(isMonth?"meses":"semanas")+" seleccionados)":""} · % de segundas = Cantidad ÷ Confeccionadas · Meta 2.5%.`;
+  document.getElementById("srcNote").innerHTML=`<b>Fuente:</b> <i>${STATE.fname}</i> · Año <b>${Y}</b> · ${isMonth?((latest()?"Mes (rangos fijos): ":"Mes: ")+plabel.replace(" "+Y,"")):plabel}${values.length>1?" ("+values.length+" "+(isMonth?"meses":"semanas")+" seleccionados)":""} · % de segundas = Cantidad ÷ Confeccionadas · Meta 2%.`;
 
   // KPIs
   const k=document.getElementById("kpiRow");
   let kp=`<div class="kpi primary"><div class="v" style="color:${periodPct>META?ROSE:SAGE}">${periodPct}%</div><div class="l">% ${plabel}</div><div class="s">${nf(conf.seg)} de ${nf(conf.conf)} conf.</div></div>`;
   if(!isYear)kp+=`<div class="kpi"><div class="v">${pc(aY.seg,aY.conf)}%</div><div class="l">% Acum. ${Y}</div><div class="s">${nf(aY.seg)} segundas</div></div>`;
   if(KIND==="gerencia"&&prev){const ap=acumY(prev);kp+=`<div class="kpi"><div class="v" style="color:var(--slate)">${pc(ap.seg,ap.conf)}%</div><div class="l">% ${prev}</div><div class="s">ref. anual</div></div>`;}
-  kp+=`<div class="kpi meta"><div class="v">2.50%</div><div class="l">Meta</div></div>`;
+  kp+=`<div class="kpi meta"><div class="v">2.00%</div><div class="l">Meta</div></div>`;
   k.innerHTML=kp;
 
   // ----- tendencia mensual -----
   const cmp=KIND==="gerencia"&&prev;
   document.getElementById("mTitle").textContent=cmp?`📅 Tendencia mensual — ${Y} vs ${prev}`:`📅 Tendencia mensual ${Y}`;
-  document.getElementById("mSub").textContent=`% de segundas por mes. Meta 2.5%.`+(cmp?` Línea gris = ${prev}.`:"");
+  document.getElementById("mSub").textContent=`% de segundas por mes. Meta 2%.`+(cmp?` Línea gris = ${prev}.`:"");
   const mo=monthsOfYear();
   const mlabels=mo.map(m=>MESES[m]);
   const pY=mo.map(m=>{const r=repMonth(m);return pc(r.seg,r.conf);});
@@ -638,6 +674,18 @@ function renderPeriod(mode,valueOrArr){
   if(KIND==="interno"&&latest()){
     const tw=isMonth?weeksOfYear().filter(w=>FIX[w]===value):[value];
     const tr=STATE.telas26.filter(r=>tw.includes(r.sem));
+    // Cobertura real: no darle protagonismo visual a un ranking que representa poco del total
+    // (regla del estándar de dashboards LIVES, Parte 10). Se calcula sobre las filas del período
+    // completo (dw), no solo las que sí tienen tela, para que el % sea honesto.
+    const dw = drows; // todas las filas de detalle del período (ya calculado más arriba en esta función)
+    const covCov = document.getElementById("telasCoverage");
+    if(dw.length){
+      const pctCov = Math.round(tr.length/dw.length*100);
+      covCov.textContent = pctCov<50
+        ? `⚠ Solo ${pctCov}% de las filas del período tiene tela registrada — lo de abajo es esa parte, no el total.`
+        : `${pctCov}% de las filas del período tiene tela registrada.`;
+      covCov.style.color = pctCov<50 ? "var(--rose,#DC2626)" : "var(--stone)";
+    } else { covCov.textContent = ""; }
     // Antes solo se contaban apariciones (r.v++) porque la hoja de telas no traía cantidad.
     // Ahora sí viene la cantidad real en cada fila de detalle (r.cant) — se suma en vez de contar.
     const tm={};tr.forEach(r=>{(tm[r.cod]=tm[r.cod]||{v:0,nom:""});tm[r.cod].v+=(r.cant||0);if(!tm[r.cod].nom&&r.nom)tm[r.cod].nom=r.nom;});
@@ -647,6 +695,7 @@ function renderPeriod(mode,valueOrArr){
     if(!tl.length)th+=`<tr><td colspan="4" style="text-align:center;color:var(--stone)">Sin telas registradas en el período</td></tr>`;
     document.getElementById("telasRank").innerHTML=th+"</tbody>";
   } else if(KIND==="interno"){
+    document.getElementById("telasCoverage").textContent = "";
     document.getElementById("telasRank").innerHTML=`<tbody><tr><td style="text-align:center;color:var(--stone);padding:10px">Seguimiento de telas disponible solo para ${STATE.maxYear}</td></tr></tbody>`;
   }
 
@@ -810,7 +859,7 @@ function renderCompare(){
   // KPIs por año
   let kp="";
   ys.forEach((y,i)=>{const a=acumY(y);kp+=`<div class="kpi"><div class="v" style="color:${cols[i%cols.length]}">${pc(a.seg,a.conf)}%</div><div class="l">% Acum. ${y}</div><div class="s">${nf(a.seg)} de ${nf(a.conf)} conf.</div></div>`;});
-  kp+=`<div class="kpi meta"><div class="v">2.50%</div><div class="l">Meta</div></div>`;
+  kp+=`<div class="kpi meta"><div class="v">2.00%</div><div class="l">Meta</div></div>`;
   // meses con datos en cualquier año (calendario)
   const monthsSet=[...new Set(STATE.rep.map(r=>r.mcal).filter(m=>m!=null))].sort((a,b)=>a-b);
   // datasets línea por año
@@ -832,9 +881,9 @@ function renderCompare(){
   const motDs=ys.map((y,i)=>({label:""+y,data:motOrder.map(k=>+motByYear[y][k].toFixed(1)),backgroundColor:cols[i%cols.length],borderRadius:3}));
 
   document.getElementById("compareView").innerHTML=`
-    <div class="note"><b>Comparativo de años</b> · ${ys.join(" vs ")} · % de segundas por mes calendario (comparable entre años). Meta 2.5%. El 2026 se sigue por semana; aquí se agrega por mes para comparar contra años anteriores.</div>
+    <div class="note"><b>Comparativo de años</b> · ${ys.join(" vs ")} · % de segundas por mes calendario (comparable entre años). Meta 2%. El 2026 se sigue por semana; aquí se agrega por mes para comparar contra años anteriores.</div>
     <div class="kpis">${kp}</div>
-    <div class="panel"><div class="pt">📈 % de segundas por mes — todos los años</div><div class="ph">Una línea por año (mes calendario). Meta 2.5%.</div>
+    <div class="panel"><div class="pt">📈 % de segundas por mes — todos los años</div><div class="ph">Una línea por año (mes calendario). Meta 2%.</div>
       <div class="cwrap" style="height:300px;"><canvas id="cCmpMes"></canvas></div>
       <div style="overflow-x:auto;margin-top:10px;"><table id="cmpTbl">${tbl}</table></div>
     </div>
@@ -886,7 +935,7 @@ if(window.__EMBEDSTATE__){try{
   function render(){
     var host=document.getElementById("focos");if(!host||typeof STATE==="undefined"||!STATE)return;
     if(typeof CURMODE==="undefined"||CURVAL==null||CURMODE==="year"){host.innerHTML="";return;} // Focos es comparativo de período — no aplica en modo Año (para eso está Comparativo)
-    var mode=CURMODE,values=Array.isArray(CURVAL)?CURVAL:[CURVAL],META=2.50;
+    var mode=CURMODE,values=Array.isArray(CURVAL)?CURVAL:[CURVAL],META=2;
     var isMulti=values.length>1;
     var value=values[values.length-1];
     var rm=isMulti?(mode==="month"?repMonths(values):repWeeks(values)):repPeriod(mode,value);
@@ -942,7 +991,7 @@ if(window.__EMBEDSTATE__){try{
   function buildExecCompare(){
     var host=document.getElementById("compareView");if(!host)return;
     if(typeof clearCharts==="function")clearCharts();
-    var ys=years();var latest=ys[ys.length-1];var prevY=ys[ys.length-2];var META=2.50;
+    var ys=years();var latest=ys[ys.length-1];var prevY=ys[ys.length-2];var META=2;
     var chips=ys.map(function(y,i){
       var p=pctYear(y);var pr=i>0?pctYear(ys[i-1]):null;var d=pr!=null?+(p-pr).toFixed(2):null;
       var over=p>META;var arr=d==null?'&nbsp;':(d>0?'<span class="eup">\u25B2 +'+d+'</span>':(d<0?'<span class="edn">\u25BC '+d+'</span>':'<span class="eflt">\u2192 0</span>'));
@@ -966,7 +1015,7 @@ if(window.__EMBEDSTATE__){try{
     var pL=pctYear(latest),pP=prevY?pctYear(prevY):null;var dd=pP!=null?+(pL-pP).toFixed(2):null;
     var area2=areaT.slice(0,2);var area2sum=area2.reduce(function(s,x){return s+x.p;},0);
     var ins=[];
-    ins.push('El nivel de segundas '+(dd>0.05?'<b>empeor\u00F3</b>':(dd<-0.05?'<b>mejor\u00F3</b>':'se mantuvo'))+' en '+latest+' ('+(pP!=null?pP+'% \u2192 ':'')+pL+'%)'+(pL>META?', por encima de la meta de 2.50%':'')+'.');
+    ins.push('El nivel de segundas '+(dd>0.05?'<b>empeor\u00F3</b>':(dd<-0.05?'<b>mejor\u00F3</b>':'se mantuvo'))+' en '+latest+' ('+(pP!=null?pP+'% \u2192 ':'')+pL+'%)'+(pL>META?', por encima de la meta de 2.00%':'')+'.');
     ins.push('El valor FOB de las segundas en '+latest+(partial(latest)?' (a la fecha)':'')+' fue de <b>'+fmtM(moneyYear(latest))+'</b>; en '+ys.length+' a\u00F1os suman <b>'+fmtM(totM)+'</b>.');
     if(area2.length>=2)ins.push('<b>'+area2[0].k+'</b> y <b>'+area2[1].k+'</b> concentran el <b>'+area2sum.toFixed(0)+'%</b> de las segundas de '+latest+'.');
     if(KIND==="gerencia"&&cliT&&cliT[0])ins.push('<b>'+cliT[0].k+'</b> concentra el <b>'+cliT[0].p+'%</b>: cualquier mejora ah\u00ED mueve el total de la empresa.');
@@ -979,7 +1028,7 @@ if(window.__EMBEDSTATE__){try{
 
     var SAGE="#10B981",TAUPE="#B45309",ROSE="#DC2626",RED="#DC2626",WARML="#F1F6F4";
     var pcts=ys.map(pctYear);
-    reg(new Chart(document.getElementById("cePct"),{type:"line",data:{labels:ys,datasets:[{label:"% de segundas",data:pcts,borderColor:SAGE,backgroundColor:"rgba(105,137,98,.08)",borderWidth:3,pointRadius:5,pointBackgroundColor:ys.map(function(y){return pctYear(y)>META?RED:SAGE;}),fill:true,tension:.25},{label:"Meta 2.50%",data:ys.map(function(){return META;}),borderColor:ROSE,borderWidth:1.5,borderDash:[6,4],pointRadius:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"top",labels:{boxWidth:14,usePointStyle:true}},tooltip:{callbacks:{label:function(c){return c.dataset.label+": "+c.raw+"%";}}}},scales:{x:{grid:{display:false}},y:{min:0,suggestedMax:4.5,grid:{color:WARML},ticks:{callback:function(v){return v+"%";}}}}}}));
+    reg(new Chart(document.getElementById("cePct"),{type:"line",data:{labels:ys,datasets:[{label:"% de segundas",data:pcts,borderColor:SAGE,backgroundColor:"rgba(105,137,98,.08)",borderWidth:3,pointRadius:5,pointBackgroundColor:ys.map(function(y){return pctYear(y)>META?RED:SAGE;}),fill:true,tension:.25},{label:"Meta 2.00%",data:ys.map(function(){return META;}),borderColor:ROSE,borderWidth:1.5,borderDash:[6,4],pointRadius:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"top",labels:{boxWidth:14,usePointStyle:true}},tooltip:{callbacks:{label:function(c){return c.dataset.label+": "+c.raw+"%";}}}},scales:{x:{grid:{display:false}},y:{min:0,suggestedMax:4.5,grid:{color:WARML},ticks:{callback:function(v){return v+"%";}}}}}}));
     reg(new Chart(document.getElementById("ceMoney"),{type:"bar",data:{labels:ys,datasets:[{data:moneys,backgroundColor:ys.map(function(y){return partial(y)?"#F59E0B":(pctYear(y)>META?RED:TAUPE);}),borderRadius:5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return "$"+Math.round(c.raw).toLocaleString();}}}},scales:{x:{grid:{display:false}},y:{grid:{color:WARML},ticks:{callback:function(v){return "$"+(v/1000)+"K";}}}}}}));
     var hoy=new Date().toLocaleDateString("es-PE",{day:"numeric",month:"long",year:"numeric"});
     var ft=document.getElementById("foot");if(ft)ft.innerHTML="Confidencial \u2014 Uso Interno \u00B7 Calidad Manufactura LIVES \u00B7 "+(KIND==="gerencia"?"Gerencia":"Interno")+" \u00B7 Comparativo ejecutivo \u00B7 * a\u00F1o en curso parcial \u00B7 Generado el "+hoy;
@@ -994,7 +1043,7 @@ if(window.__EMBEDSTATE__){try{
   function renderAnnual(y){
     var a=window.__SEG_ANNUAL__[y];if(!a)return;var av=document.getElementById("annualView");
     av.innerHTML='<div class="note"><b>\uD83D\uDCC5 Resumen anual '+y+' (hist\u00F3rico)</b> \u2014 reporte anual, sin detalle semanal/mensual ni telas. % = segundas/confeccionadas (prendas reales). Los desgloses son % de participaci\u00F3n.</div>'
-      +'<div class="kpis"><div class="kpi"><div class="v" style="color:'+(a.pct>2.5?"#DC2626":"var(--sage)")+'">'+a.pct+'%</div><div class="l">% de segundas</div><div class="s">Meta 2.50%</div></div><div class="kpi"><div class="v">'+nf(a.seg)+'</div><div class="l">Segundas</div></div><div class="kpi"><div class="v">'+nf(a.conf)+'</div><div class="l">Confeccionadas</div></div><div class="kpi"><div class="v">'+fmtM(a.precio||0)+'</div><div class="l">Valor FOB segundas</div></div><div class="kpi"><div class="v">'+nf(a.desp)+'</div><div class="l">Despachadas</div></div></div>'
+      +'<div class="kpis"><div class="kpi"><div class="v" style="color:'+(a.pct>2?"#DC2626":"var(--sage)")+'">'+a.pct+'%</div><div class="l">% de segundas</div><div class="s">Meta 2.00%</div></div><div class="kpi"><div class="v">'+nf(a.seg)+'</div><div class="l">Segundas</div></div><div class="kpi"><div class="v">'+nf(a.conf)+'</div><div class="l">Confeccionadas</div></div><div class="kpi"><div class="v">'+fmtM(a.precio||0)+'</div><div class="l">Valor FOB segundas</div></div><div class="kpi"><div class="v">'+nf(a.desp)+'</div><div class="l">Despachadas</div></div></div>'
       +'<div class="focos"><div class="fk-hd">\uD83D\uDD0E Aspectos del a\u00F1o '+y+' <span>lo m\u00E1s recurrente del a\u00F1o</span></div><div class="fk-grid"><div class="fk-tile"><div class="fk-t">\u00C1rea m\u00E1s cr\u00EDtica</div><div class="fk-big" style="font-size:19px">'+topk(a.area)+'</div></div><div class="fk-tile"><div class="fk-t">Motivo m\u00E1s recurrente</div><div class="fk-big" style="font-size:19px">'+topk(a.motivo)+'</div></div><div class="fk-tile"><div class="fk-t">Cliente top</div><div class="fk-big" style="font-size:19px">'+topk(a.cliente)+'</div></div><div class="fk-tile"><div class="fk-t">Grupo top</div><div class="fk-big" style="font-size:19px">'+topk(a.grupo)+'</div></div><div class="fk-tile"><div class="fk-t">Estilo top</div><div class="fk-big" style="font-size:19px">'+topk(a.estilo)+'</div></div></div></div>'
       +'<div class="grid2"><div class="panel"><div class="pt">\uD83D\uDCE6 Grupos m\u00E1s recurrentes</div><div class="ph">% de participaci\u00F3n en las segundas del a\u00F1o.</div><div class="cwrap" style="height:300px;"><canvas id="avGrupo"></canvas></div></div><div class="panel"><div class="pt">\uD83C\uDFF7\uFE0F Estilos m\u00E1s recurrentes</div><div class="ph">% de participaci\u00F3n.</div><div class="cwrap" style="height:300px;"><canvas id="avEstilo"></canvas></div></div><div class="panel"><div class="pt">\u2699\uFE0F \u00C1reas generadoras</div><div class="ph">% de participaci\u00F3n.</div><div class="cwrap" style="height:300px;"><canvas id="avArea"></canvas></div></div><div class="panel"><div class="pt">\uD83D\uDD27 Motivos</div><div class="ph">% de participaci\u00F3n.</div><div class="cwrap" style="height:300px;"><canvas id="avMot"></canvas></div></div><div class="panel"><div class="pt">\uD83D\uDC65 Clientes</div><div class="ph">% de participaci\u00F3n.</div><div class="cwrap" style="height:300px;"><canvas id="avCli"></canvas></div></div></div>';
     var mk=function(id,dim,color){var b=dimBars(dim);reg(new Chart(document.getElementById(id),{type:"bar",data:{labels:b.labels,datasets:[{data:b.data,backgroundColor:color,borderRadius:3,barThickness:16}]},options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return c.raw+"%";}}}},scales:{x:{min:0,grid:{color:"#F1F6F4"},border:{display:false},ticks:{callback:function(v){return v+"%";}}},y:{grid:{display:false},border:{color:"#DCE5E2"},ticks:{font:{size:9}}}}}}));};

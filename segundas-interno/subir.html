@@ -108,7 +108,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 <script>
 // ⚠ Completar con la URL /exec de la implementación del Apps Script (Code.gs) antes de usar.
 const APP_URL = "https://script.google.com/macros/s/AKfycbwExn72h-VrcHJGfNviI39l9hxij2c37PaW4ilPvsUS239OCCKSqW4I8BQfNFS-Br8Yrw/exec";
-const META = 0.025; // 2.5% — meta vigente confirmada por Calidad. Cambiar aquí si Calidad la actualiza.
+const META = 0.02; // 2% — meta vigente confirmada por Calidad. Cambiar aquí si Calidad la actualiza.
 const MESES_ES = {ene:0,feb:1,mar:2,abr:3,may:4,jun:5,jul:6,ago:7,sep:8,set:8,oct:9,nov:10,dic:11};
 
 let PENDIENTE = null; // {anio, semana, reporte, detalle}
@@ -224,7 +224,7 @@ function parseArchivo(wb){
       CLIENTE: row[iCli]||'', ESTILO: row[iEst]||'', COLOR: row[iCol]||'', GRUPO: row[iGrp]||'',
       "AREA GENERADORA": row[iArea]||'', "MOTIVO DE 2DA": row[iMot]||'', CANTIDAD: cant,
       "COD TELA": iTelaC>=0 ? (row[iTelaC]||'') : '', "NOMBRE TELA": iTelaN>=0 ? (row[iTelaN]||'') : '',
-      "TIPO DE MOVIMIENTO": "SEGUNDAS DECLARADA"
+      "TIPO DE MOVIMIENTO": "SEGUNDAS DECLARADAS"
     });
   }
   if(!detalle.length) throw new Error('No encontré filas de detalle válidas en la hoja "EP-COLOR-GRUPO-MOTIVO".');
