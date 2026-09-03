@@ -1574,14 +1574,34 @@ function derParse(txt){
    existe en este archivo. El resultado era que derFilas() SIEMPRE devolvía vacío y este
    panel nunca llegaba a mostrarse. Como este código vive en el mismo <script> que STATE,
    se accede directo. */
+/* Período que se está viendo arriba.
+   CORREGIDO: esta función preguntaba por una variable `CURVAL` que NO EXISTE en el archivo
+   —nunca se declaró—, así que `typeof CURVAL!=='undefined'` daba siempre falso y caía en el
+   `return rows` del final. Resultado: el panel de universo y el comparativo mostraban el AÑO
+   COMPLETO por más que se eligiera semana o mes. Se veía como si el panel estuviera
+   congelado: el filtro de cliente y taller sí lo movía, el de período no.
+   El período real vive en los selectores, igual que lo lee el resto del tablero. */
+function periodoActualDer(){
+  var modo = (typeof CURMODE!=='undefined') ? CURMODE : 'year';
+  if(modo==='week'){
+    var w=document.getElementById('weekSel');
+    var vw = w && w.value!=='' ? Number(w.value) : null;
+    return {modo:'week', valor:(vw!=null && !isNaN(vw)) ? vw : null};
+  }
+  if(modo==='month'){
+    var m=document.getElementById('monthSel');
+    var vm = m && m.value!=='' ? Number(m.value) : null;
+    return {modo:'month', valor:(vm!=null && !isNaN(vm)) ? vm : null};
+  }
+  return {modo:'year', valor:null};
+}
 function filasPeriodoDer(){
   if(typeof STATE==='undefined' || !STATE || !STATE.rows) return [];
-  var rows=STATE.rows;
+  var rows=STATE.rows;   // ya viene filtrado por cliente y taller desde selectYear()
   try{
-    if(typeof CURMODE!=='undefined' && typeof CURVAL!=='undefined' && CURVAL!=null){
-      if(CURMODE==='week')  return rows.filter(function(r){ return Number(r['SEMANA'])===Number(CURVAL); });
-      if(CURMODE==='month') return rows.filter(function(r){ return monthOf(r['FECHA'])===Number(CURVAL); });
-    }
+    var p=periodoActualDer();
+    if(p.modo==='week'  && p.valor!=null) return rows.filter(function(r){ return Number(r['SEMANA'])===p.valor; });
+    if(p.modo==='month' && p.valor!=null) return rows.filter(function(r){ return monthOf(r['FECHA'])===p.valor; });
   }catch(e){}
   return rows;   // año / acumulado
 }
@@ -1589,7 +1609,22 @@ function derFilas(){
   return filasPeriodoDer().filter(function(r){ return String(r['DERIVADOS']||'').trim(); });
 }
 
+/* ELIMINADO del tablero (setiembre 2026).
+   Este panel mostraba "Derivados por tipo" y "Telas más recurrentes" al final de la página.
+   Redundaba con el bloque "De cuántas prendas estamos hablando": ahí ya están los mismos
+   motivos, con su denominador, su comparativo contra la muestra y el clic al detalle — y
+   además responde a los filtros de cliente, taller y período, que este panel también hacía
+   pero repitiendo la misma lectura.
+   La función se conserva vacía a propósito: la llaman renderPeriod() y cargarDetalleFino(),
+   y borrarla haría que esas dos fallaran. También se elimina el contenedor si quedó dibujado
+   de una carga anterior.
+   El detalle por tela sigue disponible tocando un motivo en el comparativo. */
 function derPanel(){
+  var viejo=document.getElementById('panelDer');
+  if(viejo && viejo.parentNode) viejo.parentNode.removeChild(viejo);
+  return;
+}
+function derPanelAntiguo_(){
   var rows=derFilas();
   var porTipo={}, porTela={}, totalDer=0, conTela=0;
   rows.forEach(function(r){
@@ -1931,13 +1966,6 @@ function renderUniverso(){
     kpi(defs.toLocaleString('es-PE')+(tasaDef!=null?(' <span style="font-size:14px;font-weight:700">· '+tasaDef+'%</span>'):''),
         'Defectos en muestra','Sobre las '+muestra.toLocaleString('es-PE')+' prendas inspeccionadas','#DC2626');
 
-  // TOP 3 motivos: cada uno con su peso, su taller de origen y su tendencia.
-  var top=Object.keys(motNum).map(function(k){return {k:k,v:motNum[k]};})
-            .sort(function(a,b){return b.v-a.v;}).slice(0,3);
-  if(!top.length){ document.getElementById('uniTop').innerHTML=''; return; }
-  var sems=Object.keys(semDen).map(Number).sort(function(a,b){return a-b;});
-  var MIN=200;
-
   /* ---- COMPARATIVO: lo que ve la muestra contra lo que separa el lote ----
      Con el filtro de taller puesto, este contraste responde algo que ningún panel respondía:
      ¿la inspección por muestreo está detectando lo que después hay que separar prenda por
@@ -1983,6 +2011,20 @@ function renderUniverso(){
         col('Derivados · lote completo','Revisión 100% en talleres externos', top7(motNum,loteTaller), '#B45309', loteTaller, ders, (tasaDer||'0'), 'derDetalle','prendas revisadas')+
       '</div>';
   })();
+
+  // TOP 3 motivos: cada uno con su peso, su taller de origen y su tendencia.
+  var top=Object.keys(motNum).map(function(k){return {k:k,v:motNum[k]};})
+            .sort(function(a,b){return b.v-a.v;}).slice(0,3);
+  /* CORREGIDO: aquí había un `return` que salía de la función cuando el período no tenía
+     motivos de derivados. El comparativo se dibuja más abajo, así que en esos períodos NO se
+     redibujaba y quedaba mostrando las cifras del período anterior: los KPIs de arriba decían
+     2,629 y el comparativo seguía en 4,704.
+     Ahora el comparativo se dibuja ANTES (ver más arriba) y aquí solo se vacía el bloque de
+     los 3 motivos, sin cortar el resto. */
+  if(!top.length){ document.getElementById('uniTop').innerHTML=''; return; }
+  var sems=Object.keys(semDen).map(Number).sort(function(a,b){return a-b;});
+  var MIN=200;
+
 
   document.getElementById('uniTop').innerHTML =
     '<div style="font-size:13px;font-weight:800;color:#0E3B36;margin-bottom:4px">Los 3 motivos que más pesan</div>'+
@@ -2262,7 +2304,20 @@ function derDetalle(tipo){
 
 var _rpDer = window.renderPeriod;
 if(typeof _rpDer==='function'){
-  window.renderPeriod=function(){ var r=_rpDer.apply(this,arguments); try{ derPanel(); }catch(e){ console.warn('derPanel',e); } return r; };
+  /* renderPeriod corre cada vez que se cambia de semana, de mes o de modo. Aquí se engancha
+     el redibujado de los paneles nuevos.
+     CORREGIDO: antes solo se llamaba derPanel(). renderUniverso() —que dibuja los KPIs de
+     universo y el comparativo muestra-vs-lote— se llamaba únicamente desde el render inicial,
+     así que al cambiar de semana o de mes ese bloque se quedaba con las cifras del año y
+     parecía congelado. */
+  window.renderPeriod=function(){
+    var r=_rpDer.apply(this,arguments);
+    try{ derPanel(); }catch(e){ console.warn('derPanel',e); }
+    try{ renderUniverso(); }catch(e){ console.warn('renderUniverso',e); }
+    try{ if(typeof alinearNumeros==='function') alinearNumeros(); }catch(e){}
+    try{ if(typeof ocultarPanelesVacios==='function') setTimeout(ocultarPanelesVacios,60); }catch(e){}
+    return r;
+  };
 }
 
 document.addEventListener('DOMContentLoaded',function(){ cargarEnVivo(); cargarDetalleFino(); });
