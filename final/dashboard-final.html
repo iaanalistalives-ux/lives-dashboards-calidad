@@ -72,6 +72,34 @@
   .panel .ph{font-size:11.5px;color:var(--stone);margin-top:2px;margin-bottom:10px;}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
   @media(max-width:760px){.grid2{grid-template-columns:1fr;}}
+  /* Cuando en un grid de dos queda un solo panel visible, ese ocupa el ancho completo
+     en vez de dejar la mitad de la pantalla en blanco. */
+  .grid2.unoSolo{grid-template-columns:1fr;}
+  /* Sin min-width:0 una columna 1fr nunca baja del ancho de su contenido: la tabla de
+     685px estiraba el panel a 725px dentro de una pantalla de 390 y desbordaba la página
+     entera. Con esto la columna se encoge y el scroll queda dentro de la tabla, que es
+     donde corresponde. */
+  .grid2 > *, .row2 > *{min-width:0;}
+  /* Mismo caso en el panel de derivados: sin min-width:0 las columnas no bajan del ancho
+     de sus etiquetas (los nombres de motivo y de tela son largos) y el panel desbordaba
+     la página en celular. Ahora el nombre se recorta con puntos suspensivos. */
+  .derWrap > *{min-width:0 !important;}
+  .derCard{min-width:0;overflow:hidden;}
+  .derB{max-width:100%;}
+  .derB .derN{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .grid2 .tblScroll, .row2 .tblScroll{max-width:100%;}
+  /* La tabla de auditoras tiene 5 columnas y vive en media pantalla: la última (DETALLE)
+     quedaba cortada por el borde del panel. Se le da ancho mínimo y scroll propio, y la
+     columna de acción se fija a la derecha para que siempre esté a la vista. */
+  #audtTbl{min-width:520px;}
+  #audtTbl th:last-child, #audtTbl td:last-child{
+    position:sticky; right:0; background:#fff; text-align:right;
+    box-shadow:-6px 0 8px -6px rgba(14,59,54,.18); padding-right:12px;
+  }
+  #audtTbl thead th:last-child{ background:var(--petrol); }
+  #audtTbl tbody tr:nth-child(even) td:last-child{ background:#FAFCFB; }
+  #audtTbl tbody tr:hover td:last-child{ background:var(--warm-light); }
+  #audtTbl td:last-child .btn,#audtTbl td:last-child button{ white-space:nowrap; }
   .cwrap{position:relative;width:100%;}
   .foot{font-size:11px;color:var(--stone);margin-top:8px;line-height:1.5;}
   #dash{display:none;}
@@ -1169,10 +1197,10 @@ function renderPeriod(mode,value){
   const procPanelEl = document.getElementById("procesoPanel");
   const procSiblingEl = procPanelEl ? procPanelEl.nextElementSibling : null;
   if(!hasProcData){
-    if(procPanelEl) procPanelEl.style.display="none";
+    if(procPanelEl){ procPanelEl.style.display="none"; procPanelEl.dataset.ocultoPorLogica="1"; }
     if(procSiblingEl) procSiblingEl.style.gridColumn="1 / -1";
   } else {
-    if(procPanelEl) procPanelEl.style.display="";
+    if(procPanelEl){ procPanelEl.style.display=""; procPanelEl.dataset.ocultoPorLogica="0"; }
     if(procSiblingEl) procSiblingEl.style.gridColumn="";
     const PROC_ORDER=["1RA","2DA","3RA","4TA","5TA","6TA"];
     /* CORREGIDO: las dos fuentes escriben este dato distinto.
@@ -1280,6 +1308,9 @@ function renderPeriod(mode,value){
   }
   try{ renderUniverso(); }catch(e){ console.warn('renderUniverso', e); }
   try{ alinearNumeros(); }catch(e){}
+  // Al final del render, cuando ya se dibujó todo: los paneles que quedaron sin datos
+  // se ocultan y devuelven su espacio.
+  setTimeout(ocultarPanelesVacios, 60);
 
   // footer
   const hoy=new Date().toLocaleDateString("es-PE",{day:"numeric",month:"long",year:"numeric"});
@@ -1698,6 +1729,64 @@ function telaDetalle(tela){
    celdas numéricas; en vez de tocar cada una, se corrige al final del render. Sin esto
    quedan cifras alineadas a la izquierda mezcladas con texto y las columnas no se
    pueden comparar de un vistazo. */
+/* ============================================================================
+   PANELES VACÍOS — se ocultan y devuelven su espacio
+   ----------------------------------------------------------------------------
+   Al cambiar de semana, mes o año hay paneles que se quedan sin datos. Antes seguían
+   dibujados: un recuadro con su título y su explicación, y adentro nada. Eso hace
+   dudar de si el tablero falló o si de verdad no hubo auditorías, y además parte la
+   lectura con huecos.
+   Ahora, después de cada render, se revisa panel por panel si tiene contenido real
+   (un gráfico con valores, filas de tabla, barras). Si no lo tiene, se oculta; y si
+   estaba en un grid de dos, el que queda pasa a ancho completo.
+   ========================================================================== */
+function panelTieneDatos(pan){
+  // 1) Gráficos: cuenta como dato si algún dataset trae al menos un valor distinto de cero
+  var canvas = pan.querySelectorAll('canvas');
+  for (var i=0;i<canvas.length;i++){
+    var ch = (window.Chart && Chart.getChart) ? Chart.getChart(canvas[i]) : null;
+    if (!ch) continue;
+    var ds = (ch.data && ch.data.datasets) || [];
+    for (var j=0;j<ds.length;j++){
+      var d = ds[j].data || [];
+      for (var k=0;k<d.length;k++){
+        var v = d[k];
+        if (v && typeof v === 'object') v = (v.y != null ? v.y : v.v);
+        if (v != null && v !== 0 && !(typeof v === 'number' && isNaN(v))) return true;
+      }
+    }
+  }
+  // 2) Tablas con filas
+  if (pan.querySelector('tbody tr')) return true;
+  // 3) Listas de barras / fichas / KPIs con contenido
+  if (pan.querySelector('.derB, .dmF, .perfk .c, [data-d]')) return true;
+  // 4) Cualquier bloque de texto propio que no sea el título ni la explicación
+  var cuerpo = pan.querySelectorAll(':scope > div:not(.pt):not(.ph):not(.note)');
+  for (var m=0;m<cuerpo.length;m++){
+    if ((cuerpo[m].textContent||'').trim().length > 30) return true;
+  }
+  return false;
+}
+function ocultarPanelesVacios(){
+  try{
+    var todos = document.querySelectorAll('#dash .panel, #dash .kpanel');
+    Array.prototype.forEach.call(todos, function(pan){
+      // Respeta los paneles que ya se ocultan por su propia lógica de negocio
+      if (pan.dataset.ocultoPorLogica === '1') return;
+      var hay = panelTieneDatos(pan);
+      pan.style.display = hay ? '' : 'none';
+      pan.dataset.vacio = hay ? '0' : '1';
+    });
+    // Grid de dos: si queda uno solo visible, que ocupe el ancho completo
+    Array.prototype.forEach.call(document.querySelectorAll('.grid2, .row2'), function(g){
+      var hijos = Array.prototype.filter.call(g.children, function(c){
+        return c.nodeType===1 && getComputedStyle(c).display !== 'none';
+      });
+      g.classList.toggle('unoSolo', hijos.length === 1);
+    });
+  }catch(e){ console.warn('ocultarPanelesVacios', e); }
+}
+
 function alinearNumeros(){
   try{
     document.querySelectorAll('.tblScroll table td, .dmTbl table td').forEach(function(td){
