@@ -193,7 +193,13 @@
      principal y su detalle no pesan lo mismo: el gráfico va en 8 columnas y su tarjeta de
      apoyo en 4, que es la proporción que hace que se lean como un par y no como dos
      bloques sueltos compitiendo por atención. */
-  .grid12{display:grid;grid-template-columns:repeat(12,1fr);gap:14px;align-items:start;}
+  /* align-items:stretch para que los paneles de una misma fila tengan la MISMA altura.
+     Con align-items:start cada uno crecía lo que necesitaba y quedaban disparejos, con el
+     más corto dejando un vacío debajo hasta el borde de la fila. */
+  .grid12{display:grid;grid-template-columns:repeat(12,1fr);gap:14px;align-items:stretch;}
+  .grid12 > .panel{display:flex;flex-direction:column;}
+  /* Las tablas y listas largas hacen scroll dentro del panel en vez de estirar la fila. */
+  .grid12 > .panel > .tblScroll{flex:1 1 auto;min-height:0;max-height:420px;overflow:auto;}
   .col12{grid-column:span 12;} .col8{grid-column:span 8;}
   .col6{grid-column:span 6;}  .col4{grid-column:span 4;}
   .grid12 > *{min-width:0;}
@@ -2234,6 +2240,36 @@ function ocultarPanelesVacios(){
         return c.nodeType===1 && getComputedStyle(c).display !== 'none';
       });
       g.classList.toggle('unoSolo', hijos.length === 1);
+    });
+
+    /* GRILLA DE 12: reacomodo automático.
+       Un panel de 8 columnas cuyo compañero de 4 se ocultó queda con un hueco al costado
+       del ancho de media pantalla. Y dos paneles de 8 seguidos, sin nada en las otras 4,
+       dejan una franja muerta a lo largo de todo el tablero.
+       Aquí se recalcula el ancho de cada panel según cuántos quedaron visibles, en vez de
+       dejar el que se escribió en el HTML. */
+    Array.prototype.forEach.call(document.querySelectorAll('.grid12'), function(g){
+      var vis = Array.prototype.filter.call(g.children, function(c){
+        return c.nodeType===1 && getComputedStyle(c).display !== 'none';
+      });
+      // se limpia el ancho forzado de una pasada anterior antes de recalcular
+      vis.forEach(function(c){ c.style.gridColumn=''; });
+      if(vis.length === 1){
+        vis[0].style.gridColumn = 'span 12';        // solo: ancho completo
+        return;
+      }
+      // se cuenta cuántas columnas pediría cada uno según su clase
+      var pedido = vis.map(function(c){
+        return c.classList.contains('col8') ? 8 : (c.classList.contains('col6') ? 6 :
+               (c.classList.contains('col4') ? 4 : 12));
+      });
+      var total = pedido.reduce(function(a,b){ return a+b; }, 0);
+      if(total % 12 !== 0){
+        /* La fila no cierra: quedaría un hueco. Se reparte en partes iguales, que siempre
+           cierra y deja los paneles parejos en vez de uno grande y un vacío. */
+        var ancho = (vis.length === 2) ? 6 : (vis.length === 3 ? 4 : 12);
+        vis.forEach(function(c){ c.style.gridColumn = 'span '+ancho; });
+      }
     });
   }catch(e){ console.warn('ocultarPanelesVacios', e); }
 }
