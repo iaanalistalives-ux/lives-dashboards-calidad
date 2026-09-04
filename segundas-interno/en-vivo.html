@@ -131,6 +131,15 @@
   .grid>#lfCliRejPanel{grid-column:span 6;}
   @media(max-width:1100px){.grid>#lfCliRejPanel{grid-column:span 12;}}
 
+  .grid{align-items:stretch;}
+  .grid>*{min-width:0;}
+  .kpis{align-items:stretch;}
+  .kpis>*{min-width:0;}
+  .icards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;align-items:stretch;}
+  .icards>*{min-width:0;}
+  .icard{display:flex;flex-direction:column;}
+  .icard .is{margin-top:auto;}
+  .col4>.icards{grid-template-columns:1fr;}
   .cwrap{position:relative;width:100%;height:clamp(220px,26vh,320px);}
   .cwrap.tall{height:clamp(260px,34vh,400px);}
   .cwrap canvas{position:absolute;inset:0;}
@@ -138,7 +147,6 @@
   .donutwrap .dc{position:relative;width:150px;height:150px;}
   .donutwrap .dl{font-size:11.5px;color:var(--stone);margin-top:8px;text-align:center;}
 
-  .icards{display:grid;grid-template-columns:1fr;gap:12px;}
   .icard{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:14px 16px;
          border-top:3px solid var(--sage);}
   .icard.bad{border-top-color:var(--rose);} .icard.up{border-top-color:var(--tan);}
@@ -663,16 +671,48 @@ const etiquetasTendencia={id:"etiquetasTendencia",afterDatasetsDraw(chart,args,o
 function tab(i,btn){document.querySelectorAll(".tabs button").forEach(b=>b.classList.remove("active"));btn.classList.add("active");document.querySelectorAll(".tabpane").forEach((p,k)=>p.classList.toggle("active",k===i));charts.forEach(c=>{try{c.resize();}catch(e){}});}
 function panelDe(id){var e=document.getElementById(id);return e?e.closest(".panel"):null;}
 function verPanel(id,hay){var p=panelDe(id);if(p)p.style.display=hay?"":"none";return !!hay;}
+/* ===== Reacomodo de la grilla, por fila REAL =================================
+   Antes se agrupaba sumando las columnas declaradas (col8+col4=12). Eso falla en
+   cuanto una media query cambia los anchos o hay mas de una fila: la cuenta de
+   columnas deja de coincidir con lo que el navegador realmente dibujo. Ahora se
+   mide la posicion vertical de cada panel visible y se agrupa por fila de verdad;
+   si una fila no completa las 12 columnas, el ultimo panel se estira.          */
 function reajustarGrids(){
   var spanOf=function(c){return c.classList.contains("col8")?8:c.classList.contains("col6")?6:c.classList.contains("col4")?4:12;};
   document.querySelectorAll(".grid").forEach(function(g){
-    var vis=[].filter.call(g.children,function(c){return c.style.display!=="none"&&!c.classList.contains("khide");});
-    [].forEach.call(g.children,function(c){c.style.gridColumn="";});
-    var fila=[],acum=0;
-    var cerrar=function(){if(fila.length&&acum<12){var u=fila[fila.length-1];u.style.gridColumn="span "+(12-acum+spanOf(u));}fila=[];acum=0;};
-    vis.forEach(function(c){var sp=spanOf(c);if(acum+sp>12)cerrar();fila.push(c);acum+=sp;if(acum>=12){fila=[];acum=0;}});
-    cerrar();
+    var hijos=[].slice.call(g.children);
+    hijos.forEach(function(c){c.style.gridColumn="";});
+    var vis=hijos.filter(function(c){return c.offsetParent!==null||c.style.display!=="none";})
+                 .filter(function(c){return c.style.display!=="none";});
+    if(!vis.length)return;
+    // agrupar por fila usando la posicion vertical que el navegador ya calculo
+    var filas=[],act=null;
+    vis.forEach(function(c){
+      var top=c.offsetTop;
+      if(!act||Math.abs(top-act.top)>4){act={top:top,items:[]};filas.push(act);}
+      act.items.push(c);
+    });
+    filas.forEach(function(f){
+      var suma=f.items.reduce(function(a,c){return a+spanOf(c);},0);
+      if(suma<12&&suma>0){
+        var u=f.items[f.items.length-1];
+        u.style.gridColumn="span "+(12-suma+spanOf(u));
+      }
+    });
   });
+}
+
+/* ===== Minimo de muestra calculado desde los datos ===========================
+   Un numero fijo no sirve para todos los tableros: en Servicio de Inspeccion una
+   persona hace 37-70 auditorias por semana y un minimo de 3 no protege de nada;
+   en Empaque hace 1-6 y un minimo de 8 deja todo en gris. El minimo se deriva del
+   volumen real del periodo que se esta mirando: el 20% de lo que hace un actor
+   tipico (la mediana), nunca menos de 3 ni mas de 15.                          */
+function minnDe(lista){
+  var ns=(lista||[]).map(function(x){return x.n;}).filter(function(n){return n>0;}).sort(function(a,b){return a-b;});
+  if(!ns.length)return 3;
+  var med=ns[Math.floor(ns.length/2)];
+  return Math.max(3,Math.min(15,Math.round(med*0.2)));
 }
 // Mapeo semana->mes (0=Ene...11=Dic) para el ano en curso ("latest"). Ya NO es una tabla fija a mano:
   // se recalcula automaticamente cada vez que se sube el Excel (ver computeFix() y su llamada en buildState),
@@ -1211,10 +1251,10 @@ function rankTable(id,items,head,kind,tot){
   // Sin filas no se deja una tabla con la leyenda "Sin datos": se oculta el panel.
   verPanel(id,items.length);
   if(!items.length){el.innerHTML="";return;}
-  let h="<thead><tr><th>"+head+"</th><th style='text-align:right'>Seg.</th><th style='text-align:right'>%</th><th></th></tr></thead><tbody>";
+  let h="<thead><tr><th>"+head+"</th><th style='text-align:right'>Segundas del período</th><th style='text-align:right'>% del período</th><th></th></tr></thead><tbody>";
   if(!items.length)h+="<tr><td colspan='4' style='text-align:center;color:var(--stone)'>Sin datos en el período</td></tr>";
   items.forEach(x=>{const pct=(x.v/tot*100).toFixed(1);const nm=kind==="estilo"?("Estilo "+x.k):x.k;
-    h+=`<tr><td style="color:#333;font-weight:700">${nm}</td><td style="text-align:right">${nf(x.v)}</td><td style="text-align:right">${pct}%</td><td style="text-align:center"><button class="fbtn" onclick="openFicha('${kind}','${String(x.k).replace(/'/g,"\\'")}',curTok())">DETALLE</button></td></tr>`;});
+    h+=`<tr><td style="color:#333;font-weight:700">${nm}</td><td style="text-align:right">${nf(x.v)} de ${nf(tot)}</td><td style="text-align:right">${pct}%</td><td style="text-align:center"><button class="fbtn" onclick="openFicha('${kind}','${String(x.k).replace(/'/g,"\\'")}',curTok())">DETALLE</button></td></tr>`;});
   el.innerHTML=h+"</tbody>";
 }
 
