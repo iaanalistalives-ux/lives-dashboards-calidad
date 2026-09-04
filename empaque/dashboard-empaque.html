@@ -303,6 +303,20 @@
     .panel:hover{box-shadow:var(--sh);}
     .kpi:active{background:var(--warm-light);}
     .fc-kpis{grid-template-columns:repeat(2,1fr);}
+
+    /* Tablas plegadas: se ve el título, la explicación y el botón. Nada más. */
+    .panel.plegable.plegado table,
+    .panel.plegable.plegado .etabs,
+    .panel.plegable.plegado .scopebtn,
+    .panel.plegable.plegado .cwrap{display:none!important;}
+    .verdet{display:block;width:100%;margin-top:10px;background:#fff;border:1px solid var(--warm);
+            color:var(--sage);border-radius:8px;padding:12px;font-family:inherit;font-size:14px;
+            font-weight:700;cursor:pointer;min-height:44px;}
+    .verdet:active{background:var(--warm-light);}
+    /* Una sola columna, sin excepciones */
+    .grid,.kpis,.icards,.fk-grid,.egrid,.kdual{grid-template-columns:1fr!important;}
+    .grid>*{grid-column:span 12!important;}
+
   }
 
   @media print{
@@ -704,6 +718,31 @@ function reajustarGrids(){
         u.style.gridColumn="span "+(12-suma+spanOf(u));
       }
     });
+  });
+  plegarTablasEnCelular();
+}
+
+/* ===== Celular: las tablas se pliegan tras un botón ==========================
+   En una pantalla de 390px una tabla de ocho columnas obliga a scroll horizontal
+   y empuja fuera de vista lo que sí se lee de un golpe: veredicto, KPIs,
+   tendencias y los rankings de "Dónde atacar primero". Así que en celular el
+   panel muestra su título y su explicación, y la tabla aparece solo si el usuario
+   la pide. En tablet y escritorio no se toca nada: ahí la tabla cabe.          */
+function plegarTablasEnCelular(){
+  var movil=window.matchMedia("(max-width:600px)").matches;
+  document.querySelectorAll(".panel").forEach(function(p){
+    if(!p.querySelector("table")) return;
+    if(p.closest(".ficha-card")) return;      // dentro de una ficha ya se pidió el detalle
+    if(!movil){ p.classList.remove("plegable","plegado"); return; }
+    if(p.classList.contains("plegable")) return;
+    p.classList.add("plegable","plegado");
+    var b=document.createElement("button");
+    b.type="button"; b.className="verdet"; b.textContent="Ver tabla";
+    b.onclick=function(){
+      var sigue=p.classList.toggle("plegado");
+      b.textContent=sigue?"Ver tabla":"Ocultar tabla";
+    };
+    p.appendChild(b);
   });
 }
 
