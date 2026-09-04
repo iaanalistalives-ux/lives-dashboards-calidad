@@ -140,6 +140,23 @@
   .icard{display:flex;flex-direction:column;}
   .icard .is{margin-top:auto;}
   .col4>.icards{grid-template-columns:1fr;}
+  /* ---- Dónde atacar primero ---- */
+  .atk{display:grid;grid-template-columns:22px 1fr 58px;align-items:center;gap:10px;
+       padding:9px 0;border-bottom:1px solid var(--warm-light);}
+  .atk:last-child{border-bottom:none;}
+  .atk.clic{cursor:pointer;border-radius:8px;padding-left:6px;padding-right:6px;margin:0 -6px;}
+  .atk.clic:hover{background:var(--warm-light);}
+  .atk-n{width:22px;height:22px;border-radius:50%;background:var(--warm-light);color:var(--stone);
+         font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;}
+  .atk-b{min-width:0;}
+  .atk-k{font-size:13px;font-weight:700;color:#333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .atk-u{font-size:11.5px;color:var(--stone);margin-top:1px;}
+  .atk-t{height:7px;background:var(--warm-light);border-radius:4px;margin-top:5px;overflow:hidden;}
+  .atk-f{display:block;height:100%;border-radius:4px;background:var(--rose);}
+  .atk-v{text-align:right;font-size:15px;font-weight:700;color:var(--rose);}
+  .atk-vacio{font-size:12.5px;color:var(--stone);padding:10px 0;line-height:1.5;}
+  .atk-hd{font-size:17px;font-weight:700;color:var(--sage-dark);margin:24px 0 4px;}
+  .atk-sub{font-size:12px;color:var(--stone);margin-bottom:12px;}
   .cwrap{position:relative;width:100%;height:clamp(220px,26vh,320px);}
   .cwrap.tall{height:clamp(260px,34vh,400px);}
   .cwrap canvas{position:absolute;inset:0;}
@@ -460,6 +477,8 @@
           </div>
         </div>
       </div>
+
+      <div id="atacar"></div>
 
      </div><!-- /mainView -->
 
@@ -878,6 +897,7 @@ function renderPeriod(mode,value){
     ["kReS","kApS","kTotS"].forEach(function(i){document.getElementById(i).textContent=plabel;});
     document.getElementById("kReD").style.display="none";
     renderVerdict({n:0});renderInsight([],0,0,plabel);renderSpark(S,mode,value);renderHstate(plabel,0,S);
+    var _atk=document.getElementById("atacar");if(_atk)_atk.innerHTML="";
     const hoy0=new Date().toLocaleDateString("es-PE",{day:"numeric",month:"long",year:"numeric"});
     document.getElementById("foot").innerHTML="Confidencial — Uso Interno · Calidad Manufactura LIVES · Generado el "+hoy0+".";
     return;
@@ -960,6 +980,7 @@ function renderPeriod(mode,value){
   renderInsight(wrows,n,re,plabel);
   renderSpark(S,mode,value);
   renderHstate(plabel,n,S);
+  renderAtacar(wrows,plabel);
   reajustarGrids();
 
   // footer
@@ -971,6 +992,108 @@ function renderPeriod(mode,value){
    Ninguno de estos recalcula datos: reciben los valores ya calculados en
    renderPeriod y los redactan. Si un dato no existe, el componente se oculta
    entero en vez de mostrar un valor falso. */
+
+/* ===== Dónde atacar primero ===================================================
+   Reemplaza al bloque de Focos, que comparaba contra el período anterior y se
+   quedaba sin nada que decir cuando no había movimiento ("sin caídas relevantes").
+   Esto siempre tiene contenido mientras haya auditorías, y siempre apunta a algo
+   sobre lo que se puede actuar.
+
+   Tres reglas que lo hacen servir para decidir:
+   1. Cada línea lleva su universo completo: "9 rechazadas de 14 auditorías · 64.3%".
+      Un porcentaje suelto no permite decidir nada.
+   2. Al tocarla se abre la ficha de ese elemento, cuando el tablero la tiene.
+   3. Se exige el mínimo de muestra calculado. Si nadie llega, se dice — no se baja
+      el listón hasta que entre alguien con una sola auditoría, que es justo lo que
+      el mínimo evita.
+   Va al final del tablero: primero se lee qué pasó, después dónde meter la mano. */
+
+function atacarTop(rows, keyFn, opts){
+  opts = opts || {};
+  var m = {};
+  rows.forEach(function(r){
+    var k = keyFn(r);
+    if(k==null || k==="") return;
+    if(!m[k]) m[k] = {n:0, mal:0};
+    m[k].n++;
+    if(opts.esMalo(r)) m[k].mal++;
+  });
+  var lista = Object.keys(m).map(function(k){
+    return {k:k, n:m[k].n, mal:m[k].mal, pct:+(m[k].mal/m[k].n*100).toFixed(1)};
+  });
+  var mn = minnDe(lista);
+  var ok = lista.filter(function(x){ return x.n>=mn && x.mal>0; });
+  ok.sort(function(a,b){ return b.pct-a.pct || b.mal-a.mal; });
+  return {items: ok.slice(0,3), mn: mn, total: lista.length};
+}
+
+function atacarTopConteo(acc, totalUnidades){
+  var lista = Object.keys(acc).map(function(k){ return {k:k, v:acc[k]}; });
+  lista.sort(function(a,b){ return b.v-a.v; });
+  return {items: lista.slice(0,3), total: lista.length,
+          tot: lista.reduce(function(a,b){ return a+b.v; },0) || totalUnidades || 0};
+}
+
+function atacarCol(titulo, sub, res, cfg){
+  var h = '<div class="panel col4"><span class="tira riesgo"></span>'
+        + '<div class="pt">' + titulo + '</div><div class="ph">' + sub + '</div>';
+  if(!res.items.length){
+    h += '<div class="atk-vacio">' + (cfg.vacio || 'Nada que señalar en este período.') + '</div></div>';
+    return h;
+  }
+  var max = cfg.modo==="conteo" ? res.items[0].v : res.items[0].pct;
+  res.items.forEach(function(x, i){
+    var val   = cfg.modo==="conteo" ? x.v : x.pct;
+    var ancho = max>0 ? Math.max(6, Math.round(val/max*100)) : 6;
+    var univ  = cfg.universo(x, res);
+    var click = cfg.click ? cfg.click(x) : "";
+    h += '<div class="atk' + (click ? ' clic' : '') + '"' + (click ? ' onclick="' + click + '"' : '') + '>'
+       +   '<div class="atk-n">' + (i+1) + '</div>'
+       +   '<div class="atk-b">'
+       +     '<div class="atk-k">' + x.k + '</div>'
+       +     '<div class="atk-u">' + univ + '</div>'
+       +     '<div class="atk-t"><span class="atk-f" style="width:' + ancho + '%"></span></div>'
+       +   '</div>'
+       +   '<div class="atk-v">' + (cfg.modo==="conteo" ? nf(val) : val + '%') + '</div>'
+       + '</div>';
+  });
+  h += '</div>';
+  return h;
+}
+
+function renderAtacar(wrows,plabel){
+  var host=document.getElementById("atacar"); if(!host) return;
+  if(!wrows.length){ host.innerHTML=""; return; }
+  var esRech=function(r){ return r["RESULTADO"]==="RECHAZADO"; };
+
+  var r1=atacarTop(wrows,function(r){return r["CLIENTE"];},{esMalo:esRech});
+  var c1=atacarCol("Por cliente",
+    "Los 3 con mayor % de rechazo del período, entre los que llegan a "+r1.mn+" auditorías.",
+    r1,{universo:function(x){return x.mal+(x.mal===1?" rechazada":" rechazadas")+" de "+x.n+" auditorías";},
+        click:function(x){return "generarFicha('"+String(x.k).replace(/'/g,"\\'")+"')";},
+        vacio:"Ningún cliente llega a "+r1.mn+" auditorías en este período, o ninguno tuvo rechazos."});
+
+  var r2=atacarTop(wrows,function(r){return r["ESTILO"];},{esMalo:esRech});
+  var c2=atacarCol("Por estilo",
+    "Los 3 con mayor % de rechazo del período, entre los que llegan a "+r2.mn+" auditorías.",
+    r2,{universo:function(x){return x.mal+(x.mal===1?" rechazada":" rechazadas")+" de "+x.n+" auditorías";},
+        vacio:"Ningún estilo llega a "+r2.mn+" auditorías en este período, o ninguno tuvo rechazos."});
+
+  var acc={},rech=wrows.filter(esRech);
+  rech.forEach(function(r){ defCount(r["DEFECTOS"],acc); });
+  var r3=atacarTopConteo(acc);
+  var c3=atacarCol("Por defecto",
+    "Los 3 defectos con más incidencias entre las "+rech.length+" auditorías rechazadas del período.",
+    r3,{modo:"conteo",
+        universo:function(x,res){return x.v+" de "+res.tot+" incidencias registradas";},
+        click:function(x){return (typeof openDefectFicha==="function")?("openDefectFicha('"+String(x.k).replace(/'/g,"\\'")+"')"):"";},
+        vacio:rech.length?"Las auditorías rechazadas del período no traen texto en la columna DEFECTOS.":"Ninguna auditoría rechazada en este período."});
+
+  host.innerHTML='<div class="atk-hd">Dónde atacar primero</div>'
+    +'<div class="atk-sub">'+plabel+' · lo peor de cada frente, con su universo completo. Toca una fila para abrir su detalle.</div>'
+    +'<div class="grid">'+c1+c2+c3+'</div>';
+  reajustarGrids();
+}
 
 /* Banda de veredicto. Calidad no ha declarado meta de rechazo para auditorias,
    asi que aqui NO se pinta semaforo de meta: se compara contra el periodo
