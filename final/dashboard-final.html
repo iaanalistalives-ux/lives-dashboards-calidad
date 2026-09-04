@@ -88,7 +88,7 @@
   .tabs button.active{color:var(--sage-dark);border-bottom-color:var(--sage);}
   .tabpane{display:none;}
   .tabpane.active{display:block;}
-  @media(max-width:600px){ .tabs button{padding:9px 11px;font-size:12.5px;} }
+  
   .insight{background:var(--card);border-left:4px solid var(--tan);border-radius:0 var(--r) var(--r) 0;
     box-shadow:var(--sh);padding:12px 16px;margin:0 0 16px;font-size:13.5px;line-height:1.55;}
   .insight b{color:var(--sage-dark);}
@@ -357,6 +357,81 @@
     #panelPerf{overflow-x:auto;}
     #panelPerf>*{min-width:0;}
   }
+/* ===== TABLET (hasta 900px) =====
+     Se ve en reuniones. Los mismos toques de dedo que en celular, pero cabe más contenido. */
+  @media(max-width:900px){
+    .wrap{padding:14px 14px 36px;}
+    .col12,.col8,.col6,.col4{grid-column:span 12;}
+    .cwrap{height:300px;}
+    .cwrap.tall{height:340px;}
+    /* Todo lo que se toca con el dedo: 44px. Incluye los botones de las tablas y los
+       que se generan desde JS, que no llevan clase .btn. */
+    .btn,select,.seg button,.mbtn,.bar button,.bar select,
+    .tabs button,.fk-sel,table button,.panel button{min-height:44px;}
+    .modesel .mbtn{min-height:44px;padding:0 13px;}
+    #btnRefrescar,.avisoVivo button{min-height:44px;padding:0 14px;}
+  }
+
+/* ============================================================================
+   CELULAR (hasta 600px) — bloque obligatorio del estándar
+   ----------------------------------------------------------------------------
+   Regla de fondo: en pantalla chica se MUESTRA MENOS, no se encoge todo.
+   Medido antes de esto en un celular de 360px: 18 botones por debajo de 44px de alto,
+   gráficos de 96px (ilegibles) y la barra de filtros ocupando 266px — un tercio de la
+   pantalla antes de mostrar un solo dato.
+   ========================================================================== */
+  @media(max-width:600px){
+    body{font-size:13.5px;}
+    .header{min-height:auto;padding:12px 14px;gap:10px;}
+    .header svg{height:26px;}
+    .divider{display:none;}
+    .htitle{font-size:15px;}
+
+    /* Barra de filtros: UNA fila con scroll horizontal. Apilada ocupaba 266px y empujaba
+       todo el contenido fuera de la primera pantalla. */
+    .bar{position:static;flex-wrap:nowrap;overflow-x:auto;padding:8px 10px;gap:8px;
+         -webkit-overflow-scrolling:touch;}
+    .bar::-webkit-scrollbar{display:none;}
+    .bar>*{flex:none;}
+    .wsel{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;}
+
+    /* 44px es el tamaño cómodo para el dedo. Debajo de eso se falla el toque. */
+    .btn,select,.seg button,.mbtn,.bar button,.bar select{min-height:44px;font-size:14px;}
+    #btnRefrescar,.avisoVivo button{min-height:44px;padding:0 16px;font-size:13.5px;}
+    .modesel .mbtn{min-height:44px;padding:0 14px;}
+
+    /* Pestañas en una fila con scroll, no envueltas en tres líneas */
+    .tabs{flex-wrap:nowrap;overflow-x:auto;gap:0;}
+    .tabs::-webkit-scrollbar{display:none;}
+    .tabs button{flex:none;padding:12px 14px;font-size:13px;min-height:44px;}
+
+    /* Los gráficos quedaban en 96px porque el clamp con vh da poco en vertical */
+    .cwrap,.cwrap.tall{height:260px!important;}
+
+    .verdict{padding:14px;gap:12px;}
+    .verdict .dot{width:36px;height:36px;font-size:18px;}
+    .verdict .t{font-size:16px;}
+
+    #uniKpis{grid-template-columns:1fr!important;gap:10px;}
+    .kpiv2 .kv{font-size:24px;}
+    .kpiv2.hero .kv{font-size:28px;}
+    /* El sparkline no se lee a ese tamaño: se oculta y queda el delta, que sí se lee */
+    .kpiv2 .spark{display:none;}
+
+    .panel,.kpanel{padding:14px;}
+    .tblScroll table{min-width:520px;}
+
+    /* :hover no existe en pantalla táctil: se neutraliza y se usa :active */
+    .panel:hover,.kpanel:hover,.kpiv2:hover{box-shadow:var(--sh);transform:none;}
+    .kpiv2:active,.fk-it:active,.derB:active{background:var(--warm-light);}
+    .fk-it:hover{background:transparent;}
+
+    .fk-grid{grid-template-columns:1fr;}
+    .compGrid{grid-template-columns:1fr!important;}
+    .icards{grid-template-columns:1fr!important;}
+    details.help{padding:12px 14px;}
+  }
+
   @media print{
     /* Horizontal: el tablero es ancho y en vertical se corta o queda ilegible. */
   @page{size:A4 landscape;margin:9mm;}
