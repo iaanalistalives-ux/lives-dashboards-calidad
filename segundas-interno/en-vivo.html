@@ -673,7 +673,7 @@ const etiquetasTendencia={id:"etiquetasTendencia",afterDatasetsDraw(chart,args,o
       if(!ultimo&&i%paso!==0)return;
       const v=ds.data[i];if(v===null||v===undefined)return;
       const txt=fmt(v);ctx.save();ctx.font="700 11.5px Calibri, Arial, sans-serif";
-      const w=ctx.measureText(txt).width,x=pt.x,y=pt.y-18;
+      const w=ctx.measureText(txt).width,x=pt.x,y=pt.y+(ds.etiquetaAbajo?20:-18);
       const rx=x-w/2-7,ry=y-9.5,rw=w+14,rh=19,r=9.5;
       ctx.beginPath();ctx.moveTo(rx+r,ry);
       ctx.arcTo(rx+rw,ry,rx+rw,ry+rh,r);ctx.arcTo(rx+rw,ry+rh,rx,ry+rh,r);
@@ -1057,8 +1057,8 @@ function renderPeriod(mode,valueOrArr){
         Object.assign({},serieTendencia(SAGE,"15,122,90"),{label:"% segundas",data:yData,pointBackgroundColor:yData.map(p=>col3(p))}),
         {label:"Meta 2%",data:yrs.map(()=>META),borderColor:TAN,borderWidth:1.5,borderDash:[6,5],pointRadius:0,fill:false,sinEtiquetas:true}
       ]},
-      options:{responsive:true,animation:ANIM,layout:{padding:{top:30}},
-        plugins:{legend:{position:"bottom",labels:{boxWidth:12,usePointStyle:true}},etiquetasTendencia:{fmt:v=>v.toFixed(2)+"%"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+c.raw+"%"}}},
+      options:{responsive:true,animation:ANIM,layout:{padding:{top:30,bottom:14}},
+        plugins:{legend:{position:"top",align:"end",labels:{boxWidth:12,usePointStyle:true,padding:14}},etiquetasTendencia:{fmt:v=>v.toFixed(2)+"%"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+c.raw+"%"}}},
         scales:{x:{grid:{display:false},border:{color:WARM}},y:{min:0,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}}}},plugins:[etiquetasTendencia]}));
   } else if(atp){ atp.style.display="none"; }
 
@@ -1119,7 +1119,7 @@ function renderPeriod(mode,valueOrArr){
     dsM.splice(1,0,{label:"% "+prev,data:pP,borderColor:SLATE,borderWidth:2,pointRadius:3,pointBackgroundColor:SLATE,tension:.35,fill:false,sinEtiquetas:true});}
   verPanel("cMes",mo.length>=1);
   if(mo.length)
-  reg(new Chart(document.getElementById("cMes"),{type:"line",data:{labels:mlabels,datasets:dsM},options:{responsive:true,animation:ANIM,layout:{padding:{top:30}},plugins:{legend:{position:"bottom",labels:{boxWidth:12,usePointStyle:true}},etiquetasTendencia:{fmt:v=>v.toFixed(2)+"%"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+c.raw+"%"}}},scales:{x:{grid:{display:false},border:{color:WARM}},y:{min:0,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}}}},plugins:[etiquetasTendencia]}));
+  reg(new Chart(document.getElementById("cMes"),{type:"line",data:{labels:mlabels,datasets:dsM},options:{responsive:true,animation:ANIM,layout:{padding:{top:30,bottom:14}},plugins:{legend:{position:"top",align:"end",labels:{boxWidth:12,usePointStyle:true,padding:14}},etiquetasTendencia:{fmt:v=>v.toFixed(2)+"%"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+c.raw+"%"}}},scales:{x:{grid:{display:false},border:{color:WARM}},y:{min:0,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}}}},plugins:[etiquetasTendencia]}));
   // tabla mensual
   let mh="<thead><tr><th>Mes</th><th style='text-align:right'>Conf. "+Y+"</th><th style='text-align:right'>Seg.</th><th style='text-align:right'>% "+Y+"</th>"+(cmp?"<th style='text-align:right'>% "+prev+"</th>":"")+"<th style='text-align:right'>Valor $</th><th style='text-align:center'>Estado</th></tr></thead><tbody>";
   mo.forEach(m=>{const r=repMonth(m),p=pc(r.seg,r.conf);const ok=p<=META;const c3=cls3(p);
@@ -1138,7 +1138,7 @@ function renderPeriod(mode,valueOrArr){
     reg(new Chart(document.getElementById("cSem"),{type:"line",data:{labels:wp.map(x=>"S"+x.w),datasets:[
       Object.assign({},serieTendencia(SAGE,"15,122,90"),{label:"% segundas",data:wp.map(x=>x.p),pointBackgroundColor:wp.map(x=>col3(x.p))}),
       {label:"Meta 2%",data:wp.map(()=>META),borderColor:TAN,borderWidth:1.5,borderDash:[6,5],pointRadius:0,fill:false,sinEtiquetas:true}]},
-      options:{responsive:true,animation:ANIM,layout:{padding:{top:30}},plugins:{legend:{position:"bottom",labels:{boxWidth:12,usePointStyle:true}},etiquetasTendencia:{fmt:v=>v.toFixed(2)+"%"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+c.raw+"%"}}},scales:{x:{grid:{display:false},border:{color:WARM}},y:{min:0,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}}}},plugins:[etiquetasTendencia]}));
+      options:{responsive:true,animation:ANIM,layout:{padding:{top:30,bottom:14}},plugins:{legend:{position:"top",align:"end",labels:{boxWidth:12,usePointStyle:true,padding:14}},etiquetasTendencia:{fmt:v=>v.toFixed(2)+"%"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+c.raw+"%"}}},scales:{x:{grid:{display:false},border:{color:WARM}},y:{min:0,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}}}},plugins:[etiquetasTendencia]}));
     const wSumSeg=wp.reduce((s,x)=>s+x.seg,0),wSumConf=wp.reduce((s,x)=>s+x.conf,0);
     let sh="<thead><tr><th>Semana</th><th style='text-align:right'>Conf.</th><th style='text-align:right'>Seg.</th><th style='text-align:right'>%</th><th style='text-align:center'>Estado</th></tr></thead><tbody>";
     wp.forEach(x=>{const ok=x.p<=META,c3=cls3(x.p);sh+=`<tr><td style="color:#333;font-weight:700">S${x.w}</td><td style="text-align:right">${nf(x.conf)}</td><td style="text-align:right">${nf(x.seg)}</td><td style="text-align:right" class="${ok?'under':'over'}">${x.p}%</td><td style="text-align:center"><span class="st ${c3}">${c3==='bue'?'Bajo meta':(c3==='rev'?'Al límite':'Sobre meta')}</span></td></tr>`;});
@@ -1298,14 +1298,14 @@ function renderAtacar(drows,plabel,conf){
   var c2=atacarCol("Por motivo",
     "Los 3 motivos más repetidos del período, en prendas.",
     r2,{modo:"conteo",universo:uni,
-        click:function(x){return "openFicha('mot','"+String(x.k).replace(/'/g,"\\'")+"')";},
+        click:function(x){return "openMotivoFicha('"+String(x.k).replace(/'/g,"\\'")+"')";},
         vacio:"Las segundas del período no traen motivo registrado."});
 
   var r3=atacarTopConteo(acc("cli"));
   var c3=atacarCol("Por cliente",
     "Los 3 clientes con más segundas en el período, en prendas.",
     r3,{modo:"conteo",universo:uni,
-        click:function(x){return "openFicha('cli','"+String(x.k).replace(/'/g,"\\'")+"')";},
+        click:function(x){return "openFicha('cliente','"+String(x.k).replace(/'/g,"\\'")+"')";},
         vacio:"Las segundas del período no traen cliente registrado."});
 
   host.innerHTML='<div class="atk-hd">Dónde atacar primero</div>'
@@ -1709,7 +1709,7 @@ if(window.__EMBEDSTATE__){try{
 
     var SAGE="#0F7A5A",TAUPE="#B45309",ROSE="#DC2626",RED="#DC2626",TAN2="#F59E0B",WARML="#F1F6F4";
     var pcts=ys.map(pctYear);
-    reg(new Chart(document.getElementById("cePct"),{type:"line",data:{labels:ys,datasets:[{label:"% de segundas",data:pcts,borderColor:SAGE,backgroundColor:function(c){var a=c.chart.chartArea;if(!a)return"transparent";var g=c.chart.ctx.createLinearGradient(0,a.top,0,a.bottom);g.addColorStop(0,"rgba(15,122,90,.22)");g.addColorStop(1,"rgba(255,255,255,0)");return g;},fill:true,borderWidth:3.5,tension:.35,pointRadius:5,pointBorderColor:"#fff",pointBorderWidth:2.5,pointBackgroundColor:ys.map(function(y){return pctYear(y)>META?RED:SAGE;})},{label:"Meta 2.00%",data:ys.map(function(){return META;}),borderColor:TAN2,borderWidth:1.5,borderDash:[6,5],pointRadius:0,sinEtiquetas:true}]},options:{responsive:true,maintainAspectRatio:false,animation:{duration:900,easing:"easeOutCubic",delay:function(c){return (c.type==="data"&&c.mode==="default")?c.dataIndex*45:0;}},layout:{padding:{top:30}},plugins:{legend:{position:"bottom",labels:{boxWidth:12,usePointStyle:true}},etiquetasTendencia:{fmt:function(v){return v.toFixed(2)+"%";}},tooltip:{callbacks:{label:function(c){return c.dataset.label+": "+c.raw+"%";}}}},scales:{x:{grid:{display:false}},y:{min:0,suggestedMax:4.5,grid:{color:WARML},ticks:{callback:function(v){return v+"%";}}}}},plugins:[etiquetasTendencia]}));
+    reg(new Chart(document.getElementById("cePct"),{type:"line",data:{labels:ys,datasets:[{label:"% de segundas",data:pcts,borderColor:SAGE,backgroundColor:function(c){var a=c.chart.chartArea;if(!a)return"transparent";var g=c.chart.ctx.createLinearGradient(0,a.top,0,a.bottom);g.addColorStop(0,"rgba(15,122,90,.22)");g.addColorStop(1,"rgba(255,255,255,0)");return g;},fill:true,borderWidth:3.5,tension:.35,pointRadius:5,pointBorderColor:"#fff",pointBorderWidth:2.5,pointBackgroundColor:ys.map(function(y){return pctYear(y)>META?RED:SAGE;})},{label:"Meta 2.00%",data:ys.map(function(){return META;}),borderColor:TAN2,borderWidth:1.5,borderDash:[6,5],pointRadius:0,sinEtiquetas:true}]},options:{responsive:true,maintainAspectRatio:false,animation:{duration:900,easing:"easeOutCubic",delay:function(c){return (c.type==="data"&&c.mode==="default")?c.dataIndex*45:0;}},layout:{padding:{top:30}},plugins:{legend:{position:"top",align:"end",labels:{boxWidth:12,usePointStyle:true,padding:14}},etiquetasTendencia:{fmt:function(v){return v.toFixed(2)+"%";}},tooltip:{callbacks:{label:function(c){return c.dataset.label+": "+c.raw+"%";}}}},scales:{x:{grid:{display:false}},y:{min:0,suggestedMax:4.5,grid:{color:WARML},ticks:{callback:function(v){return v+"%";}}}}},plugins:[etiquetasTendencia]}));
     reg(new Chart(document.getElementById("ceMoney"),{type:"bar",data:{labels:ys,datasets:[{data:moneys,backgroundColor:ys.map(function(y){return partial(y)?"#F59E0B":TAUPE;}),borderRadius:5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return "$"+Math.round(c.raw).toLocaleString();}}}},scales:{x:{grid:{display:false}},y:{grid:{color:WARML},ticks:{callback:function(v){return "$"+(v/1000)+"K";}}}}}}));
     var hoy=new Date().toLocaleDateString("es-PE",{day:"numeric",month:"long",year:"numeric"});
     var ft=document.getElementById("foot");if(ft)ft.innerHTML="Confidencial \u2014 Uso Interno \u00B7 Calidad Manufactura LIVES \u00B7 "+(KIND==="gerencia"?"Gerencia":"Interno")+" \u00B7 Comparativo ejecutivo \u00B7 * a\u00F1o en curso parcial \u00B7 Generado el "+hoy;
