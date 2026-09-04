@@ -622,6 +622,17 @@ const serieTendencia=(color,rgb)=>({borderColor:color,borderWidth:3.5,tension:.3
   backgroundColor:c=>AREA(c,rgb),pointRadius:5,pointHoverRadius:8,pointBackgroundColor:color,
   pointBorderColor:"#fff",pointBorderWidth:2.5,pointHoverBorderWidth:3});
 const ANIM={duration:900,easing:"easeOutCubic",delay:c=>(c.type==="data"&&c.mode==="default")?c.dataIndex*45:0};
+/* Serie positiva de una tendencia. Va en Esmeralda: sobre fondo claro y en
+   proyector se lee mejor que el Salvia, que es el verde de la interfaz. Se
+   rellena hasta la serie de abajo, y esa banda hace visible la distancia entre
+   lo aprobado y lo rechazado. */
+const serieAprob=()=>({borderColor:EMER,borderWidth:3.5,tension:.35,
+  fill:{target:1,above:"rgba(16,185,129,.10)",below:"rgba(16,185,129,.10)"},
+  pointRadius:5,pointHoverRadius:8,pointBackgroundColor:EMER,
+  pointBorderColor:"#fff",pointBorderWidth:2.5,pointHoverBorderWidth:3});
+/* Leyenda arriba a la derecha: abajo compite con el eje, y arriba al centro tapa
+   las etiquetas de los puntos más altos. */
+const LEYENDA={position:"top",align:"end",labels:{boxWidth:12,usePointStyle:true,padding:14}};
 const etiquetasTendencia={id:"etiquetasTendencia",afterDatasetsDraw(chart,args,opts){
   const ctx=chart.ctx,fmt=(opts&&opts.fmt)||(v=>v.toFixed(1)+"%");
   const div=window.matchMedia("(max-width:600px)").matches?7:14;
@@ -634,7 +645,7 @@ const etiquetasTendencia={id:"etiquetasTendencia",afterDatasetsDraw(chart,args,o
       if(!ultimo&&i%paso!==0)return;
       const v=ds.data[i];if(v===null||v===undefined)return;
       const txt=fmt(v);ctx.save();ctx.font="700 11.5px Calibri, Arial, sans-serif";
-      const w=ctx.measureText(txt).width,x=pt.x,y=pt.y-18;
+      const w=ctx.measureText(txt).width,x=pt.x,y=pt.y+(ds.etiquetaAbajo?20:-18);
       const rx=x-w/2-7,ry=y-9.5,rw=w+14,rh=19,r=9.5;
       ctx.beginPath();ctx.moveTo(rx+r,ry);
       ctx.arcTo(rx+rw,ry,rx+rw,ry+rh,r);ctx.arcTo(rx+rw,ry+rh,rx,ry+rh,r);
@@ -929,9 +940,9 @@ function renderPeriod(mode,value){
   verPanel("cMensual",S.monthly.labels.length>=2);
   if(S.monthly.labels.length>=2)
   reg(new Chart(document.getElementById("cMensual"),{type:"line",data:{labels:S.monthly.labels,datasets:[
-    {label:"% Aprobación",data:S.monthly.aprob,borderColor:SAGE,backgroundColor:"transparent",borderWidth:2,pointRadius:3,pointBackgroundColor:SAGE,tension:.35,fill:false,sinEtiquetas:true},
-    Object.assign({},serieTendencia(ROSE,"220,38,38"),{label:"% Rechazo",data:S.monthly.rech})]},
-    options:{responsive:true,animation:ANIM,layout:{padding:{top:30}},plugins:{legend:{position:"bottom",labels:{boxWidth:12,usePointStyle:true}},etiquetasTendencia:{fmt:v=>v.toFixed(1)+"%"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+c.raw+"%"}}},scales:{x:{grid:{display:false},border:{color:WARM}},y:{min:0,max:100,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}}}},plugins:[etiquetasTendencia]}));
+    Object.assign({},serieAprob(),{label:"% Aprobación",data:S.monthly.aprob}),
+    Object.assign({},serieTendencia(ROSE,"220,38,38"),{label:"% Rechazo",data:S.monthly.rech,etiquetaAbajo:true})]},
+    options:{responsive:true,animation:ANIM,layout:{padding:{top:30,bottom:14}},plugins:{legend:LEYENDA,etiquetasTendencia:{fmt:v=>v.toFixed(1)+"%"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+c.raw+"%"}}},scales:{x:{grid:{display:false},border:{color:WARM}},y:{min:0,max:100,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}}}},plugins:[etiquetasTendencia]}));
 
   // tendencia por período (aprob vs rech)
   const tk=isYear?S.months.slice():(isMonth?S.months.filter(m=>m<=value).slice(-6):S.weeks.filter(w=>w<=value).slice(-5));
@@ -940,9 +951,9 @@ function renderPeriod(mode,value){
   verPanel("cTrend",tk.length>=2);
   if(tk.length>=2)
   reg(new Chart(document.getElementById("cTrend"),{type:"line",data:{labels:tk.map(k=>(isYear||isMonth)?MESES[k]:"Sem "+k),datasets:[
-    {label:"% Aprobación",data:apLine,borderColor:SAGE,pointBackgroundColor:SAGE,pointRadius:3,tension:.35,fill:false,borderWidth:2,sinEtiquetas:true},
-    Object.assign({},serieTendencia(ROSE,"220,38,38"),{label:"% Rechazo",data:reLine})]},
-    options:{responsive:true,animation:ANIM,layout:{padding:{top:30}},plugins:{legend:{position:"bottom",labels:{boxWidth:12,usePointStyle:true}},etiquetasTendencia:{fmt:v=>v.toFixed(1)+"%"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+c.raw+"%"}}},scales:{x:{grid:{display:false},border:{color:WARM}},y:{min:0,max:100,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}}}},plugins:[etiquetasTendencia]}));
+    Object.assign({},serieAprob(),{label:"% Aprobación",data:apLine}),
+    Object.assign({},serieTendencia(ROSE,"220,38,38"),{label:"% Rechazo",data:reLine,etiquetaAbajo:true})]},
+    options:{responsive:true,animation:ANIM,layout:{padding:{top:30,bottom:14}},plugins:{legend:LEYENDA,etiquetasTendencia:{fmt:v=>v.toFixed(1)+"%"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+c.raw+"%"}}},scales:{x:{grid:{display:false},border:{color:WARM}},y:{min:0,max:100,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}}}},plugins:[etiquetasTendencia]}));
 
   // resultados por cliente (período, horizontal, % aprob desc)
   // Antes: ordenaba solo por % de aprobación, sin importar cuántas auditorías tenía cada
@@ -951,14 +962,14 @@ function renderPeriod(mode,value){
   // al final, en gris, y se los saca del "mejor/peor" para no rankear con muestra chica.
   const cliOK=serv.filter(r=>r.n>=MN).sort((a,b)=>b.ap-a.ap);
   const cliLow=serv.filter(r=>r.n<MN).sort((a,b)=>b.n-a.n);
-  const cli=cliOK.concat(cliLow);
+  const cli=cliOK;
   verPanel("cCliente",cli.length);
   if(cli.length)
-  reg(new Chart(document.getElementById("cCliente"),{type:"bar",data:{labels:cli.map(r=>r.k+(r.n<MN?" ⚠":"")),datasets:[{data:cli.map(r=>r.ap),backgroundColor:cli.map(r=>r.n<MN?"#c9c9c9":colorRel(r.ap)),borderRadius:2,barThickness:22}]},
+  reg(new Chart(document.getElementById("cCliente"),{type:"bar",data:{labels:cli.map(r=>r.k),datasets:[{data:cli.map(r=>r.ap),backgroundColor:cli.map(r=>colorRel(r.ap)),borderRadius:2,barThickness:22}]},
     options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,layout:{padding:{right:64}},plugins:{legend:{display:false},valueLabel:{suffix:"%",extra:cli.map(r=>"  ("+r.n+")")},tooltip:{callbacks:{label:c=>cli[c.dataIndex].ap+"% aprob · "+cli[c.dataIndex].n+" aud"+(cli[c.dataIndex].n<MN?" · muestra chica, no se compara":"")}}},scales:{x:{min:0,max:100,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}},y:{grid:{display:false},border:{color:WARM}}}},plugins:[valueLabel]}));
   const cliNote=document.getElementById("cliLowNote");
   if(cliNote){
-    if(cliLow.length){cliNote.style.display="";cliNote.textContent=`⚠ ${cliLow.length} cliente(s) con menos de ${MN} auditorías este período (en gris, al final) — no se ordenan junto a los demás porque una sola auditoría puede mover el % mucho.`;}
+    if(cliLow.length){cliNote.style.display="";cliNote.textContent=`${cliLow.length} cliente${cliLow.length===1?"":"s"} del período no aparece${cliLow.length===1?"":"n"} en el gráfico por tener menos de ${MN} auditorías (${cliLow.map(r=>r.k+" · "+r.n).join(", ")}): con esa muestra, una sola auditoría mueve el porcentaje demasiado.`;}
     else{cliNote.style.display="none";}
   }
 
@@ -1073,11 +1084,11 @@ function renderAtacar(wrows,plabel){
         click:function(x){return "generarFicha('"+String(x.k).replace(/'/g,"\\'")+"')";},
         vacio:"Ningún cliente llega a "+r1.mn+" auditorías en este período, o ninguno tuvo rechazos."});
 
-  var r2=atacarTop(wrows,function(r){return r["ESTILO"];},{esMalo:esRech});
-  var c2=atacarCol("Por estilo",
+  var r2=atacarTop(wrows,function(r){return r["GRUPO"];},{esMalo:esRech});
+  var c2=atacarCol("Por grupo",
     "Los 3 con mayor % de rechazo del período, entre los que llegan a "+r2.mn+" auditorías.",
     r2,{universo:function(x){return x.mal+(x.mal===1?" rechazada":" rechazadas")+" de "+x.n+" auditorías";},
-        vacio:"Ningún estilo llega a "+r2.mn+" auditorías en este período, o ninguno tuvo rechazos."});
+        vacio:"Ningún grupo llega a "+r2.mn+" auditorías en este período, o ninguno tuvo rechazos."});
 
   var acc={},rech=wrows.filter(esRech);
   rech.forEach(function(r){ defCount(r["DEFECTOS"],acc); });
@@ -1091,7 +1102,7 @@ function renderAtacar(wrows,plabel){
 
   host.innerHTML='<div class="atk-hd">Dónde atacar primero</div>'
     +'<div class="atk-sub">'+plabel+' · lo peor de cada frente, con su universo completo. Toca una fila para abrir su detalle.</div>'
-    +'<div class="grid">'+c1+c2+c3+'</div>';
+    +'<div class="grid">'+c1+c3+c2+'</div>';
   reajustarGrids();
 }
 
@@ -1555,7 +1566,7 @@ if(document.readyState!=='loading') cargarEnVivo();
       '<div class="fk-tile"><div class="fk-t">\u26A0\uFE0F Defecto en alza'+(prevLbl?(" \u00B7 vs "+prevLbl):"")+'</div>'+t3+'</div></div>';
   }
   window.lfRenderFocos=lfRenderFocos;
-  function mountFocos(){if(document.getElementById("focos"))return true;var mv=document.getElementById("mainView")||document.getElementById("dash");if(!mv)return false;var sn=document.getElementById("srcNote");var f=document.createElement("div");f.className="focos";f.id="focos";if(sn&&sn.parentNode===mv)mv.insertBefore(f,sn.nextSibling);else mv.insertBefore(f,mv.firstChild);return true;}
+  function mountFocos(){return false;/* reemplazado por "Dónde atacar primero" */ if(document.getElementById("focos"))return true;var mv=document.getElementById("mainView")||document.getElementById("dash");if(!mv)return false;var sn=document.getElementById("srcNote");var f=document.createElement("div");f.className="focos";f.id="focos";if(sn&&sn.parentNode===mv)mv.insertBefore(f,sn.nextSibling);else mv.insertBefore(f,mv.firstChild);return true;}
   // ---- fusión/renombrado de valores (ej. CHILLON -> YOSATEX) ----
   function lfNormalize(){if(!CFG.renameMap)return false;var st=S();if(!st)return false;var arr=st.allRows||st.rows||[];var ch=false;arr.forEach(function(r){var v=r[CFG.renameCol];if(v!=null&&CFG.renameMap[v]!=null){r[CFG.renameCol]=CFG.renameMap[v];ch=true;}});return ch;}
   // ---- lente de % de rechazo por cliente ----
