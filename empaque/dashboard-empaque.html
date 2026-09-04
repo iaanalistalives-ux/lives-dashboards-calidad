@@ -131,6 +131,15 @@
   .grid>#lfCliRejPanel{grid-column:span 6;}
   @media(max-width:1100px){.grid>#lfCliRejPanel{grid-column:span 12;}}
 
+  .grid{align-items:stretch;}
+  .grid>*{min-width:0;}
+  .kpis{align-items:stretch;}
+  .kpis>*{min-width:0;}
+  .icards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;align-items:stretch;}
+  .icards>*{min-width:0;}
+  .icard{display:flex;flex-direction:column;}
+  .icard .is{margin-top:auto;}
+  .col4>.icards{grid-template-columns:1fr;}
   .cwrap{position:relative;width:100%;height:clamp(220px,26vh,320px);}
   .cwrap.tall{height:clamp(260px,34vh,400px);}
   .cwrap canvas{position:absolute;inset:0;}
@@ -138,7 +147,6 @@
   .donutwrap .dc{position:relative;width:150px;height:150px;}
   .donutwrap .dl{font-size:11.5px;color:var(--stone);margin-top:8px;text-align:center;}
 
-  .icards{display:grid;grid-template-columns:1fr;gap:12px;}
   .icard{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:14px 16px;
          border-top:3px solid var(--sage);}
   .icard.bad{border-top-color:var(--rose);} .icard.up{border-top-color:var(--tan);}
@@ -594,9 +602,7 @@ const MESES=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","
 const MINN=8;
 /* Los umbrales fijos de CFG (std/std2) quedaron fuera: nadie los declaró. La
    referencia ahora sale de los datos (ver calcRef/estadoRel más abajo).       */
-/* Minimo de auditorias para comparar. En vista Semana el volumen normal es bajo
-   y un minimo fijo de 8 dejaba casi todo en gris; en Mes y Ano si se exige 8.  */
-function minnFor(mode){return mode==="week"?3:MINN;}
+
 
 /* ===== v2.1: tendencias con el valor visible sobre cada punto ===== */
 const AREA=(ctx,rgb)=>{const{chartArea}=ctx.chart;if(!chartArea)return"transparent";
@@ -635,16 +641,48 @@ const etiquetasTendencia={id:"etiquetasTendencia",afterDatasetsDraw(chart,args,o
 function tab(i,btn){document.querySelectorAll(".tabs button").forEach(b=>b.classList.remove("active"));btn.classList.add("active");document.querySelectorAll(".tabpane").forEach((p,k)=>p.classList.toggle("active",k===i));charts.forEach(c=>{try{c.resize();}catch(e){}});}
 function panelDe(id){var e=document.getElementById(id);return e?e.closest(".panel"):null;}
 function verPanel(id,hay){var p=panelDe(id);if(p)p.style.display=hay?"":"none";return !!hay;}
+/* ===== Reacomodo de la grilla, por fila REAL =================================
+   Antes se agrupaba sumando las columnas declaradas (col8+col4=12). Eso falla en
+   cuanto una media query cambia los anchos o hay mas de una fila: la cuenta de
+   columnas deja de coincidir con lo que el navegador realmente dibujo. Ahora se
+   mide la posicion vertical de cada panel visible y se agrupa por fila de verdad;
+   si una fila no completa las 12 columnas, el ultimo panel se estira.          */
 function reajustarGrids(){
   var spanOf=function(c){return c.classList.contains("col8")?8:c.classList.contains("col6")?6:c.classList.contains("col4")?4:12;};
   document.querySelectorAll(".grid").forEach(function(g){
-    var vis=[].filter.call(g.children,function(c){return c.style.display!=="none";});
-    [].forEach.call(g.children,function(c){c.style.gridColumn="";});
-    var fila=[],acum=0;
-    var cerrar=function(){if(fila.length&&acum<12){var u=fila[fila.length-1];u.style.gridColumn="span "+(12-acum+spanOf(u));}fila=[];acum=0;};
-    vis.forEach(function(c){var sp=spanOf(c);if(acum+sp>12)cerrar();fila.push(c);acum+=sp;if(acum>=12){fila=[];acum=0;}});
-    cerrar();
+    var hijos=[].slice.call(g.children);
+    hijos.forEach(function(c){c.style.gridColumn="";});
+    var vis=hijos.filter(function(c){return c.offsetParent!==null||c.style.display!=="none";})
+                 .filter(function(c){return c.style.display!=="none";});
+    if(!vis.length)return;
+    // agrupar por fila usando la posicion vertical que el navegador ya calculo
+    var filas=[],act=null;
+    vis.forEach(function(c){
+      var top=c.offsetTop;
+      if(!act||Math.abs(top-act.top)>4){act={top:top,items:[]};filas.push(act);}
+      act.items.push(c);
+    });
+    filas.forEach(function(f){
+      var suma=f.items.reduce(function(a,c){return a+spanOf(c);},0);
+      if(suma<12&&suma>0){
+        var u=f.items[f.items.length-1];
+        u.style.gridColumn="span "+(12-suma+spanOf(u));
+      }
+    });
   });
+}
+
+/* ===== Minimo de muestra calculado desde los datos ===========================
+   Un numero fijo no sirve para todos los tableros: en Servicio de Inspeccion una
+   persona hace 37-70 auditorias por semana y un minimo de 3 no protege de nada;
+   en Empaque hace 1-6 y un minimo de 8 deja todo en gris. El minimo se deriva del
+   volumen real del periodo que se esta mirando: el 20% de lo que hace un actor
+   tipico (la mediana), nunca menos de 3 ni mas de 15.                          */
+function minnDe(lista){
+  var ns=(lista||[]).map(function(x){return x.n;}).filter(function(n){return n>0;}).sort(function(a,b){return a-b;});
+  if(!ns.length)return 3;
+  var med=ns[Math.floor(ns.length/2)];
+  return Math.max(3,Math.min(15,Math.round(med*0.2)));
 }
 let charts=[];const reg=c=>{charts.push(c);return c;};
 function clearCharts(){charts.forEach(c=>c.destroy());charts=[];}
@@ -803,7 +841,8 @@ function selectYear(y){
   // Referencia del año para todo el tablero: promedio ponderado de aprobación
   // del año en curso sobre la entidad primaria, y dispersión del grupo.
   (function(){
-    const lst=computePerf(rows,entColOf(CFG.primaryEntity),MINN);
+    const _l=computePerf(rows,entColOf(CFG.primaryEntity),1).list;
+    const lst=computePerf(rows,entColOf(CFG.primaryEntity),minnDe(_l));
     const totAp=rows.filter(r=>r["RESULTADO"]==="APROBADO").length;
     const avg=rows.length?+(totAp/rows.length*100).toFixed(1):null;
     REF=calcRef(lst.list,avg);
@@ -933,8 +972,9 @@ function renderFocos(){
   const mode=cp.mode,value=cp.value,plabel=cp.label,wrows=STATE.curWrows||[];
   const{prevKey,prevRows}=prevPeriodRows(mode,value);
   const fe=CFG.focusEntity||CFG.primaryEntity,feLab=entCfg(fe).label.toLowerCase(),col=entColOf(fe);
-  const minN=mode==="week"?3:MINN;
   const curTok=(mode==="month"?"m:":"w:")+value;
+  const _todos=computePerf(wrows,col,1).list;
+  const minN=minnDe(_todos);
   const P=computePerf(wrows,col,minN).list.filter(r=>r.n>=minN);
   const crit=P.filter(r=>estadoRel(r.pct)[1]==="ale").sort((a,b)=>a.pct-b.pct);
   const rev=[];
@@ -1052,13 +1092,13 @@ function renderPeriod(mode,value){
   const ent=Object.keys(sm).map(k=>({k,n:sm[k].n,ap:+(sm[k].ap/sm[k].n*100).toFixed(1),re:+((1-sm[k].ap/sm[k].n)*100).toFixed(1)}));
   // Mejor y peor solo entre los que tienen muestra suficiente: con 1 o 2 auditorias
   // un solo rechazo mueve el porcentaje muchisimo y el ranking miente.
-  const MN=minnFor(mode);
+  const MN=minnDe(ent);
   const entOK=ent.filter(x=>x.n>=MN);
   if(entOK.length>1){const best=entOK.reduce((a,b)=>b.ap>a.ap||(b.ap===a.ap&&b.n>a.n)?b:a);const worst=entOK.reduce((a,b)=>b.ap<a.ap||(b.ap===a.ap&&b.n>a.n)?b:a);
-    document.getElementById("i_best").textContent=best.ap+"%";document.getElementById("i_bests").textContent=best.k+" · "+best.n+" aud.";
-    document.getElementById("i_worst").textContent=worst.ap+"%";document.getElementById("i_worsts").textContent=worst.k+" · "+worst.n+" aud.";}
+    document.getElementById("i_best").textContent=best.ap+"%";document.getElementById("i_bests").textContent=`${best.k} · ${Math.round(best.n*best.ap/100)} aprobadas de ${best.n} auditorías`;
+    document.getElementById("i_worst").textContent=worst.ap+"%";document.getElementById("i_worsts").textContent=`${worst.k} · ${worst.n-Math.round(worst.n*worst.ap/100)} rechazadas de ${worst.n} auditorías`;}
   else if(entOK.length===1){const u=entOK[0];
-    document.getElementById("i_best").textContent=u.ap+"%";document.getElementById("i_bests").textContent=u.k+" · "+u.n+" aud. · único con "+MN+"+ auditorías";
+    document.getElementById("i_best").textContent=u.ap+"%";document.getElementById("i_bests").textContent=`${u.k} · ${Math.round(u.n*u.ap/100)} aprobadas de ${u.n} auditorías · único con ${MN}+ este período`;
     document.getElementById("i_worst").textContent="—";document.getElementById("i_worsts").textContent="Solo uno llega a "+MN+" auditorías este período: no hay con quién compararlo";}
   else{document.getElementById("i_best").textContent="—";document.getElementById("i_bests").textContent="Ninguno con "+MN+"+ auditorías este período";document.getElementById("i_worst").textContent="—";document.getElementById("i_worsts").textContent="Ninguno con "+MN+"+ auditorías este período";}
   document.getElementById("i_cli").textContent=ent.length;
@@ -1219,14 +1259,16 @@ function refreshPerfTable(){
   const cp=STATE.curPeriod||{label:STATE.year};
   const rows=isYear?STATE.rows:(STATE.curWrows||STATE.rows);
   const scopeLabel=isYear?("Acumulado "+(STATE.year||"")):(cp.label||"");
-  const P=computePerf(rows,entColOf(CURENT),isYear?MINN:minnFor((STATE.curPeriod||{}).mode||"week"));
+  const _base=computePerf(rows,entColOf(CURENT),1).list;
+  const MNT=minnDe(_base);
+  const P=computePerf(rows,entColOf(CURENT),MNT);
   P.list.forEach(r=>{r.rePct=+(100-r.pct).toFixed(1);});
   // ordenar: inspectoras -> mayor rechazo arriba; resto -> mayor aprobación arriba
   if(rej)P.list.sort((a,b)=>b.rePct-a.rePct||b.n-a.n); else P.list.sort((a,b)=>b.pct-a.pct);
   // botón de alcance
   const sb=document.getElementById("scopeBtn");if(sb)sb.textContent=isYear?"Ver período actual":"Ver acumulado año";
   document.getElementById("perfTitle").textContent="Tabla de desempeño por "+e.label.toLowerCase();
-  document.getElementById("perfSub").textContent=scopeLabel+" · "+(rej?"ordenado por mayor % de rechazo. ":"ordenado por mayor % de aprobación. ")+"Referencia: "+refTxt()+". Clic en «DETALLE» para el detalle individual.";
+  document.getElementById("perfSub").textContent=scopeLabel+" · "+(rej?"ordenado por mayor % de rechazo. ":"ordenado por mayor % de aprobación. ")+"Referencia: "+refTxt()+". Se comparan solo los que llegan a "+MNT+" auditorías en este alcance. Clic en «DETALLE» para el detalle individual.";
   const tr=t=>t.trend>0.5?'<span class="tup">▲ '+t.trend+'</span>':t.trend<-0.5?'<span class="tdn">▼ '+Math.abs(t.trend)+'</span>':'<span class="tfl">—</span>';
   const t=document.getElementById("perfTbl");
   const vac=document.getElementById("perfVacio");
