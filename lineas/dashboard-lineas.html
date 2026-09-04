@@ -460,6 +460,7 @@
             <div class="pt" id="byEntTitle">Resultados por entidad</div>
             <div class="ph" id="phByEnt">% de aprobación en el período. Entre paréntesis, cuántas auditorías tiene cada uno.</div>
             <div class="cwrap tall"><canvas id="cByEnt"></canvas></div>
+            <div id="byEntNote" style="display:none;font-size:11px;color:var(--stone);margin-top:8px;"></div>
           </div>
           <div class="col4">
             <div class="icards">
@@ -467,6 +468,12 @@
               <div class="icard bad"><div class="il" id="ilWorst">A vigilar</div><div class="iv" id="i_worst">—</div><div class="is" id="i_worsts">—</div></div>
               <div class="icard up"><div class="il" id="ilCli">Auditados</div><div class="iv" id="i_cli">—</div><div class="is" id="i_clis">—</div></div>
             </div>
+          </div>
+          <div class="panel col12">
+            <span class="tira resultado"></span>
+            <div class="pt">Comparativo de tendencia</div>
+            <div class="ph" id="phEntTrend">Evolución de cada uno a lo largo del año.</div>
+            <div class="cwrap tall"><canvas id="cEntTrend"></canvas></div>
           </div>
           <div class="panel col12" id="cliRejPanel">
             <span class="tira riesgo"></span>
@@ -624,6 +631,17 @@ const serieTendencia=(color,rgb)=>({borderColor:color,borderWidth:3.5,tension:.3
   backgroundColor:c=>AREA(c,rgb),pointRadius:5,pointHoverRadius:8,pointBackgroundColor:color,
   pointBorderColor:"#fff",pointBorderWidth:2.5,pointHoverBorderWidth:3});
 const ANIM={duration:900,easing:"easeOutCubic",delay:c=>(c.type==="data"&&c.mode==="default")?c.dataIndex*45:0};
+/* Serie positiva de una tendencia (aprobacion, cumplimiento). Va en Esmeralda:
+   sobre fondo claro y en proyector se lee mejor que el Salvia, que es el verde de
+   la interfaz. Se rellena hasta la serie de abajo, de modo que la banda entre
+   ambas hace visible la distancia entre lo aprobado y lo rechazado.           */
+const serieAprob=()=>({borderColor:EMER,borderWidth:3.5,tension:.35,
+  fill:{target:1,above:"rgba(16,185,129,.10)",below:"rgba(16,185,129,.10)"},
+  pointRadius:5,pointHoverRadius:8,pointBackgroundColor:EMER,
+  pointBorderColor:"#fff",pointBorderWidth:2.5,pointHoverBorderWidth:3});
+/* Leyenda arriba a la derecha: abajo compite con el eje y arriba al centro tapa
+   las etiquetas de los puntos mas altos. */
+const LEYENDA={position:"top",align:"end",labels:{boxWidth:12,usePointStyle:true,padding:14}};
 const etiquetasTendencia={id:"etiquetasTendencia",afterDatasetsDraw(chart,args,opts){
   const ctx=chart.ctx,fmt=(opts&&opts.fmt)||(v=>v.toFixed(1)+"%");
   const div=window.matchMedia("(max-width:600px)").matches?7:14;
@@ -636,7 +654,7 @@ const etiquetasTendencia={id:"etiquetasTendencia",afterDatasetsDraw(chart,args,o
       if(!ultimo&&i%paso!==0)return;
       const v=ds.data[i];if(v===null||v===undefined)return;
       const txt=fmt(v);ctx.save();ctx.font="700 11.5px Calibri, Arial, sans-serif";
-      const w=ctx.measureText(txt).width,x=pt.x,y=pt.y-18;
+      const w=ctx.measureText(txt).width,x=pt.x,y=pt.y+(ds.etiquetaAbajo?20:-18);
       const rx=x-w/2-7,ry=y-9.5,rw=w+14,rh=19,r=9.5;
       ctx.beginPath();ctx.moveTo(rx+r,ry);
       ctx.arcTo(rx+rw,ry,rx+rw,ry+rh,r);ctx.arcTo(rx+rw,ry+rh,rx,ry+rh,r);
@@ -1231,9 +1249,9 @@ function renderPeriod(mode,value){
   verPanel("cMensual",S.monthly.labels.length>=2);
   if(S.monthly.labels.length>=2)
   reg(new Chart(document.getElementById("cMensual"),{type:"line",data:{labels:S.monthly.labels,datasets:[
-    {label:"% Aprobación",data:S.monthly.aprob,borderColor:SAGE,backgroundColor:"transparent",borderWidth:2,pointRadius:3,pointBackgroundColor:SAGE,tension:.35,fill:false,sinEtiquetas:true},
-    Object.assign({},serieTendencia(ROSE,"220,38,38"),{label:"% Rechazo",data:S.monthly.rech})]},
-    options:{responsive:true,animation:ANIM,layout:{padding:{top:30}},plugins:{legend:{position:"bottom",labels:{boxWidth:12,usePointStyle:true}},etiquetasTendencia:{fmt:v=>v.toFixed(1)+"%"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+c.raw+"%"}}},scales:{x:{grid:{display:false},border:{color:WARM}},y:{min:0,max:100,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}}}},plugins:[etiquetasTendencia]}));
+    Object.assign({},serieAprob(),{label:"% Aprobación",data:S.monthly.aprob}),
+    Object.assign({},serieTendencia(ROSE,"220,38,38"),{label:"% Rechazo",data:S.monthly.rech,etiquetaAbajo:true})]},
+    options:{responsive:true,animation:ANIM,layout:{padding:{top:30,bottom:14}},plugins:{legend:LEYENDA,etiquetasTendencia:{fmt:v=>v.toFixed(1)+"%"},tooltip:{mode:"index",intersect:false,callbacks:{label:c=>c.dataset.label+": "+c.raw+"%"}}},scales:{x:{grid:{display:false},border:{color:WARM}},y:{min:0,max:100,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}}}},plugins:[etiquetasTendencia]}));
 
   const tk=isYear?S.months.slice():(isMonth?S.months.filter(m=>m<=value).slice(-6):S.weeks.filter(w=>w<=value).slice(-5));
   const tsrc=(isYear||isMonth)?S.mo:S.wk;
@@ -1241,23 +1259,31 @@ function renderPeriod(mode,value){
   verPanel("cTrend",tk.length>=2);
   if(tk.length>=2)
   reg(new Chart(document.getElementById("cTrend"),{type:"line",data:{labels:tk.map(k=>(isYear||isMonth)?MESES[k]:"Sem "+k),datasets:[
-    {label:"% Aprobación",data:apLine,borderColor:SAGE,pointBackgroundColor:SAGE,pointRadius:3,tension:.35,fill:false,borderWidth:2,sinEtiquetas:true},
-    Object.assign({},serieTendencia(ROSE,"220,38,38"),{label:"% Rechazo",data:reLine})]},
-    options:{responsive:true,animation:ANIM,layout:{padding:{top:30}},plugins:{legend:{position:"bottom",labels:{boxWidth:12,usePointStyle:true}},etiquetasTendencia:{fmt:v=>v.toFixed(1)+"%"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+c.raw+"%"}}},scales:{x:{grid:{display:false},border:{color:WARM}},y:{min:0,max:100,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}}}},plugins:[etiquetasTendencia]}));
+    Object.assign({},serieAprob(),{label:"% Aprobación",data:apLine}),
+    Object.assign({},serieTendencia(ROSE,"220,38,38"),{label:"% Rechazo",data:reLine,etiquetaAbajo:true})]},
+    options:{responsive:true,animation:ANIM,layout:{padding:{top:30,bottom:14}},plugins:{legend:LEYENDA,etiquetasTendencia:{fmt:v=>v.toFixed(1)+"%"},tooltip:{mode:"index",intersect:false,callbacks:{label:c=>c.dataset.label+": "+c.raw+"%"}}},scales:{x:{grid:{display:false},border:{color:WARM}},y:{min:0,max:100,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}}}},plugins:[etiquetasTendencia]}));
+
+  renderEntTrend(mode);
 
   // resultados por entidad primaria (período)
   const pRej=!!entCfg(CFG.primaryEntity).rej;
   ent.forEach(x=>x.rePct=+(100-x.ap).toFixed(1));
   if(pRej){
     document.getElementById("byEntTitle").textContent="% de rechazo por "+plab.toLowerCase()+" — "+plabel;
-    document.getElementById("phByEnt").textContent=`Rechazadas ÷ auditorías de cada ${plab.toLowerCase()} en el período. Entre paréntesis, cuántas auditorías tiene. Color: ${refTxt()}. En gris, los que no llegan a ${MN} auditorías.`;
-    const byE=ent.slice().sort((a,b)=>b.rePct-a.rePct||b.n-a.n); // mayor rechazo arriba
+    var _fuera=ent.filter(function(x){return x.n<MN;});
+  var _nb=document.getElementById("byEntNote");
+  if(_nb){ if(_fuera.length){_nb.style.display="";_nb.textContent=_fuera.length+" "+plab.toLowerCase()+(_fuera.length===1?"":"s")+" del período no aparece"+(_fuera.length===1?"":"n")+" en el gráfico por tener menos de "+MN+" auditorías ("+_fuera.map(function(x){return x.k+" · "+x.n;}).join(", ")+"): con esa muestra, una sola auditoría mueve el porcentaje demasiado."; } else _nb.style.display="none"; }
+  document.getElementById("phByEnt").textContent=`Rechazadas ÷ auditorías de cada ${plab.toLowerCase()} en el período. Entre paréntesis, cuántas auditorías tiene. Color: ${refTxt()}. En gris, los que no llegan a ${MN} auditorías.`;
+    const byE=ent.filter(x=>x.n>=MN).sort((a,b)=>b.rePct-a.rePct||b.n-a.n); // mayor rechazo arriba
     reg(new Chart(document.getElementById("cByEnt"),{type:"bar",data:{labels:byE.map(r=>r.k),datasets:[{data:byE.map(r=>r.rePct),backgroundColor:byE.map(r=>r.n<MN?"#c9c9c9":colorRel(r.ap)),borderRadius:2,barThickness:20}]},
       options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,layout:{padding:{right:64}},plugins:{legend:{display:false},valueLabel:{suffix:"%",extra:byE.map(r=>"  ("+r.n+")")},tooltip:{callbacks:{label:c=>byE[c.dataIndex].rePct+"% rechazo · "+byE[c.dataIndex].n+" aud"}}},scales:{x:{min:0,max:100,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}},y:{grid:{display:false},border:{color:WARM},ticks:{font:{size:10}}}}},plugins:[valueLabel]}));
   } else {
     document.getElementById("byEntTitle").textContent="% de aprobación por "+plab.toLowerCase()+" — "+plabel;
-    document.getElementById("phByEnt").textContent=`Aprobadas ÷ auditorías de cada ${plab.toLowerCase()} en el período. Entre paréntesis, cuántas auditorías tiene. Color: ${refTxt()}. En gris, los que no llegan a ${MN} auditorías.`;
-    const byE=ent.slice().sort((a,b)=>a.ap-b.ap); // menor aprob (mayor rechazo) arriba
+    var _fuera=ent.filter(function(x){return x.n<MN;});
+  var _nb=document.getElementById("byEntNote");
+  if(_nb){ if(_fuera.length){_nb.style.display="";_nb.textContent=_fuera.length+" "+plab.toLowerCase()+(_fuera.length===1?"":"s")+" del período no aparece"+(_fuera.length===1?"":"n")+" en el gráfico por tener menos de "+MN+" auditorías ("+_fuera.map(function(x){return x.k+" · "+x.n;}).join(", ")+"): con esa muestra, una sola auditoría mueve el porcentaje demasiado."; } else _nb.style.display="none"; }
+  document.getElementById("phByEnt").textContent=`Aprobadas ÷ auditorías de cada ${plab.toLowerCase()} en el período. Entre paréntesis, cuántas auditorías tiene. Color: ${refTxt()}. En gris, los que no llegan a ${MN} auditorías.`;
+    const byE=ent.filter(x=>x.n>=MN).sort((a,b)=>a.ap-b.ap); // menor aprob (mayor rechazo) arriba
     reg(new Chart(document.getElementById("cByEnt"),{type:"bar",data:{labels:byE.map(r=>r.k),datasets:[{data:byE.map(r=>r.ap),backgroundColor:byE.map(r=>r.n<MN?"#c9c9c9":colorRel(r.ap)),borderRadius:2,barThickness:20}]},
       options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,layout:{padding:{right:64}},plugins:{legend:{display:false},valueLabel:{suffix:"%",extra:byE.map(r=>"  ("+r.n+")")},tooltip:{callbacks:{label:c=>byE[c.dataIndex].ap+"% aprob · "+byE[c.dataIndex].n+" aud"}}},scales:{x:{min:0,max:100,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}},y:{grid:{display:false},border:{color:WARM}}}},plugins:[valueLabel]}));
   }
@@ -1296,6 +1322,61 @@ function renderPeriod(mode,value){
 /* ===== Componentes v2 (solo presentacion) =====================================
    Reciben numeros ya calculados en renderPeriod y los redactan. Si el dato no
    existe, el componente se omite entero en vez de mostrar un valor falso.    */
+/* Comparativo de tendencia por entidad. Responde una pregunta que ningun otro
+   panel responde: cual mejora y cual se cae a lo largo del ano. La serie recorre
+   el AÑO COMPLETO, no el periodo filtrado — una tendencia de un solo punto no es
+   una tendencia. Sin etiquetas sobre los puntos: con varias series encima se
+   pisan y el grafico deja de leerse; el valor exacto va en el tooltip.        */
+function renderEntTrend(mode){
+  const S=STATE, col=entColOf(CURENT), lab=entCfg(CURENT).label;
+  const usaMes = true; /* por mes: con 50 semanas y varias series el gráfico se vuelve ilegible */
+  const rows=S.rows||[];
+  if(!rows.length){ verPanel("cEntTrend",false); return; }
+
+  const keyDe = r => usaMes ? monthOf(r["FECHA"]) : Number(r["SEMANA"]);
+  const ejes=[...new Set(rows.map(keyDe))].filter(x=>x!=null&&!isNaN(x)).sort((a,b)=>a-b);
+  if(ejes.length<2){ verPanel("cEntTrend",false); return; }
+
+  const acc={};
+  rows.forEach(r=>{
+    const k=val(r,col); if(k==null||k==="") return;
+    const e=keyDe(r); if(e==null||isNaN(e)) return;
+    if(!acc[k])acc[k]={tot:0,por:{}};
+    acc[k].tot++;
+    if(!acc[k].por[e])acc[k].por[e]={n:0,re:0};
+    acc[k].por[e].n++;
+    if(r["RESULTADO"]==="RECHAZADO")acc[k].por[e].re++;
+  });
+  // Solo quienes tienen volumen en el año: una línea que salta de 0 a 100 por una
+  // sola auditoría ensucia el gráfico y no dice nada.
+  const lista=Object.keys(acc).map(k=>({k,tot:acc[k].tot})).sort((a,b)=>b.tot-a.tot);
+  const MNA=minnDe(lista.map(x=>({n:x.tot})));
+  const top=lista.filter(x=>x.tot>=MNA).slice(0,4);
+  if(!top.length){ verPanel("cEntTrend",false); return; }
+  verPanel("cEntTrend",true);
+
+  const COLS=[ROSE,SLATE,TAUPE,SAGE,TAN,"#7C3AED"];
+  const ds=top.map((x,i)=>({
+    label:x.k,
+    data:ejes.map(e=>{const o=acc[x.k].por[e];return (o&&o.n)?+(o.re/o.n*100).toFixed(1):null;}),
+    borderColor:COLS[i%COLS.length], backgroundColor:"transparent",
+    borderWidth:2.5, tension:.35, pointRadius:3, pointHoverRadius:6,
+    pointBackgroundColor:COLS[i%COLS.length], spanGaps:true, fill:false, sinEtiquetas:true
+  }));
+  const ph=document.getElementById("phEntTrend");
+  if(ph)ph.textContent=`% de rechazo de cada ${lab.toLowerCase()} a lo largo de ${S.year||"el año"}, `+
+    `por mes. Se muestran ${top.length===1?"el único que llega":"los "+top.length+" de mayor volumen, entre los que llegan"} a ${MNA} auditorías en el año. `+
+    `Cada punto es rechazadas ÷ auditorías de ese mes. Pasa el cursor para ver el valor exacto.`;
+  reg(new Chart(document.getElementById("cEntTrend"),{type:"line",
+    data:{labels:ejes.map(e=>usaMes?MESES[e]:"Sem "+e),datasets:ds},
+    options:{responsive:true,animation:ANIM,
+      layout:{padding:{top:10,bottom:10}},
+      plugins:{legend:LEYENDA,
+        tooltip:{mode:"index",intersect:false,callbacks:{label:c=>c.dataset.label+": "+(c.raw==null?"sin auditorías":c.raw+"%")}}},
+      scales:{x:{grid:{display:false},border:{color:WARM}},
+              y:{min:0,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}}}}}));
+}
+
 function renderVerdict(o){
   const box=document.getElementById("verdict");if(!box)return;
   const dot=document.getElementById("verdictDot"),t=document.getElementById("verdictT"),sub=document.getElementById("verdictS");
