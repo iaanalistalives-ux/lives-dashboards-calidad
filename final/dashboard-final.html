@@ -451,15 +451,29 @@
   @media(max-width:900px){.fk-grid{grid-template-columns:1fr;}}
   @media(max-width:760px){.fk-grid{grid-template-columns:1fr;}}
   .fk-tile{background:var(--warm-light);border:none;border-radius:var(--r);padding:13px 15px;min-width:0;}
-  .fk-t{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--stone,#5F726C);margin-bottom:8px;}
+  .fk-t{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--stone,#5F726C);margin-bottom:8px;display:flex;align-items:center;gap:8px;}
   .fk-big{font-size:30px;font-weight:800;line-height:1;}
   .fk-big small{font-size:13px;font-weight:700;margin-left:3px;}
   .fk-lbl{font-size:12px;color:#333;font-weight:600;margin-top:3px;}
   .fk-list{display:flex;flex-direction:column;gap:4px;margin-top:9px;}
-  .fk-it{display:flex;align-items:center;flex-wrap:wrap;font-size:12.5px;color:#333;
-         background:var(--card);border-radius:8px;padding:8px 11px;margin-bottom:6px;
-         cursor:pointer;transition:box-shadow .15s,transform .15s;}
-  .fk-it:hover{box-shadow:var(--sh-h);transform:translateY(-1px);}
+/* Las filas se leen como tabla: posición, nombre y porcentaje siempre en la misma columna,
+     con línea separadora. Antes cada fila era una tarjeta suelta con el texto envuelto, y
+     tres bloques uno al lado del otro se veían desordenados. */
+  .fk-tabla{background:var(--card);border-radius:10px;overflow:hidden;}
+  .fk-it{display:grid;grid-template-columns:26px 1fr auto;align-items:center;gap:9px;
+         font-size:12.5px;color:#333;padding:9px 12px;cursor:pointer;
+         border-bottom:1px solid var(--warm-light);transition:background .15s;}
+  .fk-it:last-child{border-bottom:none;}
+  .fk-it:hover{background:var(--warm-light);}
+  .fk-it .fk-n{display:inline-flex;width:22px;height:22px;border-radius:50%;
+         font-size:11px;font-weight:800;align-items:center;justify-content:center;}
+  .fk-it .fk-nom{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .fk-it .fk-pct{font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .fk-it .fk-sub{grid-column:2 / -1;font-size:11px;color:var(--stone);margin-top:1px;}
+  /* Filtro de dimensión dentro del bloque */
+  .fk-sel{font-family:inherit;font-size:11.5px;font-weight:700;color:var(--sage);
+          border:1px solid var(--warm);border-radius:6px;padding:3px 8px;background:#fff;
+          cursor:pointer;margin-left:auto;}
   .fk-it:hover{background:#EEF3F1;}
   .fk-it b{color:#333;}
 
@@ -2049,6 +2063,8 @@ function derPanelAntiguo_(){
    motivos, en qué talleres y cómo viene evolucionando.
    ========================================================================== */
 function telaDetalle(tela){
+  var EJE=ejeTendencia();
+  var ANIO=filasAnioDer();
   var rows=filasPeriodoDer();
   var loteTela=0, derTela=0, porMotivo={}, porTaller={}, porTallerLote={},
       porEstilo={}, porSemNum={}, porSemDen={}, auds=[];
@@ -2061,7 +2077,7 @@ function telaDetalle(tela){
     if(normTela(r['TELA']||r['COD TELA'])!==telaN) return;
     var lote=Number(r['LOTE_CONTABLE']!=null&&r['LOTE_CONTABLE']!==''?r['LOTE_CONTABLE']:r['LOTE'])||0;
     var taller=String(r['SERVICIO']||'')||(String(r['INT/EXT']||'')==='INTERNO'?'LIVES':'—');
-    var sem=Number(r['SEMANA'])||0;
+    var sem=EJE.clave(r);
     loteTela+=lote;
     porTallerLote[taller]=(porTallerLote[taller]||0)+lote;
     if(sem) porSemDen[sem]=(porSemDen[sem]||0)+lote;
@@ -2093,7 +2109,7 @@ function telaDetalle(tela){
     }).join('');
   }
 
-  var MIN_SEM=200, tendHTML='';
+  var MIN_SEM=EJE.min, tendHTML='';
   var sems=Object.keys(porSemDen).map(Number).sort(function(a,b){return a-b;});
   var pts=sems.map(function(w){
     var d=porSemDen[w]||0;
@@ -2101,15 +2117,15 @@ function telaDetalle(tela){
   }).filter(function(x){ return x.p!==null; });
   if(pts.length>=2){
     var mx=Math.max.apply(null,pts.map(function(x){return x.p;}))||1;
-    tendHTML='<div class="dmT" style="margin-top:14px">Tendencia semanal · % del lote de esta tela</div>'+
+    tendHTML='<div class="dmT" style="margin-top:14px">'+EJE.titulo+' · % del lote de esta tela</div>'+
       '<div style="display:flex;align-items:flex-end;gap:6px;height:110px;padding:8px 2px 0;border-bottom:1px solid #DCE5E2">'+
       pts.map(function(x){
         var h=Math.max(3,Math.round(x.p/mx*92));
         return '<div style="flex:1;text-align:center" title="Semana '+x.w+': '+x.n+' de '+x.d+' = '+x.p+'%">'+
           '<div style="height:'+h+'px;background:#4E6B78;border-radius:3px 3px 0 0"></div>'+
-          '<div style="font-size:10px;color:#5F726C;margin-top:3px">S'+x.w+'</div></div>';
+          '<div style="font-size:10px;color:#5F726C;margin-top:3px">'+EJE.etq(x.w)+'</div></div>';
       }).join('')+'</div>'+
-      '<div style="font-size:11.5px;color:#5F726C;margin-top:5px">Solo semanas con al menos '+MIN_SEM+' prendas de esta tela.</div>';
+      '<div style="font-size:11.5px;color:#5F726C;margin-top:5px">Solo '+EJE.unidad+' con al menos '+MIN_SEM+' prendas de esta tela.</div>';
   }
 
   var tasa = loteTela? +(derTela/loteTela*100).toFixed(2) : null;
@@ -2343,12 +2359,13 @@ function renderUniverso(){
 
   var lote=0, muestra=0, defs=0, ders=0, nAud=rows.length, loteTaller=0;
   var motNum={}, motTallerNum={}, motTallerDen={}, motSemNum={}, semDen={}, defNum={};
+  var EJEP = (typeof ejeTendencia==='function') ? ejeTendencia() : null;
   rows.forEach(function(r){
     var L=Number(r['LOTE_CONTABLE']!=null&&r['LOTE_CONTABLE']!==''?r['LOTE_CONTABLE']:r['LOTE'])||0;
     var M=Number(r['MUESTRA_CONTABLE']!=null&&r['MUESTRA_CONTABLE']!==''?r['MUESTRA_CONTABLE']:r['MUESTRA'])||0;
     var externo = String(r['INT/EXT']||'')==='EXTERNO';
     var taller=String(r['SERVICIO']||'')||(externo?'—':'LIVES');
-    var sem=Number(r['SEMANA'])||0;
+    var sem = EJEP ? EJEP.clave(r) : (Number(r['SEMANA'])||0);
     lote+=L; muestra+=M;
     if(sem) semDen[sem]=(semDen[sem]||0)+L;
     /* CORREGIDO: el denominador de derivados sumaba el lote SOLO cuando INT/EXT decía
@@ -2613,7 +2630,7 @@ function renderUniverso(){
      los 3 motivos, sin cortar el resto. */
   if(!top.length){ document.getElementById('uniTop').innerHTML=''; return; }
   var sems=Object.keys(semDen).map(Number).sort(function(a,b){return a-b;});
-  var MIN=200;
+  var MIN = EJEP ? EJEP.min : 200;
 
 
   document.getElementById('uniTop').innerHTML =
@@ -2636,7 +2653,8 @@ function renderUniverso(){
         var mx=Math.max.apply(null,pts)||1;
         spark='<div style="display:flex;align-items:flex-end;gap:3px;height:34px;margin-top:8px">'+
           pts.map(function(v){ return '<div style="flex:1;height:'+Math.max(2,Math.round(v/mx*32))+'px;background:#B45309;border-radius:2px 2px 0 0"></div>'; }).join('')+'</div>'+
-          '<div style="font-size:10.5px;color:#5F726C;margin-top:2px">Tendencia semanal · último '+pts[pts.length-1]+'%</div>';
+          '<div style="font-size:10.5px;color:#5F726C;margin-top:2px">'+
+            ((typeof ejeTendencia==='function')?ejeTendencia().titulo:'Tendencia')+' · último '+pts[pts.length-1]+'%</div>';
       }
       var pesoPct = ders? (t.v/ders*100).toFixed(1) : '0';
       var sobreLote = loteTaller? (t.v/loteTaller*100).toFixed(2) : null;
@@ -2658,12 +2676,14 @@ function renderUniverso(){
    muestra inspeccionada, no el lote: el denominador de cada línea son las prendas
    muestreadas de ese taller o cliente. */
 function defDetalleUni(tipo){
+  var EJE=ejeTendencia();
+  var ANIO=filasAnioDer();
   var rows=filasPeriodoDer(), det=[], total=0, muestraTot=0;
   var numT={}, denT={}, numC={}, denC={}, semN={}, semD={};
   rows.forEach(function(r){
     var m=Number(r['MUESTRA_CONTABLE']!=null&&r['MUESTRA_CONTABLE']!==''?r['MUESTRA_CONTABLE']:r['MUESTRA'])||0;
     var taller=String(r['SERVICIO']||'')||(String(r['INT/EXT']||'')==='INTERNO'?'LIVES':'—');
-    var cli=String(r['CLIENTE']||'—'), sem=Number(r['SEMANA'])||0;
+    var cli=String(r['CLIENTE']||'—'), sem=EJE.clave(r);
     muestraTot+=m; denT[taller]=(denT[taller]||0)+m; denC[cli]=(denC[cli]||0)+m;
     if(sem) semD[sem]=(semD[sem]||0)+m;
     var acc={}; defCount(r['DEFECTOS'],acc);
@@ -2686,22 +2706,22 @@ function defDetalleUni(tipo){
       return '<div class="dmF"><span>'+x[0]+'</span><b>'+x[1].toLocaleString('es-PE')+e+'</b></div>';
     }).join('');
   }
-  var MIN=40, tend='';
+  var MIN=Math.round(EJE.min/5), tend='';   // la muestra es una fracción del lote
   var sems=Object.keys(semD).map(Number).sort(function(a,b){return a-b;});
   var pts=sems.map(function(w){var d=semD[w]||0;
     return {w:w,d:d,n:semN[w]||0,p:d>=MIN?+((semN[w]||0)/d*100).toFixed(2):null};})
     .filter(function(x){return x.p!==null;});
   if(pts.length>=2){
     var mx=Math.max.apply(null,pts.map(function(x){return x.p;}))||1;
-    tend='<div class="dmT" style="margin-top:14px">Tendencia semanal · % de la muestra inspeccionada</div>'+
+    tend='<div class="dmT" style="margin-top:14px">'+EJE.titulo+' · % de la muestra inspeccionada</div>'+
       '<div style="display:flex;align-items:flex-end;gap:6px;height:112px;padding:8px 2px 0;border-bottom:1px solid #DCE5E2">'+
       pts.map(function(x){
         return '<div style="flex:1;text-align:center" title="Semana '+x.w+': '+x.n+' de '+x.d+' = '+x.p+'%">'+
           '<div style="font-size:9.5px;color:#5F726C">'+x.p+'%</div>'+
           '<div style="height:'+Math.max(3,Math.round(x.p/mx*86))+'px;background:#DC2626;border-radius:3px 3px 0 0"></div>'+
-          '<div style="font-size:10px;color:#5F726C;margin-top:3px">S'+x.w+'</div></div>';
+          '<div style="font-size:10px;color:#5F726C;margin-top:3px">'+EJE.etq(x.w)+'</div></div>';
       }).join('')+'</div>'+
-      '<div style="font-size:11.5px;color:#5F726C;margin-top:5px">Solo semanas con al menos '+MIN+' prendas muestreadas: con menos, un defecto mueve el porcentaje varios puntos.</div>';
+      '<div style="font-size:11.5px;color:#5F726C;margin-top:5px">Solo '+EJE.unidad+' con al menos '+MIN+' prendas muestreadas: con menos, un defecto mueve el porcentaje varios puntos.</div>';
   }
   var m=document.getElementById('derModal');
   if(!m){ m=document.createElement('div'); m.id='derModal'; m.className='derMod';
@@ -2727,8 +2747,124 @@ function defDetalleUni(tipo){
   m.style.display='flex';
 }
 
+/* ============================================================================
+   EJE DE LAS TENDENCIAS DENTRO DE LAS FICHAS
+   ----------------------------------------------------------------------------
+   Todas las fichas graficaban SIEMPRE por semana, sin importar el filtro de arriba: con
+   "Mes" seleccionado, la ficha mostraba "Tendencia semanal · S31, S32, S33…". Quien la
+   abría veía semanas cuando había pedido meses, y parecía que el filtro no funcionaba.
+   Ahora el eje sigue al filtro: en vista Semana grafica semanas; en Mes y Año, meses.
+   ========================================================================== */
+/* Las tendencias se calculan sobre el AÑO COMPLETO, no sobre el período filtrado.
+   Una tendencia con un solo punto no es una tendencia: si el filtro está en "Mes" y la
+   serie usa solo ese mes, queda un único valor. Antes eso se disimulaba graficando siempre
+   semanas, y por eso con "Mes" seleccionado la ficha mostraba S31, S32, S33…
+   Ahora la serie recorre el año y el punto del período elegido va resaltado. */
+function filasAnioDer(){
+  if(typeof STATE==='undefined' || !STATE || !STATE.rows) return [];
+  return STATE.rows;   // ya viene filtrado por cliente y taller, no por período
+}
+function ejeTendencia(){
+  var modo = (typeof periodoActualDer==='function') ? periodoActualDer().modo : 'week';
+  if(modo === 'week'){
+    return { clave:function(r){ return Number(r['SEMANA'])||0; },
+             etq:function(k){ return 'S'+k; },
+             titulo:'Tendencia semanal', unidad:'semanas', min:200 };
+  }
+  var MESES=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Set','Oct','Nov','Dic'];
+  return { clave:function(r){ var m=monthOf(r['FECHA']); return (m==null)?0:(m+1); },
+           etq:function(k){ return MESES[k-1]||k; },
+           titulo:'Tendencia mensual', unidad:'meses', min:500 };
+}
+
+/* Ficha de un ESTILO: por qué está entre los peores.
+   Mismo formato que la de derivados, pero mirando desde el estilo: qué motivos lo hacen
+   fallar, en qué talleres, con qué telas y cómo viene evolucionando. */
+function estiloDetalle(estilo){
+  var EJE=ejeTendencia();
+  var ANIO=filasAnioDer();
+  var rows=filasPeriodoDer().filter(function(r){
+    return String(r['ESTILO']||'').trim()===String(estilo).trim() &&
+           (String(r['INT/EXT']||'')==='EXTERNO' || String(r['DERIVADOS']||'').trim()!=='');
+  });
+  var lote=0, der=0, mot={}, numT={}, denT={}, numTe={}, denTe={}, semN={}, semD={}, auds=[];
+  rows.forEach(function(r){
+    var L=Number(r['LOTE_CONTABLE']!=null&&r['LOTE_CONTABLE']!==''?r['LOTE_CONTABLE']:r['LOTE'])||0;
+    var taller=String(r['SERVICIO']||'')||'—';
+    var tela=String(r['TELA']||r['COD TELA']||'')||'—';
+    var sem=EJE.clave(r);
+    lote+=L; denT[taller]=(denT[taller]||0)+L; denTe[tela]=(denTe[tela]||0)+L;
+    if(sem) semD[sem]=(semD[sem]||0)+L;
+    var enFila=0;
+    derParse(r['DERIVADOS']).forEach(function(d){
+      enFila+=d.cant; der+=d.cant; mot[d.nombre]=(mot[d.nombre]||0)+d.cant;
+    });
+    if(enFila){
+      numT[taller]=(numT[taller]||0)+enFila; numTe[tela]=(numTe[tela]||0)+enFila;
+      if(sem) semN[sem]=(semN[sem]||0)+enFila;
+      auds.push({fecha:String(r['FECHA']||''), cliente:String(r['CLIENTE']||''),
+                 grupo:String(r['GRUPO']||''), color:String(r['COLOR']||''),
+                 taller:taller, tela:tela, lote:L, cant:enFila});
+    }
+  });
+  auds.sort(function(a,b){ return b.cant-a.cant; });
+  function lista(num,den){
+    var arr=Object.keys(num).map(function(k){
+      var d=den?(den[k]||0):0; return [k,num[k],d,d? +(num[k]/d*100).toFixed(2):null];
+    }).sort(function(a,b){return b[1]-a[1];}).slice(0,8);
+    if(!arr.length) return '<span style="font-size:11.5px;color:#5F726C">Sin registros.</span>';
+    return arr.map(function(x){
+      var e=(x[3]==null)?'':' <span style="opacity:.7">de '+x[2].toLocaleString('es-PE')+' · '+x[3]+'%</span>';
+      return '<div class="dmF"><span>'+x[0]+'</span><b>'+x[1].toLocaleString('es-PE')+e+'</b></div>';
+    }).join('');
+  }
+  var MIN=EJE.min, tend='';
+  var sems=Object.keys(semD).map(Number).sort(function(a,b){return a-b;});
+  var pts=sems.map(function(w){var d=semD[w]||0;
+    return {w:w,d:d,n:semN[w]||0,p:d>=MIN?+((semN[w]||0)/d*100).toFixed(2):null};})
+    .filter(function(x){return x.p!==null;});
+  if(pts.length>=2){
+    var mx=Math.max.apply(null,pts.map(function(x){return x.p;}))||1;
+    tend='<div class="dmT" style="margin-top:14px">'+EJE.titulo+' · % del lote de este estilo</div>'+
+      '<div style="display:flex;align-items:flex-end;gap:6px;height:112px;padding:8px 2px 0;border-bottom:1px solid #DCE5E2">'+
+      pts.map(function(x){
+        return '<div style="flex:1;text-align:center" title="Semana '+x.w+': '+x.n+' de '+x.d+' = '+x.p+'%">'+
+          '<div style="font-size:9.5px;color:#5F726C">'+x.p+'%</div>'+
+          '<div style="height:'+Math.max(3,Math.round(x.p/mx*86))+'px;background:#B45309;border-radius:3px 3px 0 0"></div>'+
+          '<div style="font-size:10px;color:#5F726C;margin-top:3px">'+EJE.etq(x.w)+'</div></div>';
+      }).join('')+'</div>'+
+      '<div style="font-size:11.5px;color:#5F726C;margin-top:5px">Solo '+EJE.unidad+' con al menos '+MIN+' prendas de este estilo.</div>';
+  }
+  var m=document.getElementById('derModal');
+  if(!m){ m=document.createElement('div'); m.id='derModal'; m.className='derMod';
+    m.onclick=function(e){ if(e.target===m) m.style.display='none'; }; document.body.appendChild(m); }
+  m.innerHTML='<div class="derModC">'+
+    '<div class="derModH">Estilo '+estilo+' · '+der.toLocaleString('es-PE')+' prendas derivadas'+
+      (lote? ' <span style="font-weight:400;opacity:.85">de '+lote.toLocaleString('es-PE')+' del lote · '+(der/lote*100).toFixed(2)+'%</span>':'')+
+      '<button type="button" onclick="document.getElementById(\'derModal\').style.display=\'none\'">&times;</button></div>'+
+    '<div class="derModB">'+
+      '<div style="font-size:12px;color:#5F726C;margin-bottom:10px">Por qué este estilo está entre los peores. Cada línea es sobre el lote revisado de ese taller o esa tela.</div>'+
+      '<div class="dmGrid">'+
+        '<div class="dmCol"><div class="dmT">Motivos de derivación</div>'+lista(mot,null)+'</div>'+
+        '<div class="dmCol"><div class="dmT">Por taller</div>'+lista(numT,denT)+'</div>'+
+        '<div class="dmCol"><div class="dmT">Por tela</div>'+lista(numTe,denTe)+'</div>'+
+      '</div>'+tend+
+      '<div class="dmT" style="margin-top:14px">Auditorías de este estilo con derivados</div>'+
+      '<div class="dmTbl"><table><thead><tr><th>Fecha</th><th>Cliente</th><th>Grupo</th><th>Color</th>'+
+        '<th>Taller</th><th>Tela</th><th>Lote</th><th>Derivadas</th></tr></thead><tbody>'+
+        auds.slice(0,100).map(function(x){
+          return '<tr><td>'+x.fecha+'</td><td>'+x.cliente+'</td><td>'+x.grupo+'</td><td>'+x.color+'</td>'+
+            '<td>'+x.taller+'</td><td>'+(x.tela||'—')+'</td><td class="nu">'+(x.lote||'—')+'</td>'+
+            '<td class="nu"><b>'+x.cant+'</b></td></tr>';
+        }).join('')+'</tbody></table></div>'+
+    '</div></div>';
+  m.style.display='flex';
+}
+
 /* Detalle de un derivado: de dónde viene. */
 function derDetalle(tipo){
+  var EJE=ejeTendencia();
+  var ANIO=filasAnioDer();
   // El universo son TODAS las prendas revisadas en talleres externos del período, no solo
   // las auditorías que tuvieron derivados. Antes usaba derFilas() (solo las que tenían algo),
   // y eso achicaba el denominador e inflaba la tasa: el panel decía 3.65% sobre 58,426 y la
@@ -2758,7 +2894,7 @@ function derDetalle(tipo){
       if(d.nombre!==tipo) return;
       total+=d.cant;
       det.push({
-        id:id, fecha:String(r['FECHA']||''), semana:Number(r['SEMANA'])||0,
+        id:id, fecha:String(r['FECHA']||''), semana:EJE.clave(r),
         cliente:String(r['CLIENTE']||''), grupo:String(r['GRUPO']||''),
         estilo:String(r['ESTILO']||''), color:String(r['COLOR']||''),
         taller:taller, origen:String(r['INT/EXT']||''),
@@ -2803,12 +2939,18 @@ function derDetalle(tipo){
   // Tendencia semanal: prendas con este derivado sobre las revisadas cada semana.
   // Solo se dibuja la semana si hubo volumen suficiente; con lotes chicos el
   // porcentaje salta de 0 a 20 por dos prendas y la línea engaña.
-  var MIN_SEM=200;
+  var MIN_SEM=EJE.min;
   var semNum={}, semDen={};
-  det.forEach(function(x){ if(x.semana) semNum[x.semana]=(semNum[x.semana]||0)+x.cant; });
-  Object.keys(loteVisto).forEach(function(k){
-    var r=loteVisto[k].r, sem=Number(r['SEMANA'])||0;
-    if(sem) semDen[sem]=(semDen[sem]||0)+loteVisto[k].lote;
+  /* La serie se arma con el AÑO completo, no con el período filtrado: así siempre hay
+     varios puntos y se ve de dónde viene el número que se está mirando. El punto del
+     período activo va resaltado más abajo. */
+  ANIO.forEach(function(r){
+    if(String(r['INT/EXT']||'')!=='EXTERNO' && String(r['DERIVADOS']||'').trim()==='') return;
+    var k=EJE.clave(r); if(!k) return;
+    semDen[k]=(semDen[k]||0)+(Number(r['LOTE_CONTABLE']!=null&&r['LOTE_CONTABLE']!==''?r['LOTE_CONTABLE']:r['LOTE'])||0);
+    derParse(r['DERIVADOS']).forEach(function(d){
+      if(d.nombre===tipo) semNum[k]=(semNum[k]||0)+d.cant;
+    });
   });
   var sems=Object.keys(semDen).map(Number).sort(function(a,b){return a-b;});
   var puntos=sems.map(function(w){
@@ -2818,15 +2960,15 @@ function derDetalle(tipo){
   var tendHTML='';
   if(puntos.length>=2){
     var mx=Math.max.apply(null,puntos.map(function(x){return x.p;}))||1;
-    tendHTML='<div class="dmT" style="margin-top:14px">Tendencia semanal · % de las prendas revisadas</div>'+
+    tendHTML='<div class="dmT" style="margin-top:14px">'+EJE.titulo+' · % de las prendas revisadas</div>'+
       '<div style="display:flex;align-items:flex-end;gap:6px;height:110px;padding:8px 2px 0;border-bottom:1px solid #DCE5E2">'+
       puntos.map(function(x){
         var h=Math.max(3,Math.round(x.p/mx*92));
         return '<div style="flex:1;text-align:center" title="Semana '+x.w+': '+x.n+' de '+x.d+' = '+x.p+'%">'+
           '<div style="height:'+h+'px;background:#B45309;border-radius:3px 3px 0 0"></div>'+
-          '<div style="font-size:10px;color:#5F726C;margin-top:3px">S'+x.w+'</div></div>';
+          '<div style="font-size:10px;color:#5F726C;margin-top:3px">'+EJE.etq(x.w)+'</div></div>';
       }).join('')+'</div>'+
-      '<div style="font-size:11.5px;color:#5F726C;margin-top:5px">Solo se grafican las semanas con al menos '+MIN_SEM+' prendas revisadas.</div>';
+      '<div style="font-size:11.5px;color:#5F726C;margin-top:5px">Solo se grafican '+EJE.unidad+' con al menos '+MIN_SEM+' prendas revisadas.</div>';
   }
 
   // CATEGORÍA MADRE. Aquí está el valor de cruzar las dos fuentes: en el texto libre del
@@ -3177,11 +3319,15 @@ if(document.readyState!=='loading'){ cargarEnVivo(); cargarDetalleFino(); }
        se puede concluir nada. */
     var MIN = (pp.kind==="week") ? 2 : (pp.kind==="month" ? 3 : 5);
 
-    function peoresPorRechazo(col){
+    function peoresPorRechazo(col, soloExternos){
       var m={};
       wrows.forEach(function(r){
+        /* CORREGIDO: el ranking de talleres contaba también las auditorías internas, y la
+           tabla "Desempeño de talleres externos" solo cuenta las externas. Por eso salían
+           talleres distintos en cada lado: FREDY SOSA aparecía primero con 4 de 7 en el
+           ranking mientras la tabla ni lo mostraba. Ahora ambos miden lo mismo. */
+        if(soloExternos && String(r["INT/EXT"]||"")!=="EXTERNO") return;
         var k=String(r[col]||"").trim();
-        if(col==="SERVICIO" && !k) k = (String(r["INT/EXT"]||"")==="INTERNO") ? "LIVES" : "";
         if(!k) return;
         (m[k]=m[k]||{n:0,re:0});
         m[k].n++;
@@ -3201,20 +3347,37 @@ if(document.readyState!=='loading'){ cargarEnVivo(); cargarDetalleFino(); }
                  .slice(0,3).map(function(x){ x.pocas = bajo || x.n<MIN; return x; });
     }
 
-    /* DERIVADOS, no defectos de muestra. Son las prendas que hubo que separar al revisar el
-       lote completo en talleres externos: es el problema que se ataca en el taller, y su
-       universo es el lote revisado, no la muestra. */
-    function peoresDerivados(){
-      var acc={}, lote=0;
+    /* ESTILOS con más derivados sobre su propio lote.
+       Antes este bloque mostraba los 3 derivados más frecuentes, pero eso ya está en el
+       panel "Los 3 motivos que más pesan" de arriba: eran las mismas tres tarjetas dos
+       veces. El estilo es la tercera dimensión de responsabilidad que faltaba, junto con
+       cliente y taller, y es accionable: un estilo que falla mucho se revisa en ficha
+       técnica, en molde o en la tela que usa. */
+    function peoresEstilos(){
+      var m={};
       wrows.forEach(function(r){
         var ext = String(r["INT/EXT"]||"")==="EXTERNO";
         var hay = String(r["DERIVADOS"]||"").trim()!=="";
-        if(ext || hay) lote += Number(r["LOTE_CONTABLE"]!=null&&r["LOTE_CONTABLE"]!==""?r["LOTE_CONTABLE"]:r["LOTE"])||0;
-        derParse(r["DERIVADOS"]).forEach(function(d){ acc[d.nombre]=(acc[d.nombre]||0)+d.cant; });
+        if(!ext && !hay) return;
+        var k=String(r["ESTILO"]||"").trim(); if(!k) return;
+        var L=Number(r["LOTE_CONTABLE"]!=null&&r["LOTE_CONTABLE"]!==""?r["LOTE_CONTABLE"]:r["LOTE"])||0;
+        (m[k]=m[k]||{lote:0,der:0,mot:{}});
+        m[k].lote+=L;
+        derParse(r["DERIVADOS"]).forEach(function(d){
+          m[k].der+=d.cant; m[k].mot[d.nombre]=(m[k].mot[d.nombre]||0)+d.cant;
+        });
       });
-      return Object.keys(acc).map(function(k){
-        return {k:k, v:acc[k], den:lote, pct: lote? +(acc[k]/lote*100).toFixed(2) : 0};
-      }).sort(function(a,b){ return b.v-a.v; }).slice(0,3);
+      var MIN_LOTE = 300;   // sobre lotes chicos el % salta con dos prendas
+      var todos = Object.keys(m).map(function(k){
+        var o=m[k];
+        var top=Object.keys(o.mot).sort(function(a,b){return o.mot[b]-o.mot[a];})[0]||"";
+        return {k:k, v:o.der, den:o.lote, pct: o.lote? +(o.der/o.lote*100).toFixed(2):0, motivo:top};
+      }).filter(function(x){ return x.v>0; });
+      var conMin = todos.filter(function(x){ return x.den>=MIN_LOTE; });
+      var usar = conMin.length ? conMin : todos;
+      var bajo = conMin.length===0;
+      return usar.sort(function(a,b){ return b.pct-a.pct || b.v-a.v; })
+                 .slice(0,3).map(function(x){ x.pocas = bajo || x.den<MIN_LOTE; return x; });
     }
 
     /* Semáforo relativo a la media del período: Calidad no ha declarado meta, así que se
@@ -3230,25 +3393,59 @@ if(document.readyState!=='loading'){ cargarEnVivo(); cargarDetalleFino(); }
     function tile(titulo, sub, items, tipo){
       var filas = items.length ? items.map(function(x,i){
         var p = (tipo==="def") ? x.pct : x.pct;
-        var col = (tipo==="def") ? ["","#B45309","#FEF3E2"] : nivel(x.pct);
-        var det = (tipo==="def")
-          ? (x.v.toLocaleString("es-PE")+" de "+x.den.toLocaleString("es-PE")+" revisadas · "+p+"%")
+        var col = (tipo==="est") ? ["","#B45309","#FEF3E2"] : nivel(x.pct);
+        var det = (tipo==="est")
+          ? (x.v.toLocaleString("es-PE")+((window._fkModo3==='defecto')?" defectos de ":" derivadas de ")+
+             x.den.toLocaleString("es-PE")+((window._fkModo3==='defecto')?" inspeccionadas · ":" del lote · ")+p+"%"+
+             (x.motivo?(" · sobre todo "+x.motivo):""))
           : (x.re+" rechazadas de "+x.n+" auditorías · "+p+"%");
-        var fn = (tipo==="def") ? ("derDetalle("+JSON.stringify(x.k).replace(/"/g,"&quot;")+")")
+        var fn = (tipo==="est") ? ("estiloDetalle("+JSON.stringify(x.k).replace(/"/g,"&quot;")+")")
                : (tipo==="cli") ? ("generarFichaCliente("+JSON.stringify(x.k).replace(/"/g,"&quot;")+", curPeriodTok())")
                : ("generarFicha("+JSON.stringify(x.k).replace(/"/g,"&quot;")+", curPeriodTok())");
         return '<div class="fk-it" onclick="'+fn+'" title="Toca para ver su detalle">'+
-          '<span style="display:inline-flex;width:19px;height:19px;border-radius:50%;background:'+col[2]+
-            ';color:'+col[1]+';font-size:10.5px;font-weight:800;align-items:center;justify-content:center;margin-right:7px;flex:none">'+(i+1)+'</span>'+
-          '<b style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+x.k+'</b>'+
-          '<span style="font-weight:800;color:'+col[1]+';margin-left:8px;white-space:nowrap">'+p+'%</span>'+
-          '<div style="flex-basis:100%;font-size:11px;color:var(--stone);margin:1px 0 0 26px">'+det+
-            (x.pocas?' <span style="background:#FEF3E2;color:#B45309;border-radius:10px;padding:1px 7px;font-weight:700">muestra baja</span>':'')+'</div>'+
+          '<span class="fk-n" style="background:'+col[2]+';color:'+col[1]+'">'+(i+1)+'</span>'+
+          '<span class="fk-nom">'+x.k+'</span>'+
+          '<span class="fk-pct" style="color:'+col[1]+'">'+p+'%</span>'+
+          '<span class="fk-sub">'+det+
+            (x.pocas?' <span style="background:#FEF3E2;color:#B45309;border-radius:10px;padding:1px 7px;font-weight:700">muestra baja</span>':'')+'</span>'+
         '</div>';
-      }).join("") : '<div style="font-size:12px;color:var(--stone);padding:6px 0">Sin rechazos en este período. 👍</div>';
+      }).join("") : '<div style="font-size:12px;color:var(--stone);padding:10px 12px">Sin rechazos en este período. 👍</div>';
       return '<div class="fk-tile"><div class="fk-t">'+titulo+'</div>'+
-             '<div style="font-size:11px;color:var(--stone);margin:-2px 0 7px">'+sub+'</div>'+filas+'</div>';
+             '<div style="font-size:11px;color:var(--stone);margin:-2px 0 8px">'+sub+'</div>'+
+             '<div class="fk-tabla">'+filas+'</div></div>';
     }
+
+    /* El tercer bloque alterna entre estilos (derivados sobre lote) y defectos de muestra:
+       son dos preguntas distintas sobre el mismo estilo y no caben las dos a la vez. */
+    var modo3 = window._fkModo3 || 'estilo';
+    function peoresEstilosDefecto(){
+      var m={};
+      wrows.forEach(function(r){
+        var k=String(r['ESTILO']||'').trim(); if(!k) return;
+        var M=Number(r['MUESTRA_CONTABLE']!=null&&r['MUESTRA_CONTABLE']!==''?r['MUESTRA_CONTABLE']:r['MUESTRA'])||0;
+        (m[k]=m[k]||{mu:0,df:0,mot:{}});
+        m[k].mu+=M;
+        var a={}; defCount(r['DEFECTOS'],a);
+        for(var d in a){ m[k].df+=a[d]; m[k].mot[d]=(m[k].mot[d]||0)+a[d]; }
+      });
+      var MIN_MU=40;
+      var todos=Object.keys(m).map(function(k){
+        var o=m[k];
+        var top=Object.keys(o.mot).sort(function(x,y){return o.mot[y]-o.mot[x];})[0]||'';
+        return {k:k, v:o.df, den:o.mu, pct:o.mu? +(o.df/o.mu*100).toFixed(2):0, motivo:top};
+      }).filter(function(x){ return x.v>0; });
+      var conMin=todos.filter(function(x){ return x.den>=MIN_MU; });
+      var usar=conMin.length?conMin:todos, bajo=conMin.length===0;
+      return usar.sort(function(a,b){ return b.pct-a.pct || b.v-a.v; })
+                 .slice(0,3).map(function(x){ x.pocas=bajo||x.den<MIN_MU; return x; });
+    }
+    var tercero = (modo3==='defecto')
+      ? tile('👕 3 peores estilos <select class="fk-sel" onclick="event.stopPropagation()" onchange="window._fkModo3=this.value;lfRenderFocos();">'+
+             '<option value="estilo">por derivados</option><option value="defecto" selected>por defectos</option></select>',
+             '% de defectos sobre la muestra inspeccionada de ese estilo', peoresEstilosDefecto(), 'est')
+      : tile('👕 3 peores estilos <select class="fk-sel" onclick="event.stopPropagation()" onchange="window._fkModo3=this.value;lfRenderFocos();">'+
+             '<option value="estilo" selected>por derivados</option><option value="defecto">por defectos</option></select>',
+             '% de prendas derivadas sobre su propio lote', peoresEstilos(), 'est');
 
     host.innerHTML =
       '<div class="fk-hd">🎯 Dónde atacar primero · '+plabel+
@@ -3257,8 +3454,8 @@ if(document.readyState!=='loading'){ cargarEnVivo(); cargarDetalleFino(); }
         '%), no contra una meta · toca cualquiera para ver su detalle</span></div>'+
       '<div class="fk-grid">'+
         tile("👔 3 peores clientes", "% de rechazo sobre sus propias auditorías", peoresPorRechazo("CLIENTE"), "cli")+
-        tile("🏭 3 peores talleres", "% de rechazo sobre sus propias auditorías", peoresPorRechazo("SERVICIO"), "tal")+
-        tile("⚠️ 3 derivados más frecuentes", "prendas separadas al revisar el lote completo", peoresDerivados(), "def")+
+        tile("🏭 3 peores talleres", "% de rechazo · solo auditorías en taller externo", peoresPorRechazo("SERVICIO", true), "tal")+
+        tercero+
       '</div>';
   }
   window.lfRenderFocos=lfRenderFocos;
