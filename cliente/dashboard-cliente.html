@@ -131,6 +131,15 @@
   .grid>#lfCliRejPanel{grid-column:span 6;}
   @media(max-width:1100px){.grid>#lfCliRejPanel{grid-column:span 12;}}
 
+  .grid{align-items:stretch;}
+  .grid>*{min-width:0;}
+  .kpis{align-items:stretch;}
+  .kpis>*{min-width:0;}
+  .icards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;align-items:stretch;}
+  .icards>*{min-width:0;}
+  .icard{display:flex;flex-direction:column;}
+  .icard .is{margin-top:auto;}
+  .col4>.icards{grid-template-columns:1fr;}
   .cwrap{position:relative;width:100%;height:clamp(220px,26vh,320px);}
   .cwrap.tall{height:clamp(260px,34vh,400px);}
   .cwrap canvas{position:absolute;inset:0;}
@@ -138,7 +147,6 @@
   .donutwrap .dc{position:relative;width:150px;height:150px;}
   .donutwrap .dl{font-size:11.5px;color:var(--stone);margin-top:8px;text-align:center;}
 
-  .icards{display:grid;grid-template-columns:1fr;gap:12px;}
   .icard{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:14px 16px;
          border-top:3px solid var(--sage);}
   .icard.bad{border-top-color:var(--rose);} .icard.up{border-top-color:var(--tan);}
@@ -529,11 +537,7 @@ Chart.defaults.maintainAspectRatio=false;
 if(window.matchMedia("(max-width:600px)").matches){Chart.defaults.font.size=11;Chart.defaults.plugins.legend.labels.boxWidth=10;}
 const nf=n=>Number(n).toLocaleString("es-PE");
 const MESES=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
-const MINN=8;
-/* Minimo de auditorias para poder comparar un cliente. En vista Semana el volumen
-   normal es bajo y un minimo fijo de 8 dejaba casi todo en gris; en Mes y Ano si se
-   exige 8. El ranking anual (computeClients/renderPerf) sigue usando MINN=8 siempre. */
-function minnFor(mode){return mode==="week"?3:8;}
+
 let charts=[];const reg=c=>{charts.push(c);return c;};
 function clearCharts(){charts.forEach(c=>c.destroy());charts=[];}
 /* ===== Paneles sin datos =====================================================
@@ -542,24 +546,48 @@ function clearCharts(){charts.forEach(c=>c.destroy());charts=[];}
    el ancho para no dejar el hueco. */
 function panelDe(id){var e=document.getElementById(id);return e?e.closest(".panel"):null;}
 function verPanel(id,hay){var p=panelDe(id);if(p)p.style.display=hay?"":"none";return !!hay;}
+/* ===== Reacomodo de la grilla, por fila REAL =================================
+   Antes se agrupaba sumando las columnas declaradas (col8+col4=12). Eso falla en
+   cuanto una media query cambia los anchos o hay mas de una fila: la cuenta de
+   columnas deja de coincidir con lo que el navegador realmente dibujo. Ahora se
+   mide la posicion vertical de cada panel visible y se agrupa por fila de verdad;
+   si una fila no completa las 12 columnas, el ultimo panel se estira.          */
 function reajustarGrids(){
   var spanOf=function(c){return c.classList.contains("col8")?8:c.classList.contains("col6")?6:c.classList.contains("col4")?4:12;};
   document.querySelectorAll(".grid").forEach(function(g){
-    var vis=[].filter.call(g.children,function(c){return c.style.display!=="none";});
-    [].forEach.call(g.children,function(c){c.style.gridColumn="";});
-    var fila=[],acum=0;
-    var cerrar=function(){
-      if(fila.length&&acum<12){var u=fila[fila.length-1];u.style.gridColumn="span "+(12-acum+spanOf(u));}
-      fila=[];acum=0;
-    };
+    var hijos=[].slice.call(g.children);
+    hijos.forEach(function(c){c.style.gridColumn="";});
+    var vis=hijos.filter(function(c){return c.offsetParent!==null||c.style.display!=="none";})
+                 .filter(function(c){return c.style.display!=="none";});
+    if(!vis.length)return;
+    // agrupar por fila usando la posicion vertical que el navegador ya calculo
+    var filas=[],act=null;
     vis.forEach(function(c){
-      var sp=spanOf(c);
-      if(acum+sp>12)cerrar();
-      fila.push(c);acum+=sp;
-      if(acum>=12){fila=[];acum=0;}
+      var top=c.offsetTop;
+      if(!act||Math.abs(top-act.top)>4){act={top:top,items:[]};filas.push(act);}
+      act.items.push(c);
     });
-    cerrar();
+    filas.forEach(function(f){
+      var suma=f.items.reduce(function(a,c){return a+spanOf(c);},0);
+      if(suma<12&&suma>0){
+        var u=f.items[f.items.length-1];
+        u.style.gridColumn="span "+(12-suma+spanOf(u));
+      }
+    });
   });
+}
+
+/* ===== Minimo de muestra calculado desde los datos ===========================
+   Un numero fijo no sirve para todos los tableros: en Servicio de Inspeccion una
+   persona hace 37-70 auditorias por semana y un minimo de 3 no protege de nada;
+   en Empaque hace 1-6 y un minimo de 8 deja todo en gris. El minimo se deriva del
+   volumen real del periodo que se esta mirando: el 20% de lo que hace un actor
+   tipico (la mediana), nunca menos de 3 ni mas de 15.                          */
+function minnDe(lista){
+  var ns=(lista||[]).map(function(x){return x.n;}).filter(function(n){return n>0;}).sort(function(a,b){return a-b;});
+  if(!ns.length)return 3;
+  var med=ns[Math.floor(ns.length/2)];
+  return Math.max(3,Math.min(15,Math.round(med*0.2)));
 }
 function tab(i,btn){document.querySelectorAll(".tabs button").forEach(b=>b.classList.remove("active"));btn.classList.add("active");document.querySelectorAll(".tabpane").forEach((p,k)=>p.classList.toggle("active",k===i));charts.forEach(c=>{try{c.resize();}catch(e){}});}
 let STATE=null, CURMODE="week", CURYEAR=null, CURVIEW="year", CURFICHA=null, CURCLI="";
@@ -781,17 +809,19 @@ function computeClients(rows){
     const defs=Object.keys(o.defs).map(d=>({d,v:o.defs[d]})).sort((a,b)=>b.v-a.v);
     const mk=Object.keys(o.mes).map(Number).sort((a,b)=>a-b);let trend=0;if(mk.length>=2){const a=o.mes[mk[mk.length-2]],b=o.mes[mk[mk.length-1]];if(a.n>=3&&b.n>=3)trend=+((b.ap/b.n-a.ap/a.n)*100).toFixed(1);}
     const destTop=Object.keys(o.dest).sort((a,b)=>o.dest[b]-o.dest[a])[0]||"—";
-    return {k,n:o.n,ap:o.ap,re:o.n-o.ap,pct:p,defs,mes:o.mes,trend,low:o.n<MINN,est:o.est.size,po:o.po.size,destTop};});
+    return {k,n:o.n,ap:o.ap,re:o.n-o.ap,pct:p,defs,mes:o.mes,trend,low:false,est:o.est.size,po:o.po.size,destTop};});
+  const MNY=minnDe(list);
+  list.forEach(x=>{x.low=x.n<MNY;});
   list.sort((a,b)=>b.pct-a.pct);
   const totN=rows.length,totAp=rows.filter(r=>r["RESULTADO"]==="APROBADO").length;
   const avg=totN?+(totAp/totN*100).toFixed(1):null;
-  return {list,clientes:list.length,totN,avg,ref:calcRef(list,avg)};
+  return {list,clientes:list.length,totN,avg,minn:MNY,ref:calcRef(list,avg)};
 }
 
 function renderPeriod(mode,value){
   clearCharts();
   const S=STATE,isMonth=mode==="month",isYear=mode==="year";
-  const MN=minnFor(mode);
+  let MN=8; // se recalcula abajo, cuando ya se sabe cuántas auditorías tiene cada cliente
   // Filtro global de cliente (Parte 4 del estándar): se aplica una sola vez, aquí, antes
   // de calcular cualquier KPI/gráfico/tabla — así todo el panel queda filtrado de una vez,
   // en vez de filtrar panel por panel (donde tarde o temprano uno se queda sin filtrar).
@@ -809,7 +839,7 @@ function renderPeriod(mode,value){
   const phCli=document.getElementById("phCliente");
   if(phCli)phCli.textContent=`% de aprobación por cliente en el período: aprobadas ÷ auditorías del cliente. Entre paréntesis, cuántas auditorías tiene. Color: ${refTxt()}.`;
   const phPerf=document.getElementById("phPerf");
-  if(phPerf)phPerf.textContent=`Clientes del año por % de aprobación (aprobadas ÷ auditorías del año). ▲▼ = tendencia del último mes con datos. Con menos de ${MINN} auditorías en el año se marca "muestra baja" y no se compara. Referencia: ${refTxt()}.`;
+  if(phPerf)phPerf.textContent=`Clientes del año por % de aprobación (aprobadas ÷ auditorías del año). ▲▼ = tendencia del último mes con datos. Con menos de ${STATE.cli.minn} auditorías en el año se marca "muestra baja" y no se compara. Referencia: ${refTxt()}.`;
   document.getElementById("srcNote").innerHTML=`<b>Fuente:</b> <i>${S.fname}</i>`+(S.year?` · año ${S.year}`:"")+` · ${isYear?"Año completo":(isMonth?"Mes: "+MESES[value]:"Semana "+value)} · Auditorías de cliente. Tasas = RECHAZADAS / total.`;
   document.getElementById("ttyear").textContent=S.year||"";
   document.getElementById("trendTitle").textContent=isYear?"Tendencia mensual (año completo)":(isMonth?"Tendencia mensual":"Tendencia semanal");
@@ -859,16 +889,17 @@ function renderPeriod(mode,value){
 
   // mejor/peor cliente del período — mismo criterio: solo entre clientes con muestra suficiente
   const sm={};wrows.forEach(r=>{const k=r["CLIENTE"];if(k==null||k==="")return;(sm[k]=sm[k]||{n:0,ap:0});sm[k].n++;if(r["RESULTADO"]==="APROBADO")sm[k].ap++;});
-  const serv=Object.keys(sm).map(k=>({k,n:sm[k].n,ap:+(sm[k].ap/sm[k].n*100).toFixed(1)}));
+  const serv=Object.keys(sm).map(k=>({k,n:sm[k].n,ap:+(sm[k].ap/sm[k].n*100).toFixed(1),apN:sm[k].ap,reN:sm[k].n-sm[k].ap}));
+  MN=minnDe(serv);
   const servOK=serv.filter(r=>r.n>=MN);
   if(servOK.length>1){const best=servOK.reduce((a,b)=>b.ap>a.ap||(b.ap===a.ap&&b.n>a.n)?b:a);const worst=servOK.reduce((a,b)=>b.ap<a.ap||(b.ap===a.ap&&b.n>a.n)?b:a);
-    document.getElementById("i_best").textContent=best.ap+"%";document.getElementById("i_bests").textContent=best.k+" · "+best.n+" aud.";
-    document.getElementById("i_worst").textContent=worst.ap+"%";document.getElementById("i_worsts").textContent=worst.k+" · "+worst.n+" aud.";}
+    document.getElementById("i_best").textContent=best.ap+"%";document.getElementById("i_bests").textContent=`${best.k} · ${best.apN} aprobadas de ${best.n} auditorías`;
+    document.getElementById("i_worst").textContent=worst.ap+"%";document.getElementById("i_worsts").textContent=`${worst.k} · ${worst.reN} rechazadas de ${worst.n} auditorías`;}
   /* Con un solo cliente por encima del minimo, "mejor" y "peor" serian el mismo y
      el tablero diria que un cliente con 40% de aprobacion es el mejor. Se dice lo
      que realmente hay: un unico cliente con muestra suficiente. */
   else if(servOK.length===1){const u=servOK[0];
-    document.getElementById("i_best").textContent=u.ap+"%";document.getElementById("i_bests").textContent=u.k+" · "+u.n+" aud. · único con "+MN+"+ auditorías";
+    document.getElementById("i_best").textContent=u.ap+"%";document.getElementById("i_bests").textContent=`${u.k} · ${u.apN} aprobadas de ${u.n} auditorías · único con ${MN}+ este período`;
     document.getElementById("i_worst").textContent="—";document.getElementById("i_worsts").textContent="Solo un cliente llega a "+MN+" auditorías este período: no hay con quién compararlo";}
   else{document.getElementById("i_best").textContent="—";document.getElementById("i_bests").textContent="Ningún cliente con "+MN+"+ auditorías este período";document.getElementById("i_worst").textContent="—";document.getElementById("i_worsts").textContent="Ningún cliente con "+MN+"+ auditorías este período";}
   document.getElementById("i_cli").textContent=serv.length;
