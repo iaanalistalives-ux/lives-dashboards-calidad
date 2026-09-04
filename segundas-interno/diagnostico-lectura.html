@@ -112,8 +112,11 @@
     <div class="panel" id="fPanel" style="display:none">
       <span class="tira"></span>
       <div class="pt">Fórmula para verificar contra el Sheet</div>
-      <div class="ph">Pégala en una celda vacía de cualquier pestaña del mismo Sheet. Devuelve
-        el conteo real de celdas con contenido de cada columna, directo de la hoja.</div>
+      <div class="ph">Pégala en la celda <b>A1</b> de una hoja nueva del mismo Sheet y arrástrala
+        hacia abajo tantas filas como columnas tenga la tabla. Cada fila cuenta una columna, en el mismo
+        orden que la tabla de arriba: A1 es la primera, A2 la segunda, y así. Compara esos números con
+        la columna «Vía CSV». Si tu Sheet usa punto y coma como separador, cambia las comas por
+        punto y coma.</div>
       <div class="formula" id="formula"></div>
       <button class="copiar" type="button" onclick="copiar()">Copiar fórmula</button>
     </div>
@@ -212,8 +215,7 @@ async function medir(){
   $("tbl").innerHTML=h;
   $("tblPanel").style.display="";
 
-  const rango="'"+tab+"'!A2:"+String.fromCharCode(65+Math.min(25,cab.length-1))+"20000";
-  $("formula").textContent='=TRANSPOSE(ARRAYFORMULA(COUNTIF(IF(TRIM('+rango+')<>"",COLUMN('+rango+')),COLUMN('+rango+'))))';
+  $("formula").textContent='=SUMPRODUCT(--(TRIM(OFFSET(\''+tab+'\'!$A$2,0,ROW()-1,19999,1))<>""))';
   $("fPanel").style.display="";
 
   const v=$("verdict"); v.style.display="flex"; v.className="verdict";
