@@ -1065,6 +1065,55 @@ function defCount(v,acc){if(v==null)return;String(v).split("-").forEach(p=>{p=p.
 function buildState(raw, fname, frozen){
   let rows=raw.filter(r=>{const res=r["RESULTADO"],s=r["SEMANA"];return (res==="APROBADO"||res==="RECHAZADO")&&s!=null&&isFinite(Number(s));});
   rows.forEach(r=>{const s=r["SERVICIO"];if(s&&RENAME[s])r["SERVICIO"]=RENAME[s];}); // alias de talleres
+
+  /* ===== COHERENCIA ENTRE NUMERADOR Y DENOMINADOR =====
+     LOTE_CONTABLE y MUESTRA_CONTABLE valen 0 en reprocesos y licencias: esas prendas ya se
+     contaron en la auditoría original y volver a sumarlas duplicaría el universo.
+     Pero las columnas DEFECTOS y DERIVADOS de esas mismas filas SÍ se estaban sumando en
+     todos los paneles. Con eso el numerador incluía lo que el denominador excluía y los
+     porcentajes salían inflados: medido sobre los datos reales, el 31% de los derivados
+     venía de filas no computables.
+     Se vacían aquí, en el punto donde entran los datos, para que ningún panel tenga que
+     acordarse de filtrarlas. La fila NO se elimina: el conteo de auditorías sigue
+     incluyendo licencias y repeticiones, que es la regla del área. */
+  (function(){
+    function esSiCol(v){ const t=String(v==null?"":v).trim().toUpperCase();
+      return t==="SÍ"||t==="SI"||t==="1"||t==="TRUE"; }
+    /* Un reproceso se reconoce por dos vías, porque la columna REPROCESO no siempre llega
+       bien: el formulario la escribía como 'SÍ' y el Sheet maestro la lee como número, así
+       que 'SÍ' terminaba convertido en 0. Mientras ese arreglo no esté desplegado en todas
+       las fuentes, la marca también puede venir en el N° de auditoría. */
+    function esReproceso(r){
+      if(esSiCol(r["REPROCESO"])) return true;
+      const na = String(r["N° DE AUDITORÍA"]||r["N_AUDITORIA"]||"").toUpperCase();
+      return na.indexOf("REPRO") >= 0;
+    }
+    let repro=0, loteRepro=0;
+    rows.forEach(r=>{
+      /* No se exige COMPUTABLE=0 para detectar un reproceso: en el Sheet hay 11 reprocesos
+         marcados como computables, y su lote se estaba sumando igual. La condición es la
+         columna REPROCESO por sí sola, que es el hecho de negocio. */
+
+      /* Un REPROCESO vuelve a mirar prendas que ya se contaron en la auditoría rechazada
+         original. Sumar su lote duplica el universo: medido sobre los datos reales, 39.007
+         prendas de 194.130 —una de cada cinco— venían de reprocesos ya contados.
+         En el Sheet esas filas tienen COMPUTABLE=0 pero conservan LOTE_CONTABLE con valor,
+         así que hay que neutralizarlas aquí. */
+      if(esReproceso(r)){
+        repro++;
+        loteRepro += Number(r["LOTE_CONTABLE"]||0);
+        r["LOTE_CONTABLE"]=0; r["MUESTRA_CONTABLE"]=0; r["LOTE"]=0; r["MUESTRA"]=0;
+        r["DEFECTOS"]=""; r["DERIVADOS"]="";
+        return;
+      }
+
+      /* Una LICENCIA sí es inspección real —se revisa el 100% del lote— así que sus prendas
+         cuentan para el universo. Lo que no cuenta es su resultado para las tasas de
+         aprobación, y de eso ya se encarga COMPUTABLE en los paneles que corresponden. */
+    });
+    if(repro) console.info("Coherencia: "+repro+" reproceso(s) neutralizados ("+
+      loteRepro.toLocaleString("es-PE")+" prendas ya contadas en su auditoría original).");
+  })();
   // Blindaje columna "N° DE AUDITORÍA": si el Excel trae el encabezado con otra variante
   // (Nº en vez de N°, sin tilde, espacios extra, mayúsculas distintas, etc.) la clave exacta
   // falla en silencio para TODAS las filas y el panel "Resultados por proceso" muestra
@@ -1125,7 +1174,7 @@ function buildYearControl(){
    ========================================================================== */
 var FILTRO_CLI='', FILTRO_TAL='';
 function tallerDe(r){
-  return String(r['SERVICIO']||'').trim() || (String(r['INT/EXT']||'')==='INTERNO' ? 'LIVES' : '');
+  return String(r['SERVICIO']||'').trim() || (esInterno(r) ? 'LIVES' : '');
 }
 function aplicarFiltroEnt(rows){
   if(!FILTRO_CLI && !FILTRO_TAL) return rows;
@@ -1170,8 +1219,8 @@ function selectYear(y){
   const mm={};rows.forEach(r=>{const m=monthOf(r["FECHA"]);if(m==null)return;(mm[m]=mm[m]||{n:0,r:0});mm[m].n++;if(isRech(r))mm[m].r++;});
   STATE.months=Object.keys(mm).map(Number).sort((a,b)=>a-b);
   STATE.monthly={labels:STATE.months.map(m=>MESES[m]),aprob:STATE.months.map(m=>+(100-mm[m].r/mm[m].n*100).toFixed(1)),rech:STATE.months.map(m=>+(mm[m].r/mm[m].n*100).toFixed(1))};
-  const wk={};rows.forEach(r=>{const s=Number(r["SEMANA"]);(wk[s]=wk[s]||{n:0,r:0,iN:0,iR:0,eN:0,eR:0});const o=wk[s];o.n++;if(isRech(r))o.r++;if(r["INT/EXT"]==="INTERNO"){o.iN++;if(isRech(r))o.iR++;}else if(r["INT/EXT"]==="EXTERNO"){o.eN++;if(isRech(r))o.eR++;}});
-  const mo={};rows.forEach(r=>{const m=monthOf(r["FECHA"]);if(m==null)return;(mo[m]=mo[m]||{n:0,r:0,iN:0,iR:0,eN:0,eR:0});const o=mo[m];o.n++;if(isRech(r))o.r++;if(r["INT/EXT"]==="INTERNO"){o.iN++;if(isRech(r))o.iR++;}else if(r["INT/EXT"]==="EXTERNO"){o.eN++;if(isRech(r))o.eR++;}});
+  const wk={};rows.forEach(r=>{const s=Number(r["SEMANA"]);(wk[s]=wk[s]||{n:0,r:0,iN:0,iR:0,eN:0,eR:0});const o=wk[s];o.n++;if(isRech(r))o.r++;if(esInterno(r)){o.iN++;if(isRech(r))o.iR++;}else if(esExterno(r)){o.eN++;if(isRech(r))o.eR++;}});
+  const mo={};rows.forEach(r=>{const m=monthOf(r["FECHA"]);if(m==null)return;(mo[m]=mo[m]||{n:0,r:0,iN:0,iR:0,eN:0,eR:0});const o=mo[m];o.n++;if(isRech(r))o.r++;if(esInterno(r)){o.iN++;if(isRech(r))o.iR++;}else if(esExterno(r)){o.eN++;if(isRech(r))o.eR++;}});
   STATE.wk=wk;STATE.mo=mo;
   STATE.perf=computePerf(rows); // valor inicial; renderPeriod() lo recalcula por período real
   STATE.audTaller=computeAudTaller(rows); // idem
@@ -1252,13 +1301,13 @@ function renderCompare(){
   tbl+=`<tr style="background:var(--warm-light)"><td style="font-weight:700;color:#333">Acum. año</td>`+ys.map(y=>{const rs=yrows(y),n=rs.length,p=n?+(reN(rs)/n*100).toFixed(1):0;return `<td style="text-align:right;font-weight:700">${p}%</td>`;}).join("")+(ys.length>=2?"<td></td>":"")+"</tr>";
   tbl+=`<tr style="background:var(--warm-light)"><td style="font-weight:700;color:#333">Prendas rechazadas</td>`+ys.map(y=>{const rs=yrows(y);return `<td style="text-align:right;font-weight:700;color:#DC2626">${nf(pzReN(rs))}</td>`;}).join("")+(ys.length>=2?"<td></td>":"")+"</tr></tbody>";
   // Lives vs Talleres: % rechazo por año (barras agrupadas)
-  const segFilt={"LIVES (Interno)":r=>r["INT/EXT"]==="INTERNO","Talleres (Externo)":r=>r["INT/EXT"]==="EXTERNO"};
+  const segFilt={"LIVES (Interno)":r=>esInterno(r),"Talleres (Externo)":r=>esExterno(r)};
   const segKeys=Object.keys(segFilt);
   const segDs=ys.map((y,i)=>({label:""+y,data:segKeys.map(k=>{const rs=yrows(y).filter(segFilt[k]);return rs.length?+(reN(rs)/rs.length*100).toFixed(1):0;}),backgroundColor:cols[i%cols.length],borderRadius:3}));
   // talleres externos: top por volumen, % rechazo por año
-  const tTot={};allYRows.filter(r=>r["INT/EXT"]==="EXTERNO").forEach(r=>{const k=r["SERVICIO"];if(k==null||k==="")return;tTot[k]=(tTot[k]||0)+1;});
+  const tTot={};allYRows.filter(r=>esExterno(r)).forEach(r=>{const k=r["SERVICIO"];if(k==null||k==="")return;tTot[k]=(tTot[k]||0)+1;});
   const topT=Object.keys(tTot).sort((a,b)=>tTot[b]-tTot[a]).slice(0,8);
-  const tDs=ys.map((y,i)=>({label:""+y,data:topT.map(k=>{const rs=yrows(y).filter(r=>r["INT/EXT"]==="EXTERNO"&&r["SERVICIO"]===k);return rs.length?+(reN(rs)/rs.length*100).toFixed(1):0;}),backgroundColor:cols[i%cols.length],borderRadius:3}));
+  const tDs=ys.map((y,i)=>({label:""+y,data:topT.map(k=>{const rs=yrows(y).filter(r=>esExterno(r)&&r["SERVICIO"]===k);return rs.length?+(reN(rs)/rs.length*100).toFixed(1):0;}),backgroundColor:cols[i%cols.length],borderRadius:3}));
   document.getElementById("compareView").innerHTML=`
     <div class="note"><b>Comparativo de años</b> · ${ys.join(" vs ")} · Auditoría final interna. Tasas de rechazo por mes calendario. Menor es mejor.</div>
     <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:16px;">${kp}</div>
@@ -1284,7 +1333,7 @@ const MINN=8;
 function estadoDe(pct){return pct>=95?["Excelente","exc"]:pct>=85?["Bueno","bue"]:pct>=70?["En revisión","rev"]:pct>=40?["Alerta","ale"]:["Crítico","cri"];}
 
 function computePerf(rows){
-  const ext=rows.filter(r=>r["INT/EXT"]==="EXTERNO");
+  const ext=rows.filter(r=>esExterno(r));
   const m={};
   ext.forEach(r=>{const k=r["SERVICIO"];if(k==null||k==="")return;const mo=monthOf(r["FECHA"]);
     (m[k]=m[k]||{n:0,ap:0,mes:{},defs:{}});const o=m[k];o.n++;if(r["RESULTADO"]==="APROBADO")o.ap++;
@@ -1388,7 +1437,7 @@ function renderAudTaller(){
 const MESES_F=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
 let CURFICHA=null;
 function fichaStats(taller, period){
-  const all=STATE.rows.filter(r=>r["INT/EXT"]==="EXTERNO" && r["SERVICIO"]===taller);
+  const all=STATE.rows.filter(r=>esExterno(r) && r["SERVICIO"]===taller);
   const rows=(period==="acum")?all:all.filter(r=>monthOf(r["FECHA"])===period);
   const n=rows.length, ap=rows.filter(r=>r["RESULTADO"]==="APROBADO").length, re=n-ap;
   const pct=n?+(ap/n*100).toFixed(1):0;
@@ -1522,8 +1571,8 @@ function renderPeriod(mode,value){
   STATE.periodLabel=plabel;
   renderPerf();
   renderAudTaller();
-  const liv=wrows.filter(r=>r["INT/EXT"]==="INTERNO");
-  const tal=wrows.filter(r=>r["INT/EXT"]==="EXTERNO");
+  const liv=wrows.filter(r=>esInterno(r));
+  const tal=wrows.filter(r=>esExterno(r));
   const sum=(a,col)=>a.reduce((s,r)=>s+num(r[col]),0);
   const cnt=(a,res)=>a.filter(r=>r["RESULTADO"]===res).length;
 
@@ -1765,7 +1814,7 @@ function renderPeriod(mode,value){
 
   // % defectos sobre muestreo por servicio (LIVES = internas)
   const ms={};
-  wrows.forEach(r=>{const lab=(r["INT/EXT"]==="INTERNO")?"LIVES":(r["SERVICIO"]||"—");(ms[lab]=ms[lab]||{def:0,mu:0});ms[lab].def+=defUnits(r["DEFECTOS"]);ms[lab].mu+=num(r["MUESTRA"]);});
+  wrows.forEach(r=>{const lab=(esInterno(r))?"LIVES":(r["SERVICIO"]||"—");(ms[lab]=ms[lab]||{def:0,mu:0});ms[lab].def+=defUnits(r["DEFECTOS"]);ms[lab].mu+=num(r["MUESTRA"]);});
   /* Se ordenaba solo por porcentaje, con denominadores de 32 a 12.629 prendas: un taller
      con 64 muestreadas encabezaba el ranking porque un defecto le mueve punto y medio.
      Ahora el tooltip trae el denominador y las de muestra insuficiente van en gris al final. */
@@ -2091,7 +2140,7 @@ function derPanelAntiguo_(){
   // comparar entre semanas ni entre talleres de distinto tamaño.
   var loteExt = 0;
   filasPeriodoDer().forEach(function(r){
-    if(String(r['INT/EXT']||'')!=='EXTERNO') return;
+    if(!esExterno(r)) return;
     loteExt += Number(r['LOTE_CONTABLE']!=null&&r['LOTE_CONTABLE']!==''?r['LOTE_CONTABLE']:r['LOTE'])||0;
   });
   function barras(obj, cls, click, conPct){
@@ -2173,7 +2222,7 @@ function telaDetalle(tela){
   rows.forEach(function(r){
     if(normTela(r['TELA']||r['COD TELA'])!==telaN) return;
     var lote=Number(r['LOTE_CONTABLE']!=null&&r['LOTE_CONTABLE']!==''?r['LOTE_CONTABLE']:r['LOTE'])||0;
-    var taller=String(r['SERVICIO']||'')||(String(r['INT/EXT']||'')==='INTERNO'?'LIVES':'—');
+    var taller=String(r['SERVICIO']||'')||(esInterno(r)?'LIVES':'—');
     var sem=EJE.clave(r);
     loteTela+=lote;
     porTallerLote[taller]=(porTallerLote[taller]||0)+lote;
@@ -2441,7 +2490,14 @@ function renderTalleres(){
   var cont=document.getElementById('tallGrid'); if(!cont) return;
   var EJE=(typeof ejeTendencia==='function')?ejeTendencia():{clave:function(r){return Number(r['SEMANA'])||0;},etq:function(k){return 'S'+k;},titulo:'Tendencia',unidad:'semanas',min:200};
   var anio=(typeof filasAnioDer==='function')?filasAnioDer():((typeof STATE!=='undefined'&&STATE.rows)?STATE.rows:[]);
-  var externos=anio.filter(function(r){ return String(r['INT/EXT']||'')==='EXTERNO'; });
+  /* CORREGIDO: se comparaba contra 'EXTERNO' exacto, pero en el histórico conviven las dos
+     formas —'EXTERNA' del formato viejo y 'EXTERNO' del nuevo—. Las filas viejas quedaban
+     fuera del panel, así que los porcentajes salían calculados sobre menos auditorías de las
+     que había: MARUDI mostraba 8.46% donde el dato real era 6.11%.
+     Se compara por el prefijo, que cubre las dos. */
+  var externos=anio.filter(function(r){
+    return String(r['INT/EXT']||'').toUpperCase().indexOf('EXTERN')===0;
+  });
 
   var elPer=document.getElementById('tallPer');
   if(elPer){
@@ -2460,6 +2516,13 @@ function renderTalleres(){
        con ese valor en una fila marcada como externa, no corresponde a este panel. */
     if(!k || k.toUpperCase()==='LIVES') return;
     var per=EJE.clave(r); if(!per) return;
+    /* LOTE_CONTABLE y MUESTRA_CONTABLE valen 0 en reprocesos y licencias, que a propósito no
+       cuentan para los indicadores. Pero los defectos y derivados sí se estaban sumando de
+       esas filas: el numerador incluía lo que el denominador excluía, y el porcentaje salía
+       inflado. MARUDI marcaba 8.46% donde el dato real es 5.38%.
+       Ahora las filas no computables se saltan enteras, numerador y denominador juntos. */
+    var computable = String(r['COMPUTABLE']!=null?r['COMPUTABLE']:'1').trim();
+    if(computable==='0') return;
     var L=Number(r['LOTE_CONTABLE']!=null&&r['LOTE_CONTABLE']!==''?r['LOTE_CONTABLE']:r['LOTE'])||0;
     var M=Number(r['MUESTRA_CONTABLE']!=null&&r['MUESTRA_CONTABLE']!==''?r['MUESTRA_CONTABLE']:r['MUESTRA'])||0;
     T[k]=T[k]||{tot:{aud:0,rech:0}, per:{}};
@@ -2503,7 +2566,15 @@ function renderTalleres(){
   if(!mostrar.length) mostrar = lista.slice(0,3);
   if(!mostrar.length){ cont.innerHTML='<div style="font-size:13px;color:var(--stone)">No hay talleres externos con auditorías en este período.</div>'; return; }
 
-  var MIN=Math.max(1, Math.round(EJE.min/4));   // umbral por período para las tasas de volumen
+  /* CORREGIDO: el umbral era EJE.min/4 —125 prendas de muestra en vista mensual— y por
+     debajo de eso el punto no se dibujaba. Un taller con una sola auditoría en el mes
+     desaparecía de la línea de defectos aunque los defectos existieran y hubieran motivado
+     un rechazo: parecía que ese mes no tuvo nada.
+     Ahora se dibuja siempre que haya con qué calcular, y los puntos de muestra pequeña se
+     marcan con un anillo hueco. Es mejor mostrar el dato advirtiendo que es poco firme
+     que esconderlo. */
+  var MIN=1;                                    // basta con que haya denominador
+  var MIN_FIRME=Math.max(30, Math.round(EJE.min/4));   // debajo de esto, punto marcado
   var COLS={def:'#DC2626', der:'#B45309', rech:'#4E6B78'};
 
   /* Se dibuja con Chart.js y el mismo estilo de tendencia del resto del tablero
@@ -2519,9 +2590,9 @@ function renderTalleres(){
     var S={def:[],der:[],rech:[]};
     claves.forEach(function(c){
       var P=per[c];
-      S.def.push({k:c, v: P.mu>=MIN ? +(P.def/P.mu*100).toFixed(2) : null, n:P.def, d:P.mu});
-      S.der.push({k:c, v: P.lote>=EJE.min ? +(P.der/P.lote*100).toFixed(2) : null, n:P.der, d:P.lote});
-      S.rech.push({k:c, v: P.aud>0 ? +(P.rech/P.aud*100).toFixed(1) : null, n:P.rech, d:P.aud});
+      S.def.push({k:c, v: P.mu>=MIN ? +(P.def/P.mu*100).toFixed(2) : null, n:P.def, d:P.mu, flojo:P.mu<MIN_FIRME});
+      S.der.push({k:c, v: P.lote>=MIN ? +(P.der/P.lote*100).toFixed(2) : null, n:P.der, d:P.lote, flojo:P.lote<EJE.min});
+      S.rech.push({k:c, v: P.aud>0 ? +(P.rech/P.aud*100).toFixed(1) : null, n:P.rech, d:P.aud, flojo:P.aud<3});
     });
     var todos=[].concat(S.def,S.der,S.rech).map(function(x){return x.v;}).filter(function(v){return v!==null;});
     if(!todos.length) return '';
@@ -2588,7 +2659,8 @@ function renderTalleres(){
         chip('Rechazo','#4E6B78',ultimo(S.rech))+
       '</div>'+ lect +
       (haySerie
-        ? '<div class="cwrap" style="height:230px;background:var(--card);border-radius:8px;padding:6px"><canvas id="'+cid+'"></canvas></div>'
+        ? '<div class="cwrap" style="height:230px;background:var(--card);border-radius:8px;padding:6px"><canvas id="'+cid+'"></canvas></div>'+
+          '<div style="font-size:11px;color:var(--stone);margin-top:5px">Los puntos <b>huecos</b> tienen poca muestra en ese período: el dato es real pero se mueve mucho con una sola prenda.</div>'
         : '<div style="background:var(--card);border-radius:8px;padding:12px 14px;font-size:12px;color:var(--stone)">'+
           'Solo hay <b>'+conDato+'</b> período con datos suficientes: todavía no hay tendencia que mostrar. Las cifras de arriba son las de ese período.</div>')+
     '</div>';
@@ -2600,11 +2672,17 @@ function renderTalleres(){
     var D=window._tallData[cid];
     var lab=D.claves.map(function(c){ return D.EJE.etq(c); });
     var ds=[
-      Object.assign({label:'Defectos sobre muestra', data:D.S.def.map(function(x){return x.v;})},
+      Object.assign({label:'Defectos sobre muestra', data:D.S.def.map(function(x){return x.v;}),
+        pointBackgroundColor:D.S.def.map(function(x){ return x.flojo?'#fff':'#DC2626'; }),
+        pointBorderColor:D.S.def.map(function(x){ return x.flojo?'#DC2626':'#fff'; })},
         (typeof serieTendencia==='function')?serieTendencia('#DC2626','220,38,38'):{borderColor:'#DC2626'}),
-      Object.assign({label:'Derivados sobre lote', data:D.S.der.map(function(x){return x.v;})},
+      Object.assign({label:'Derivados sobre lote', data:D.S.der.map(function(x){return x.v;}),
+        pointBackgroundColor:D.S.der.map(function(x){ return x.flojo?'#fff':'#B45309'; }),
+        pointBorderColor:D.S.der.map(function(x){ return x.flojo?'#B45309':'#fff'; })},
         (typeof serieTendencia==='function')?serieTendencia('#B45309','180,83,9'):{borderColor:'#B45309'}),
-      Object.assign({label:'Auditorías rechazadas', data:D.S.rech.map(function(x){return x.v;}), borderDash:[6,4], fill:false},
+      Object.assign({label:'Auditorías rechazadas', data:D.S.rech.map(function(x){return x.v;}), borderDash:[6,4], fill:false,
+        pointBackgroundColor:D.S.rech.map(function(x){ return x.flojo?'#fff':'#4E6B78'; }),
+        pointBorderColor:D.S.rech.map(function(x){ return x.flojo?'#4E6B78':'#fff'; })},
         (typeof serieTendencia==='function')?serieTendencia('#4E6B78','78,107,120'):{borderColor:'#4E6B78'})
     ];
     ds[2].fill=false; ds[2].borderDash=[6,4];
@@ -2612,7 +2690,13 @@ function renderTalleres(){
       var ch=new Chart(el,{ type:'line', data:{labels:lab, datasets:ds},
         options:{ responsive:true, maintainAspectRatio:false, spanGaps:true,
           plugins:{ legend:{position:'top', labels:{boxWidth:14, usePointStyle:true, font:{size:11}}},
-            tooltip:{callbacks:{label:function(c){ return c.dataset.label+': '+(c.raw==null?'—':c.raw+'%'); }}} },
+            tooltip:{callbacks:{label:function(c){
+              var serie=[D.S.def,D.S.der,D.S.rech][c.datasetIndex]||[];
+              var pt=serie[c.dataIndex];
+              var base=c.dataset.label+': '+(c.raw==null?'—':c.raw+'%');
+              if(pt) base += ' ('+pt.n.toLocaleString('es-PE')+' de '+pt.d.toLocaleString('es-PE')+')';
+              if(pt && pt.flojo) base += ' · muestra pequeña';
+              return base; }}} },
           scales:{ x:{grid:{display:false}, ticks:{font:{size:11}}},
                    y:{beginAtZero:true, grid:{color:'#EDF2F0'}, ticks:{callback:function(v){return v+'%';}, font:{size:11}}} } },
         plugins:(typeof etiquetasTendencia!=='undefined')?[etiquetasTendencia]:[] });
@@ -2658,7 +2742,7 @@ function renderUniverso(){
   rows.forEach(function(r){
     var L=Number(r['LOTE_CONTABLE']!=null&&r['LOTE_CONTABLE']!==''?r['LOTE_CONTABLE']:r['LOTE'])||0;
     var M=Number(r['MUESTRA_CONTABLE']!=null&&r['MUESTRA_CONTABLE']!==''?r['MUESTRA_CONTABLE']:r['MUESTRA'])||0;
-    var externo = String(r['INT/EXT']||'')==='EXTERNO';
+    var externo = esExterno(r);
     var taller=String(r['SERVICIO']||'')||(externo?'—':'LIVES');
     var sem = EJEP ? EJEP.clave(r) : (Number(r['SEMANA'])||0);
     lote+=L; muestra+=M;
@@ -2786,7 +2870,7 @@ function renderUniverso(){
      indicador: derivados sobre el lote de talleres externos, defectos sobre la muestra. */
   function nDer(r){ var t=0; derParse(r['DERIVADOS']).forEach(function(d){t+=d.cant;}); return t; }
   function dDer(r){
-    var ext=String(r['INT/EXT']||'')==='EXTERNO';
+    var ext=esExterno(r);
     var hay=String(r['DERIVADOS']||'').trim()!=='';
     if(!ext && !hay) return 0;
     return Number(r['LOTE_CONTABLE']!=null&&r['LOTE_CONTABLE']!==''?r['LOTE_CONTABLE']:r['LOTE'])||0;
@@ -2977,7 +3061,7 @@ function defDetalleUni(tipo){
   var numT={}, denT={}, numC={}, denC={}, semN={}, semD={};
   rows.forEach(function(r){
     var m=Number(r['MUESTRA_CONTABLE']!=null&&r['MUESTRA_CONTABLE']!==''?r['MUESTRA_CONTABLE']:r['MUESTRA'])||0;
-    var taller=String(r['SERVICIO']||'')||(String(r['INT/EXT']||'')==='INTERNO'?'LIVES':'—');
+    var taller=String(r['SERVICIO']||'')||(esInterno(r)?'LIVES':'—');
     var cli=String(r['CLIENTE']||'—'), sem=EJE.clave(r);
     muestraTot+=m; denT[taller]=(denT[taller]||0)+m; denC[cli]=(denC[cli]||0)+m;
     if(sem) semD[sem]=(semD[sem]||0)+m;
@@ -3059,6 +3143,12 @@ function filasAnioDer(){
   if(typeof STATE==='undefined' || !STATE || !STATE.rows) return [];
   return STATE.rows;   // ya viene filtrado por cliente y taller, no por período
 }
+/* En el histórico conviven 'EXTERNA' (formato viejo) e 'EXTERNO' (nuevo), y lo mismo con
+   INTERNA/INTERNO. Comparar contra el valor exacto deja fuera la mitad de las filas y los
+   porcentajes salen calculados sobre menos auditorías de las que hay. */
+function esExterno(r){ return String(r['INT/EXT']||'').toUpperCase().indexOf('EXTERN')===0; }
+function esInterno(r){ return String(r['INT/EXT']||'').toUpperCase().indexOf('INTERN')===0; }
+
 function ejeTendencia(){
   var modo = (typeof periodoActualDer==='function') ? periodoActualDer().modo : 'week';
   if(modo === 'week'){
@@ -3080,7 +3170,7 @@ function estiloDetalle(estilo){
   var ANIO=filasAnioDer();
   var rows=filasPeriodoDer().filter(function(r){
     return String(r['ESTILO']||'').trim()===String(estilo).trim() &&
-           (String(r['INT/EXT']||'')==='EXTERNO' || String(r['DERIVADOS']||'').trim()!=='');
+           (esExterno(r) || String(r['DERIVADOS']||'').trim()!=='');
   });
   var lote=0, der=0, mot={}, numT={}, denT={}, numTe={}, denTe={}, semN={}, semD={}, auds=[];
   rows.forEach(function(r){
@@ -3172,7 +3262,7 @@ function derDetalle(tipo){
      pertenece a ese universo por definición, diga lo que diga la columna. Se usa el mismo
      criterio que las tarjetas para que las cifras coincidan siempre. */
   var rows=filasPeriodoDer().filter(function(r){
-    return String(r['INT/EXT']||'')==='EXTERNO' || String(r['DERIVADOS']||'').trim()!=='';
+    return esExterno(r) || String(r['DERIVADOS']||'').trim()!=='';
   });
   var det=[], total=0;
   // Denominador del universo: las prendas realmente revisadas en esas auditorías.
@@ -3182,7 +3272,7 @@ function derDetalle(tipo){
   rows.forEach(function(r){
     var id=String(r['ID_AUDITORIA']||'').trim();
     var lote=Number(r['LOTE_CONTABLE']!=null&&r['LOTE_CONTABLE']!==''?r['LOTE_CONTABLE']:r['LOTE'])||0;
-    var taller=String(r['SERVICIO']||'')||(String(r['INT/EXT']||'')==='INTERNO'?'LIVES':'');
+    var taller=String(r['SERVICIO']||'')||(esInterno(r)?'LIVES':'');
     var llave = id || (String(r['FECHA']||'')+'|'+taller+'|'+lote);
     if(!loteVisto[llave]){ loteVisto[llave]={lote:lote, r:r}; loteTotal+=lote; }
     derParse(r['DERIVADOS']).forEach(function(d){
@@ -3205,7 +3295,7 @@ function derDetalle(tipo){
     Object.keys(loteVisto).forEach(function(k){
       var o=loteVisto[k], r=o.r;
       var val;
-      if(campo==='taller') val=String(r['SERVICIO']||'')||(String(r['INT/EXT']||'')==='INTERNO'?'LIVES':'');
+      if(campo==='taller') val=String(r['SERVICIO']||'')||(esInterno(r)?'LIVES':'');
       else if(campo==='cliente') val=String(r['CLIENTE']||'');
       else if(campo==='estilo') val=String(r['ESTILO']||'');
       else if(campo==='tela') val=String(r['TELA']||r['COD TELA']||'');
@@ -3240,7 +3330,7 @@ function derDetalle(tipo){
      varios puntos y se ve de dónde viene el número que se está mirando. El punto del
      período activo va resaltado más abajo. */
   ANIO.forEach(function(r){
-    if(String(r['INT/EXT']||'')!=='EXTERNO' && String(r['DERIVADOS']||'').trim()==='') return;
+    if(!esExterno(r) && String(r['DERIVADOS']||'').trim()==='') return;
     var k=EJE.clave(r); if(!k) return;
     semDen[k]=(semDen[k]||0)+(Number(r['LOTE_CONTABLE']!=null&&r['LOTE_CONTABLE']!==''?r['LOTE_CONTABLE']:r['LOTE'])||0);
     derParse(r['DERIVADOS']).forEach(function(d){
@@ -3510,8 +3600,21 @@ if(document.readyState!=='loading'){ cargarEnVivo(); cargarDetalleFino(); }
     var lotePer = (sel!=null) ? (den[sel]||0)  : totalLote;
     var tasaPer = lotePer ? (derPer/lotePer*100).toFixed(2) : "0";
     var peor    = Number(tasaPer) > Number(tasaAcum);
+    /* Aviso cuando el período no tuvo derivados pero sí defectos.
+       En los datos, las auditorías RECHAZADAS tienen cero derivados sin excepción: cuando un
+       lote se rechaza se devuelve entero al taller, no se apartan prendas una por una. Los
+       derivados aparecen en lotes APROBADOS, donde se separan las pocas piezas con problema
+       y el resto sigue. Sin esta nota, un cero aquí se lee como "falta el dato". */
+    var notaCero='';
+    if(sel!=null && derPer===0 && lotePer>0){
+      notaCero='<div style="background:#F1F6F4;border-left:3px solid var(--slate);border-radius:0 6px 6px 0;'+
+        'padding:8px 11px;margin:0 0 9px;font-size:11.5px;color:#4E6B78;line-height:1.5">'+
+        'Sin prendas derivadas en este período. No es un dato faltante: cuando un lote se '+
+        '<b>rechaza</b> se devuelve completo al taller, sin apartar prendas. Los defectos que '+
+        'se ven más abajo salen de la <b>muestra inspeccionada</b>, que es lo que motivó el rechazo.</div>';
+    }
     var cab = '<div style="font-size:11.5px;color:#5F726C;margin:2px 0 7px">Cifras de <b>'+etqPer+
-        '</b> — el mismo período elegido en el filtro de arriba.</div>'+
+        '</b> — el mismo período elegido en el filtro de arriba.</div>'+notaCero+
       '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px">'+
       '<div style="background:#F1F6F4;border-radius:8px;padding:9px 11px">'+
         '<div style="font-size:17px;font-weight:800;color:#B45309">'+derPer.toLocaleString("es-PE")+'</div>'+
@@ -3548,7 +3651,8 @@ if(document.readyState!=='loading'){ cargarEnVivo(); cargarDetalleFino(); }
       '<div style="font-size:12px;color:#5F726C">Sin prendas derivadas en el histórico de este registro. '+
       'Los derivados solo se registran en talleres externos, donde se revisa el lote completo.</div>';
 
-    return '<div class="fc-sec">Derivados · sobre su propio lote</div>'+ cab + barras + lista;
+    return '<div class="fc-sec">Derivados · sobre su propio lote '+
+      '<span style="font-weight:400;font-size:11.5px;color:#5F726C">— prendas apartadas del lote, distinto de los defectos de muestra</span></div>'+ cab + barras + lista;
   }
 
   function entityFicha(key,period,entColOverride,entLabelOverride,fnName){
@@ -3645,7 +3749,7 @@ if(document.readyState!=='loading'){ cargarEnVivo(); cargarDetalleFino(); }
            tabla "Desempeño de talleres externos" solo cuenta las externas. Por eso salían
            talleres distintos en cada lado: FREDY SOSA aparecía primero con 4 de 7 en el
            ranking mientras la tabla ni lo mostraba. Ahora ambos miden lo mismo. */
-        if(soloExternos && String(r["INT/EXT"]||"")!=="EXTERNO") return;
+        if(soloExternos && !esExterno(r)) return;
         var k=String(r[col]||"").trim();
         if(!k) return;
         (m[k]=m[k]||{n:0,re:0});
@@ -3675,7 +3779,7 @@ if(document.readyState!=='loading'){ cargarEnVivo(); cargarDetalleFino(); }
     function peoresEstilos(){
       var m={};
       wrows.forEach(function(r){
-        var ext = String(r["INT/EXT"]||"")==="EXTERNO";
+        var ext = esExterno(r);
         var hay = String(r["DERIVADOS"]||"").trim()!=="";
         if(!ext && !hay) return;
         var k=String(r["ESTILO"]||"").trim(); if(!k) return;
