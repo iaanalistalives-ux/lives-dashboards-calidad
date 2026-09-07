@@ -580,6 +580,9 @@
 }
 
   #panelDer{margin-top:16px;}
+  /* En celular las dos tarjetas de reprocesos/licencias no caben lado a lado: el estilo en
+     línea que las coloca en dos columnas se anula aquí para que se apilen. */
+  @media(max-width:900px){ #excCortes{grid-template-columns:1fr !important;} }
   .derWrap{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
   @media(max-width:980px){.derWrap{grid-template-columns:1fr;}}
   .derCard{background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(14,59,54,.10);padding:15px 17px;}
@@ -722,6 +725,16 @@
         <div id="uniComp"></div>
         <div id="uniTop"></div>
       </div>
+
+<!-- Panel de los dos universos que NO entran en los indicadores. Va aquí, pegado al panel
+     de universo, porque la primera pregunta después de ver un total de prendas es "¿y qué
+     quedó fuera?". Cada corte trae su propio denominador: nunca se suman entre sí ni con
+     el universo válido. -->
+<div class="panel" id="panelExcluidos" style="display:none"><span class="tira riesgo"></span>
+        <div class="pt">🔁 Reprocesos y licencias — fuera de los indicadores <span id="excPer" style="font-weight:400;color:var(--stone);font-size:13px"></span></div>
+        <div class="ph">Estas auditorías sí se hicieron y sí se cuentan como auditorías, pero sus prendas no suman al lote ni a la muestra de los KPIs. Aquí se ve lo que encontraron, cada una sobre su propio total.</div>
+        <div id="excCortes" style="display:grid;grid-template-columns:1fr 1fr;gap:14px"></div>
+      </div>
       </div>
       <div class="tabpane">
         <div class="grid12">
@@ -859,7 +872,13 @@
         <h4>Qué queda fuera del cálculo</h4>
         <p>Los <b>reprocesos</b> no suman prendas nuevas: son las mismas piezas ya contadas
         en la auditoría que fue rechazada.<br>
-        Las auditorías por <b>licencia</b> tampoco entran en los indicadores.<br>
+        Las auditorías por <b>licencia</b> tampoco suman: en una licencia se revisa el lote
+        entero, así que su "muestra" es el lote completo y mezclarla con muestras AQL infla
+        el universo.<br>
+        Las dos <b>sí se cuentan como auditorías</b> y su detalle está en el panel
+        «Reprocesos y licencias», cada una medida sobre su propio total. Ese panel es el
+        único lugar donde aparecen: nunca se suman a los porcentajes generales, porque
+        vienen de denominadores distintos.<br>
         Los <b>derivados</b> solo existen en talleres externos: en Auditoría Final interna
         no se revisa el lote completo, así que ahí ese dato no aplica.</p>
 
@@ -1066,53 +1085,71 @@ function buildState(raw, fname, frozen){
   let rows=raw.filter(r=>{const res=r["RESULTADO"],s=r["SEMANA"];return (res==="APROBADO"||res==="RECHAZADO")&&s!=null&&isFinite(Number(s));});
   rows.forEach(r=>{const s=r["SERVICIO"];if(s&&RENAME[s])r["SERVICIO"]=RENAME[s];}); // alias de talleres
 
-  /* ===== COHERENCIA ENTRE NUMERADOR Y DENOMINADOR =====
-     LOTE_CONTABLE y MUESTRA_CONTABLE valen 0 en reprocesos y licencias: esas prendas ya se
-     contaron en la auditoría original y volver a sumarlas duplicaría el universo.
-     Pero las columnas DEFECTOS y DERIVADOS de esas mismas filas SÍ se estaban sumando en
-     todos los paneles. Con eso el numerador incluía lo que el denominador excluía y los
-     porcentajes salían inflados: medido sobre los datos reales, el 31% de los derivados
-     venía de filas no computables.
-     Se vacían aquí, en el punto donde entran los datos, para que ningún panel tenga que
-     acordarse de filtrarlas. La fila NO se elimina: el conteo de auditorías sigue
-     incluyendo licencias y repeticiones, que es la regla del área. */
+  /* ===== DOS UNIVERSOS SEPARADOS =====
+     Regla del área, tal como la definió Calidad:
+
+       · En los KPIs de CANTIDAD DE PRENDAS (lote y muestra) NO cuentan ni los reprocesos
+         ni las licencias. Un reproceso vuelve a mirar prendas que ya se contaron en la
+         auditoría rechazada original; una licencia es inspección al 100%, así que su
+         "muestra" es el lote entero y compararla contra una muestra AQL infla el universo.
+         Medido sobre los datos reales: los reprocesos aportaban 39.007 prendas de lote y
+         las licencias 77.112 prendas de muestra, o sea una de cada cuatro prendas
+         inspeccionadas del histórico.
+
+       · En el ANÁLISIS de defectos y derivados se ven TODAS las auditorías, pero
+         SIEMPRE separadas: cada corte con su propio denominador, nunca sumados en un
+         mismo porcentaje. De eso se encarga el panel "Reprocesos y licencias".
+
+     Implementación: la fila NO se elimina —el conteo de auditorías sigue incluyéndolas,
+     que es la regla del área— y su dato original tampoco se pierde: se copia a campos
+     con sufijo _TODO antes de neutralizar los que usan los indicadores. Así ningún panel
+     de tasa tiene que acordarse de filtrar, y el panel de análisis conserva el detalle. */
   (function(){
     function esSiCol(v){ const t=String(v==null?"":v).trim().toUpperCase();
       return t==="SÍ"||t==="SI"||t==="1"||t==="TRUE"; }
-    /* Un reproceso se reconoce por dos vías, porque la columna REPROCESO no siempre llega
-       bien: el formulario la escribía como 'SÍ' y el Sheet maestro la lee como número, así
-       que 'SÍ' terminaba convertido en 0. Mientras ese arreglo no esté desplegado en todas
-       las fuentes, la marca también puede venir en el N° de auditoría. */
+    /* Un reproceso se reconoce por dos vías. La columna REPROCESO es la buena y hoy llega
+       correcta (verificado: las 63 marcas del formulario viajan a PUBLICO_FINAL como 1).
+       El rescate por el texto "REPRO" en el número de auditoría se mantiene por si alguna
+       fuente vieja vuelve a escribir 'SÍ' en una columna que se lee como número. */
     function esReproceso(r){
       if(esSiCol(r["REPROCESO"])) return true;
       const na = String(r["N° DE AUDITORÍA"]||r["N_AUDITORIA"]||"").toUpperCase();
       return na.indexOf("REPRO") >= 0;
     }
-    let repro=0, loteRepro=0;
+    /* La licencia viaja en TIPO_LIC ('LICENCIA' / 'NO LICENCIA'). Se aceptan también las
+       columnas LICENCIA y TIPO_LICENCIA por si el archivo cargado a mano usa otro nombre. */
+    function esLicencia(r){
+      const t=String(r["TIPO_LIC"]||r["TIPO_LICENCIA"]||"").trim().toUpperCase();
+      if(t==="LICENCIA") return true;
+      if(t==="NO LICENCIA") return false;
+      return esSiCol(r["LICENCIA"]);
+    }
+    let nRep=0, nLic=0, loteRep=0, muestraLic=0;
     rows.forEach(r=>{
-      /* No se exige COMPUTABLE=0 para detectar un reproceso: en el Sheet hay 11 reprocesos
-         marcados como computables, y su lote se estaba sumando igual. La condición es la
-         columna REPROCESO por sí sola, que es el hecho de negocio. */
-
-      /* Un REPROCESO vuelve a mirar prendas que ya se contaron en la auditoría rechazada
-         original. Sumar su lote duplica el universo: medido sobre los datos reales, 39.007
-         prendas de 194.130 —una de cada cinco— venían de reprocesos ya contados.
-         En el Sheet esas filas tienen COMPUTABLE=0 pero conservan LOTE_CONTABLE con valor,
-         así que hay que neutralizarlas aquí. */
-      if(esReproceso(r)){
-        repro++;
-        loteRepro += Number(r["LOTE_CONTABLE"]||0);
-        r["LOTE_CONTABLE"]=0; r["MUESTRA_CONTABLE"]=0; r["LOTE"]=0; r["MUESTRA"]=0;
-        r["DEFECTOS"]=""; r["DERIVADOS"]="";
-        return;
-      }
-
-      /* Una LICENCIA sí es inspección real —se revisa el 100% del lote— así que sus prendas
-         cuentan para el universo. Lo que no cuenta es su resultado para las tasas de
-         aprobación, y de eso ya se encarga COMPUTABLE en los paneles que corresponden. */
+      const rep=esReproceso(r), lic=!rep && esLicencia(r);
+      r.__REP=rep; r.__LIC=lic; r.__EXC=rep||lic;
+      /* Copia intacta de lo que la fila traía, para el panel de análisis. */
+      /* Para el panel de análisis se guarda el lote y la muestra CRUDOS, no los _CONTABLE.
+         En estas filas el _CONTABLE ya viene en 0 justamente porque no computan: usarlo
+         daría denominadores falsos. Medido sobre los datos reales, las licencias tienen
+         LOTE_CONTABLE = 0 en 468 de 487 filas, así que sus derivados se estaban dividiendo
+         entre 2.784 prendas en vez de las 77.112 realmente revisadas. */
+      r.__L_TODO = Number(r["LOTE"])||Number(r["LOTE_CONTABLE"])||0;
+      r.__M_TODO = Number(r["MUESTRA"])||Number(r["MUESTRA_CONTABLE"])||0;
+      r.__DEF_TODO = r["DEFECTOS"];
+      r.__DER_TODO = r["DERIVADOS"];
+      if(!r.__EXC) return;
+      if(rep){ nRep++; loteRep += r.__L_TODO; } else { nLic++; muestraLic += r.__M_TODO; }
+      /* Fuera de los indicadores: se neutraliza numerador y denominador JUNTOS. Vaciar solo
+         el lote y dejar los defectos sería el error inverso —porcentajes inflados— que ya
+         nos costó una cifra mal presentada (MARUDI marcaba 8.46% donde el real era 5.38%). */
+      r["LOTE_CONTABLE"]=0; r["MUESTRA_CONTABLE"]=0; r["LOTE"]=0; r["MUESTRA"]=0;
+      r["DEFECTOS"]=""; r["DERIVADOS"]="";
     });
-    if(repro) console.info("Coherencia: "+repro+" reproceso(s) neutralizados ("+
-      loteRepro.toLocaleString("es-PE")+" prendas ya contadas en su auditoría original).");
+    if(nRep||nLic) console.info("Universo: "+nRep+" reproceso(s) ("+
+      loteRep.toLocaleString("es-PE")+" prendas de lote) y "+nLic+" licencia(s) ("+
+      muestraLic.toLocaleString("es-PE")+" prendas revisadas) quedan fuera de los indicadores. "+
+      "Su detalle se muestra en el panel «Reprocesos y licencias».");
   })();
   // Blindaje columna "N° DE AUDITORÍA": si el Excel trae el encabezado con otra variante
   // (Nº en vez de N°, sin tilde, espacios extra, mayúsculas distintas, etc.) la clave exacta
@@ -1539,8 +1576,20 @@ window.addEventListener("afterprint",()=>{document.body.classList.remove("print-
 /* ---------- exportar versión con datos incrustados ---------- */
 function exportFrozen(){
   if(!STATE)return;
-  const keep=["FECHA","INT/EXT","SEMANA","RESULTADO","LOTE","MUESTRA","SERVICIO","N° DE AUDITORÍA","DEFECTOS","DERIVADOS","AUD. TALLER","CLIENTE"];
-  const rows=STATE.allRows.map(r=>{const o={};keep.forEach(k=>{let v=r[k];if(v instanceof Date)v=v.toISOString().slice(0,10);o[k]=v;});return o;});
+  /* REGLA PERMANENTE: toda columna que use algún panel tiene que estar en esta lista, o
+     el panel funciona en vivo y aparece vacío en el archivo enviado. Se agregaron REPROCESO,
+     TIPO_LIC, COMPUTABLE, LOTE_CONTABLE y MUESTRA_CONTABLE: sin ellas el archivo exportado no
+     puede distinguir un reproceso de una licencia y el panel de universos excluidos sale vacío. */
+  const keep=["FECHA","INT/EXT","SEMANA","RESULTADO","LOTE","MUESTRA","SERVICIO","N° DE AUDITORÍA","DEFECTOS","DERIVADOS","AUD. TALLER","CLIENTE",
+              "REPROCESO","TIPO_LIC","COMPUTABLE","LOTE_CONTABLE","MUESTRA_CONTABLE"];
+  /* Se exporta el dato ORIGINAL, no el ya neutralizado. buildState() vuelve a aplicar la
+     regla de los dos universos al abrir el archivo, igual que en vivo. Si se exportaran las
+     filas procesadas, el archivo enviado tendría reprocesos y licencias en cero y sin
+     defectos, y el panel de análisis no tendría nada que mostrar. */
+  const ORIG={"LOTE":"__L_TODO","MUESTRA":"__M_TODO","LOTE_CONTABLE":"__L_TODO","MUESTRA_CONTABLE":"__M_TODO","DEFECTOS":"__DEF_TODO","DERIVADOS":"__DER_TODO"};
+  const rows=STATE.allRows.map(r=>{const o={};keep.forEach(k=>{
+    let v = (r.__EXC && ORIG[k]!==undefined && r[ORIG[k]]!==undefined) ? r[ORIG[k]] : r[k];
+    if(v instanceof Date)v=v.toISOString().slice(0,10);o[k]=v;});return o;});
   const embed={rows,fname:STATE.fname};
   const clone=document.documentElement.cloneNode(true);
   const sj=clone.querySelector("#sheetjs");if(sj)sj.remove();           // el visor no necesita leer Excel
@@ -1862,6 +1911,7 @@ function renderPeriod(mode,value){
         scales:{x:{min:0,grid:{color:WARML},border:{display:false},ticks:{precision:0}},y:{grid:{display:false},border:{color:WARM},ticks:{font:{size:10}}}}},plugins:[valueLabel]}));
   }
   try{ renderUniverso(); }catch(e){ console.warn('renderUniverso', e); }
+  try{ renderExcluidos(); }catch(e){ console.warn('renderExcluidos', e); }
   try{ renderTalleres(); }catch(e){ console.warn('renderTalleres', e); }
   try{ alinearNumeros(); }catch(e){}
   // Al final del render, cuando ya se dibujó todo: los paneles que quedaron sin datos
@@ -2706,6 +2756,103 @@ function renderTalleres(){
   window._tallData={};
 }
 
+/* ============================================================================
+   REPROCESOS Y LICENCIAS — el universo que no entra en los indicadores
+   ----------------------------------------------------------------------------
+   Aquí se ve TODO lo que buildState() sacó de los KPIs, pero separado por corte y
+   cada uno con su propio denominador:
+
+     · Reproceso -> las prendas ya se contaron en la auditoría rechazada original.
+       Su tasa de defectos se calcula sobre la muestra QUE ESA re-inspección revisó,
+       no sobre el universo general.
+     · Licencia  -> inspección al 100%: la "muestra" es el lote entero. Su tasa se
+       calcula sobre esas prendas revisadas.
+
+   Nunca se suman entre sí ni con el universo válido: son denominadores distintos.
+============================================================================ */
+function renderExcluidos(){
+  var cont=document.getElementById('panelExcluidos');
+  if(!cont) return;
+  var rows;
+  try{ rows=filasPeriodoDer(); }catch(e){ rows=[]; }
+  var cortes=[
+    {k:'rep', tit:'Reprocesos', ico:'🔁',
+     expl:'Lotes rechazados que el taller corrigió y se volvieron a auditar. Son las mismas prendas de la auditoría original.',
+     filas:rows.filter(function(r){return r.__REP;})},
+    {k:'lic', tit:'Licencias', ico:'📋',
+     expl:'Inspección al 100% del lote: se revisó prenda por prenda, no una muestra.',
+     filas:rows.filter(function(r){return r.__LIC;})}
+  ].filter(function(c){ return c.filas.length; });
+
+  var caja=document.getElementById('excCortes');
+  if(!cortes.length){
+    cont.style.display='none'; cont.dataset.ocultoPorLogica='1';
+    if(caja) caja.innerHTML='';
+    return;
+  }
+  cont.style.display=''; cont.dataset.ocultoPorLogica='0';
+  /* Con un solo corte visible, ocupa el ancho completo en vez de dejar media tarjeta vacía. */
+  caja.style.gridTemplateColumns = cortes.length===1 ? '1fr' : '1fr 1fr';
+
+  var per=document.getElementById('excPer');
+  if(per){
+    var el=document.getElementById('uniPer');
+    per.textContent = el ? el.textContent : '';
+  }
+
+  function unidades(v){ return defUnits(v); }
+  function topMotivos(filas, campo){
+    var acc={};
+    filas.forEach(function(r){ defCount(r[campo], acc); });
+    return Object.keys(acc).map(function(k){return {n:k,v:acc[k]};})
+      .sort(function(a,b){return b.v-a.v;}).slice(0,3);
+  }
+  function num(n){ return Number(n||0).toLocaleString('es-PE'); }
+  function tasa(a,b){ return b ? (a/b*100).toFixed(2)+'%' : '—'; }
+
+  caja.innerHTML = cortes.map(function(c){
+    var nAud=c.filas.length;
+    var lote=0, muestra=0, defs=0, ders=0, rech=0;
+    c.filas.forEach(function(r){
+      lote += r.__L_TODO||0;
+      muestra += r.__M_TODO||0;
+      defs += unidades(r.__DEF_TODO);
+      ders += unidades(r.__DER_TODO);
+      if(r['RESULTADO']==='RECHAZADO') rech++;
+    });
+    /* El denominador de cada tasa se nombra en pantalla: un porcentaje sin decir sobre qué
+       se calculó es exactamente lo que hizo falta antes en este tablero. */
+    var tDef = '<b>'+tasa(defs,muestra)+'</b> <span style="color:var(--stone)">de las '+num(muestra)+' prendas que esta revisión inspeccionó</span>';
+    var tDer = ders ? ('<b>'+tasa(ders,lote)+'</b> <span style="color:var(--stone)">de las '+num(lote)+' prendas del lote</span>') : '';
+    var mDef = topMotivos(c.filas,'__DEF_TODO');
+    var mDer = topMotivos(c.filas,'__DER_TODO');
+    function listaMot(tit, arr, total){
+      if(!arr.length) return '';
+      return '<div style="margin-top:10px"><div style="font-size:11.5px;font-weight:700;color:var(--stone);text-transform:uppercase;letter-spacing:.4px">'+tit+'</div>'+
+        arr.map(function(m){
+          var w = total ? Math.max(4, Math.round(m.v/total*100)) : 4;
+          return '<div style="margin-top:6px"><div style="display:flex;justify-content:space-between;font-size:12.5px"><span>'+
+            m.n+'</span><b>'+num(m.v)+'</b></div>'+
+            '<div style="height:5px;background:#EDF1F2;border-radius:3px;margin-top:3px"><div style="height:5px;width:'+w+'%;background:var(--taupe);border-radius:3px"></div></div></div>';
+        }).join('')+'</div>';
+    }
+    return '<div style="background:#F1F6F4;border-radius:10px;padding:14px 16px">'+
+      '<div style="font-size:14px;font-weight:700;color:#333">'+c.ico+' '+c.tit+'</div>'+
+      '<div style="font-size:11.5px;color:var(--stone);margin:2px 0 10px">'+c.expl+'</div>'+
+      '<div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px">'+
+        '<div><div style="font-size:19px;font-weight:700;color:#333">'+num(nAud)+'</div>auditorías</div>'+
+        '<div><div style="font-size:19px;font-weight:700;color:#333">'+num(rech)+'</div>rechazadas</div>'+
+        '<div><div style="font-size:19px;font-weight:700;color:#333">'+num(defs)+'</div>prendas con defecto</div>'+
+        (ders?'<div><div style="font-size:19px;font-weight:700;color:#333">'+num(ders)+'</div>derivadas</div>':'')+
+      '</div>'+
+      '<div style="font-size:12.5px;margin-top:10px;line-height:1.7">Defectos: '+tDef+
+        (tDer?('<br>Derivados: '+tDer):'')+'</div>'+
+      listaMot('Motivos más frecuentes', mDef, defs)+
+      listaMot('Motivos de derivación', mDer, ders)+
+    '</div>';
+  }).join('');
+}
+
 function renderUniverso(){
   var cont=document.getElementById('panelUniverso');
   if(!cont) return;
@@ -3458,6 +3605,7 @@ if(typeof _rpDer==='function'){
     var r=_rpDer.apply(this,arguments);
     try{ derPanel(); }catch(e){ console.warn('derPanel',e); }
     try{ renderUniverso(); }catch(e){ console.warn('renderUniverso',e); }
+    try{ renderExcluidos(); }catch(e){ console.warn('renderExcluidos',e); }
     try{ renderTalleres(); }catch(e){ console.warn('renderTalleres',e); }
     try{ if(typeof alinearNumeros==='function') alinearNumeros(); }catch(e){}
     try{ if(typeof ocultarPanelesVacios==='function') setTimeout(ocultarPanelesVacios,60); }catch(e){}
