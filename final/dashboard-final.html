@@ -2506,10 +2506,16 @@ function renderTalleres(){
   var MIN=Math.max(1, Math.round(EJE.min/4));   // umbral por período para las tasas de volumen
   var COLS={def:'#DC2626', der:'#B45309', rech:'#4E6B78'};
 
-  cont.innerHTML = mostrar.map(function(t){
+  /* Se dibuja con Chart.js y el mismo estilo de tendencia del resto del tablero
+     (serieTendencia + etiquetasTendencia): línea gruesa, área degradada, puntos con borde
+     blanco y el valor en una pastilla sobre cada punto. Antes esta pestaña armaba su propio
+     SVG a mano y se veía distinta a todo lo demás. */
+  if(window._chartsTall){ window._chartsTall.forEach(function(c){ try{c.destroy();}catch(e){} }); }
+  window._chartsTall=[];
+
+  cont.innerHTML = mostrar.map(function(t,idx){
     var per=T[t.k].per;
     var claves=Object.keys(per).map(Number).sort(function(a,b){return a-b;});
-    // tres series; null cuando el denominador no da para calcular
     var S={def:[],der:[],rech:[]};
     claves.forEach(function(c){
       var P=per[c];
@@ -2519,156 +2525,101 @@ function renderTalleres(){
     });
     var todos=[].concat(S.def,S.der,S.rech).map(function(x){return x.v;}).filter(function(v){return v!==null;});
     if(!todos.length) return '';
-    var mx=Math.max.apply(null,todos)||1;
-    /* Con un solo período con datos no hay tendencia que dibujar: el gráfico quedaba como
-       una mancha con dos puntos flotando en un rectángulo vacío. En ese caso se muestran
-       las cifras y se dice por qué no hay línea. */
-    var periodosConDato = claves.filter(function(c){
+    var conDato=claves.filter(function(c){
       return S.def.concat(S.der,S.rech).some(function(x){ return x.k===c && x.v!==null; });
     }).length;
-    var haySerie = periodosConDato >= 2;
-
-    /* El SVG usaba preserveAspectRatio="none", que estira el dibujo horizontalmente para
-       llenar el ancho: los puntos salían como óvalos aplastados y las líneas con grosores
-       distintos según el tramo. Ahora el viewBox se dimensiona igual que el espacio real y
-       se conserva la proporción, así los círculos son círculos. */
-    var W=Math.max(560, claves.length*70), H=190, PAD=26;
-    function ruta(serie){
-      var pts=serie.map(function(x,i){
-        if(x.v===null) return null;
-        var px=(claves.length>1? (i/(claves.length-1))*(W-2*PAD)+PAD : W/2);
-        var py=BASE-((x.v/mx)*(BASE-TOPE));
-        return px.toFixed(1)+','+py.toFixed(1);
-      }).filter(Boolean);
-      return pts.length>=2 ? pts.join(' ') : (pts.length===1? pts[0]+' '+pts[0] : '');
-    }
-    function puntos(serie,color){
-      return serie.map(function(x,i){
-        if(x.v===null) return '';
-        var px=(claves.length>1? (i/(claves.length-1))*(W-2*PAD)+PAD : W/2);
-        var py=BASE-((x.v/mx)*(BASE-TOPE));
-        return '<circle cx="'+px.toFixed(1)+'" cy="'+py.toFixed(1)+'" r="3.4" fill="'+color+'" stroke="#fff" stroke-width="1.6">'+
-               '<title>'+EJE.etq(x.k)+': '+x.n+' de '+x.d+' = '+x.v+'%</title></circle>';
-      }).join('');
-    }
-    /* Mismo estilo de tendencia que el resto del tablero: línea de 3px con remates
-       redondeados y puntos con borde blanco. Las líneas horizontales de referencia dan
-       escala sin cargar el gráfico. */
-    var BASE=H-PAD, TOPE=PAD;
-    var guias='';
-    for(var gi=0; gi<=4; gi++){
-      var gy=BASE-((gi/4)*(BASE-TOPE));
-      var val=(mx*gi/4);
-      guias+='<line x1="'+PAD+'" y1="'+gy.toFixed(1)+'" x2="'+(W-PAD)+'" y2="'+gy.toFixed(1)+
-             '" stroke="'+(gi===0?'#B9C6C2':'#EDF2F0')+'" stroke-width="1"/>'+
-             '<text x="'+(PAD-5)+'" y="'+(gy+4).toFixed(1)+'" text-anchor="end" '+
-             'font-family="Calibri,Arial,sans-serif" font-size="11" fill="#93A3A0">'+val.toFixed(val<10?1:0)+'%</text>';
-    }
-    var svg = haySerie
-      ? ('<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;max-height:230px;display:block">'+
-         guias+
-         '<polyline points="'+ruta(S.def)+'" fill="none" stroke="'+COLS.def+'" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>'+
-         '<polyline points="'+ruta(S.der)+'" fill="none" stroke="'+COLS.der+'" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>'+
-         '<polyline points="'+ruta(S.rech)+'" fill="none" stroke="'+COLS.rech+'" stroke-width="2.6" stroke-dasharray="6 4" stroke-linejoin="round" stroke-linecap="round"/>'+
-         puntos(S.def,COLS.def)+puntos(S.der,COLS.der)+puntos(S.rech,COLS.rech)+ejeX+'</svg>')
-      : ('<div style="background:var(--card);border-radius:8px;padding:12px 14px;font-size:12px;color:var(--stone)">'+
-         'Solo hay <b>'+periodosConDato+'</b> período con datos suficientes: todavía no hay tendencia que mostrar. '+
-         'Las cifras de arriba son las de ese período.</div>');
-
-    /* Las etiquetas van DENTRO del SVG, en la misma coordenada que su punto. Antes iban en
-       un div aparte repartido con space-between, y no coincidían con los puntos cuando el
-       gráfico tenía scroll horizontal. */
-    var etiquetas='';
-    var ejeX = claves.map(function(c,i){
-      var px=(claves.length>1? (i/(claves.length-1))*(W-2*PAD)+PAD : W/2);
-      return '<text x="'+px.toFixed(1)+'" y="'+(H-6)+'" text-anchor="middle" '+
-             'font-family="Calibri,Arial,sans-serif" font-size="12" fill="#5F726C">'+EJE.etq(c)+'</text>';
-    }).join('');
+    var haySerie = conDato>=2;
 
     function ultimo(serie){ for(var i=serie.length-1;i>=0;i--) if(serie[i].v!==null) return serie[i]; return null; }
     function primero(serie){ for(var i=0;i<serie.length;i++) if(serie[i].v!==null) return serie[i]; return null; }
-
-    /* ===== LECTURA EN PALABRAS =====
-       Tres números correctos no son una conclusión: quien los mira todavía tiene que
-       interpretarlos. Esta frase describe la RELACIÓN entre las tres tasas, que es
-       justamente lo que se pregunta al ver el gráfico.
-       Solo describe lo que muestran los datos — nunca atribuye una causa que no esté ahí. */
-    function lectura(){
-      var uDef=ultimo(S.def), uDer=ultimo(S.der), uRe=ultimo(S.rech);
-      var pDef=primero(S.def), pDer=primero(S.der), pRe=primero(S.rech);
-      var partes=[], color='#5F726C', titulo='';
-
-      // 1) ¿La muestra está viendo lo que el lote separa?
-      if(uDef && uDer && uDef.v>0 && uDer.v>0){
-        var veces = uDer.v / uDef.v;
-        if(veces >= 2){
-          titulo='Aprueba en muestra pero falla en lote';
-          color='#B45309';
-          partes.push('El muestreo detecta <b>'+uDef.v+'%</b> de problemas, pero al revisar el lote completo '+
-            'hay que separar <b>'+uDer.v+'%</b>: '+(veces>=10?'más de diez veces':(veces>=3?'más del triple':'más del doble'))+
-            '. No es que el taller haya empeorado — es que la inspección por muestreo no lo está viendo.');
-        } else if(veces <= 0.5){
-          titulo='La muestra detecta más de lo que se separa';
-          color='#0B815E';
-          partes.push('Se encuentra <b>'+uDef.v+'%</b> en la muestra y solo se separa <b>'+uDer.v+'%</b> del lote: '+
-            'el taller está corrigiendo antes de despachar, o la inspección es más exigente que el criterio de separación.');
-        }
-      }
-
-      // 2) ¿Las tres suben juntas?
-      var suben=0, hay=0;
-      [[pDef,uDef],[pDer,uDer],[pRe,uRe]].forEach(function(par){
-        if(par[0] && par[1] && par[0]!==par[1]){ hay++; if(par[1].v > par[0].v) suben++; }
-      });
-      if(hay>=2 && suben===hay){
-        titulo = titulo || 'Empeorando en todos los frentes';
-        color='#DC2626';
-        partes.push('Las tres tasas subieron respecto al primer período con datos: aquí sí el desempeño cayó de verdad, no es un efecto del muestreo.');
-      } else if(hay>=2 && suben===0){
-        titulo = titulo || 'Mejorando de forma pareja';
-        color='#0B815E';
-        partes.push('Las tres tasas bajaron respecto al primer período con datos.');
-      }
-
-      // 3) Rechazo alto con lote limpio
-      if(uRe && uDer && uRe.v>=30 && uDer.v<1){
-        titulo = titulo || 'Rechazo alto sin derivados';
-        partes.push('Se rechaza el <b>'+uRe.v+'%</b> de las auditorías pero casi no se separan prendas del lote: '+
-          'conviene revisar por qué se rechaza, porque el problema no está apareciendo en el conteo de prendas.');
-      }
-
-      if(!partes.length) return '';
-      return '<div style="background:var(--card);border-left:4px solid '+color+';border-radius:0 8px 8px 0;'+
-        'padding:10px 13px;margin:10px 0 4px;font-size:12.5px;line-height:1.55">'+
-        (titulo?('<b style="color:'+color+'">'+titulo+'.</b> '):'')+partes.join(' ')+'</div>';
-    }
     function chip(txt,color,x){
       if(!x) return '<span style="font-size:11.5px;color:var(--stone)">'+txt+': sin dato</span>';
       return '<span style="font-size:11.5px"><b style="color:'+color+'">'+txt+' '+x.v+'%</b>'+
              ' <span style="color:var(--stone)">('+x.n.toLocaleString('es-PE')+' de '+x.d.toLocaleString('es-PE')+')</span></span>';
     }
+    var lect = (function(){
+      var uDef=ultimo(S.def), uDer=ultimo(S.der), uRe=ultimo(S.rech);
+      var pDef=primero(S.def), pDer=primero(S.der), pRe=primero(S.rech);
+      var partes=[], color='#5F726C', titulo='';
+      if(uDef && uDer && uDef.v>0 && uDer.v>0){
+        var veces=uDer.v/uDef.v;
+        if(veces>=2){ titulo='Aprueba en muestra pero falla en lote'; color='#B45309';
+          partes.push('El muestreo detecta <b>'+uDef.v+'%</b> de problemas, pero al revisar el lote completo hay que separar <b>'+uDer.v+'%</b>: '+
+            (veces>=10?'más de diez veces':(veces>=3?'más del triple':'más del doble'))+'. No es que el taller haya empeorado — es que la inspección por muestreo no lo está viendo.');
+        } else if(veces<=0.5){ titulo='La muestra detecta más de lo que se separa'; color='#0B815E';
+          partes.push('Se encuentra <b>'+uDef.v+'%</b> en la muestra y solo se separa <b>'+uDer.v+'%</b> del lote: el taller está corrigiendo antes de despachar, o la inspección es más exigente que el criterio de separación.');
+        }
+      }
+      var suben=0, hay=0;
+      [[pDef,uDef],[pDer,uDer],[pRe,uRe]].forEach(function(par){
+        if(par[0]&&par[1]&&par[0]!==par[1]){ hay++; if(par[1].v>par[0].v) suben++; }
+      });
+      if(hay>=2 && suben===hay){ titulo=titulo||'Empeorando en todos los frentes'; color='#DC2626';
+        partes.push('Las tres tasas subieron respecto al primer período con datos: aquí sí el desempeño cayó de verdad, no es un efecto del muestreo.');
+      } else if(hay>=2 && suben===0){ titulo=titulo||'Mejorando de forma pareja'; color='#0B815E';
+        partes.push('Las tres tasas bajaron respecto al primer período con datos.');
+      }
+      if(uRe && uDer && uRe.v>=30 && uDer.v<1){ titulo=titulo||'Rechazo alto sin derivados';
+        partes.push('Se rechaza el <b>'+uRe.v+'%</b> de las auditorías pero casi no se separan prendas del lote: conviene revisar por qué se rechaza, porque el problema no está apareciendo en el conteo de prendas.');
+      }
+      if(!partes.length) return '';
+      return '<div style="background:var(--card);border-left:4px solid '+color+';border-radius:0 8px 8px 0;padding:10px 13px;margin:10px 0 4px;font-size:12.5px;line-height:1.55">'+
+        (titulo?('<b style="color:'+color+'">'+titulo+'.</b> '):'')+partes.join(' ')+'</div>';
+    })();
+
+    var cid='cTall'+idx;
+    window._tallData=window._tallData||{};
+    window._tallData[cid]={claves:claves, S:S, EJE:EJE};
+
     return '<div style="background:var(--warm-light);border-radius:var(--r);padding:13px 15px;margin-bottom:12px">'+
       '<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:2px">'+
         '<b style="font-size:14px;color:var(--petrol)">'+t.k+'</b>'+
         '<span style="font-size:12px;color:var(--stone)">'+
-          (t.aud? (t.aud+' auditoría(s) en el período · <b>'+t.pct.toFixed(1)+'%</b> de rechazo') 
+          (t.aud? (t.aud+' auditoría(s) en el período · <b>'+t.pct.toFixed(1)+'%</b> de rechazo')
                 : 'sin auditorías en el período')+
           ' · '+t.audAnio+' en el año ('+t.pctAnio.toFixed(1)+'%)</span>'+
         '<button type="button" style="margin-left:auto;font-size:11.5px;font-weight:700;padding:7px 14px;'+
           'border-radius:8px;border:none;background:var(--sage);color:#fff;cursor:pointer;white-space:nowrap" '+
-          'onmouseover="this.style.background=\'var(--sage-dark)\'" onmouseout="this.style.background=\'var(--sage)\'" '+
           'onclick="generarFicha('+JSON.stringify(t.k).replace(/"/g,'&quot;')+', curPeriodTok())">Ver ficha de '+t.k+' →</button>'+
       '</div>'+
       '<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:6px">'+
-        chip('Defectos/muestra',COLS.def,ultimo(S.def))+
-        chip('Derivados/lote',COLS.der,ultimo(S.der))+
-        chip('Rechazo',COLS.rech,ultimo(S.rech))+
-      '</div>'+
-      lectura()+
-      '<div style="overflow-x:auto">'+svg+(haySerie?etiquetas:'')+'</div>'+
-      (haySerie? '<div style="font-size:11px;color:var(--stone);margin-top:5px">Último valor de cada línea. Los tramos sin dato suficiente no se dibujan.</div>' : '')+
+        chip('Defectos/muestra','#DC2626',ultimo(S.def))+
+        chip('Derivados/lote','#B45309',ultimo(S.der))+
+        chip('Rechazo','#4E6B78',ultimo(S.rech))+
+      '</div>'+ lect +
+      (haySerie
+        ? '<div class="cwrap" style="height:230px;background:var(--card);border-radius:8px;padding:6px"><canvas id="'+cid+'"></canvas></div>'
+        : '<div style="background:var(--card);border-radius:8px;padding:12px 14px;font-size:12px;color:var(--stone)">'+
+          'Solo hay <b>'+conDato+'</b> período con datos suficientes: todavía no hay tendencia que mostrar. Las cifras de arriba son las de ese período.</div>')+
     '</div>';
   }).join('') || '<div style="font-size:13px;color:var(--stone)">Sin datos suficientes para graficar en este período.</div>';
+
+  /* Los canvas ya están en el DOM: recién ahora se pueden dibujar. */
+  Object.keys(window._tallData||{}).forEach(function(cid){
+    var el=document.getElementById(cid); if(!el) return;
+    var D=window._tallData[cid];
+    var lab=D.claves.map(function(c){ return D.EJE.etq(c); });
+    var ds=[
+      Object.assign({label:'Defectos sobre muestra', data:D.S.def.map(function(x){return x.v;})},
+        (typeof serieTendencia==='function')?serieTendencia('#DC2626','220,38,38'):{borderColor:'#DC2626'}),
+      Object.assign({label:'Derivados sobre lote', data:D.S.der.map(function(x){return x.v;})},
+        (typeof serieTendencia==='function')?serieTendencia('#B45309','180,83,9'):{borderColor:'#B45309'}),
+      Object.assign({label:'Auditorías rechazadas', data:D.S.rech.map(function(x){return x.v;}), borderDash:[6,4], fill:false},
+        (typeof serieTendencia==='function')?serieTendencia('#4E6B78','78,107,120'):{borderColor:'#4E6B78'})
+    ];
+    ds[2].fill=false; ds[2].borderDash=[6,4];
+    try{
+      var ch=new Chart(el,{ type:'line', data:{labels:lab, datasets:ds},
+        options:{ responsive:true, maintainAspectRatio:false, spanGaps:true,
+          plugins:{ legend:{position:'top', labels:{boxWidth:14, usePointStyle:true, font:{size:11}}},
+            tooltip:{callbacks:{label:function(c){ return c.dataset.label+': '+(c.raw==null?'—':c.raw+'%'); }}} },
+          scales:{ x:{grid:{display:false}, ticks:{font:{size:11}}},
+                   y:{beginAtZero:true, grid:{color:'#EDF2F0'}, ticks:{callback:function(v){return v+'%';}, font:{size:11}}} } },
+        plugins:(typeof etiquetasTendencia!=='undefined')?[etiquetasTendencia]:[] });
+      window._chartsTall.push(ch);
+    }catch(e){ console.warn('chart taller', e); }
+  });
+  window._tallData={};
 }
 
 function renderUniverso(){
