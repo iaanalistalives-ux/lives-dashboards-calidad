@@ -3231,14 +3231,16 @@ if(document.readyState!=='loading'){ cargarEnVivo(); cargarDetalleFino(); }
     function periodoDe(r){ return sk==="week" ? Number(r["SEMANA"]) : moOf(r["FECHA"]); }
 
     // Serie completa (todos los períodos con datos), para ver evolución
-    var num={}, den={}, motivos={}, totalDer=0, totalLote=0;
+    var num={}, den={}, motivos={}, motivosPer={}, totalDer=0, totalLote=0;
     erows.forEach(function(r){
       var k=periodoDe(r); if(k==null||isNaN(k)) return;
       var L=lote(r);
       den[k]=(den[k]||0)+L; totalLote+=L;
+      (motivosPer[k]=motivosPer[k]||{});
       derParse(r["DERIVADOS"]).forEach(function(d){
         num[k]=(num[k]||0)+d.cant; totalDer+=d.cant;
         motivos[d.nombre]=(motivos[d.nombre]||0)+d.cant;
+        motivosPer[k][d.nombre]=(motivosPer[k][d.nombre]||0)+d.cant;
       });
     });
     var claves=Object.keys(den).map(Number).sort(function(a,b){return a-b;});
@@ -3261,7 +3263,11 @@ if(document.readyState!=='loading'){ cargarEnVivo(); cargarDetalleFino(); }
         visibles.map(function(x){
           var act = (sel!=null && Number(x.k)===Number(sel));
           var h=Math.max(3,Math.round(x.p/mx*98));
-          var etq = sk==="week" ? ("S"+x.k) : (["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Set","Oct","Nov","Dic"][x.k-1]||x.k);
+          /* CORREGIDO: moOf() devuelve 0-11 (0=enero), y aquí se restaba uno de nuevo. El resultado
+             era que enero salía etiquetado como "0" y cada mes mostraba el nombre del anterior:
+             el filtro decía Junio y la barra resaltada aparecía rotulada "May". El resaltado
+             siempre estuvo bien; lo que mentía era el nombre. */
+          var etq = sk==="week" ? ("S"+x.k) : (["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Set","Oct","Nov","Dic"][x.k]||x.k);
           return '<div style="flex:1;text-align:center" title="'+etq+': '+x.n+' derivadas de '+x.d.toLocaleString("es-PE")+' del lote = '+x.p+'%">'+
             '<div style="font-size:9.5px;color:#5F726C;margin-bottom:2px">'+x.p+'%</div>'+
             '<div style="height:'+h+'px;background:'+(act?"#0E3B36":"#B45309")+';border-radius:3px 3px 0 0"></div>'+
@@ -3271,23 +3277,40 @@ if(document.readyState!=='loading'){ cargarEnVivo(); cargarDetalleFino(); }
         (sk==="week"?"semana":"mes")+'. Solo se muestran los períodos con al menos '+MIN+' prendas revisadas.</div>';
     }
 
-    // Período activo vs acumulado
+    /* Los tres KPIs muestran el PERÍODO ELEGIDO arriba, con el acumulado del año debajo como
+       referencia. Antes mostraban solo el acumulado: se elegía un mes y las tres cifras no se
+       movían, así que parecía que el filtro no llegaba hasta aquí. */
     var actual = (sel!=null) ? pts.filter(function(x){ return Number(x.k)===Number(sel); })[0] : null;
     var tasaAcum = totalLote? (totalDer/totalLote*100).toFixed(2) : "0";
-    var cab = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px">'+
+    var MESN=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Set","Oct","Nov","Dic"];
+    var etqPer = (sel==null) ? "acumulado del año"
+               : (sk==="week" ? ("Semana "+sel) : (MESN[sel]||sel));
+    var derPer  = (sel!=null) ? (num[sel]||0)  : totalDer;
+    var lotePer = (sel!=null) ? (den[sel]||0)  : totalLote;
+    var tasaPer = lotePer ? (derPer/lotePer*100).toFixed(2) : "0";
+    var peor    = Number(tasaPer) > Number(tasaAcum);
+    var cab = '<div style="font-size:11.5px;color:#5F726C;margin:2px 0 7px">Cifras de <b>'+etqPer+
+        '</b> — el mismo período elegido en el filtro de arriba.</div>'+
+      '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px">'+
       '<div style="background:#F1F6F4;border-radius:8px;padding:9px 11px">'+
-        '<div style="font-size:17px;font-weight:800;color:#B45309">'+totalDer.toLocaleString("es-PE")+'</div>'+
-        '<div style="font-size:11px;color:#5F726C">Prendas derivadas (acumulado)</div></div>'+
+        '<div style="font-size:17px;font-weight:800;color:#B45309">'+derPer.toLocaleString("es-PE")+'</div>'+
+        '<div style="font-size:11px;color:#5F726C">Prendas derivadas'+
+          (sel!=null? (' · '+totalDer.toLocaleString("es-PE")+' en el año') : ' (año)')+'</div></div>'+
       '<div style="background:#F1F6F4;border-radius:8px;padding:9px 11px">'+
-        '<div style="font-size:17px;font-weight:800;color:#0E3B36">'+totalLote.toLocaleString("es-PE")+'</div>'+
-        '<div style="font-size:11px;color:#5F726C">Prendas del lote revisadas</div></div>'+
+        '<div style="font-size:17px;font-weight:800;color:#0E3B36">'+lotePer.toLocaleString("es-PE")+'</div>'+
+        '<div style="font-size:11px;color:#5F726C">Prendas del lote revisadas'+
+          (sel!=null? (' · '+totalLote.toLocaleString("es-PE")+' en el año') : ' (año)')+'</div></div>'+
       '<div style="background:#F1F6F4;border-radius:8px;padding:9px 11px">'+
-        '<div style="font-size:17px;font-weight:800;color:#B45309">'+tasaAcum+'%</div>'+
-        '<div style="font-size:11px;color:#5F726C">Tasa acumulada'+
-          (actual&&actual.p!=null? (' · período actual '+actual.p+'%') : '')+'</div></div>'+
+        '<div style="font-size:17px;font-weight:800;color:'+(sel!=null&&peor?'#DC2626':'#0B815E')+'">'+tasaPer+'%</div>'+
+        '<div style="font-size:11px;color:#5F726C">Tasa del período · '+tasaAcum+'% en el año'+
+          (sel!=null? (peor?' <b style="color:#DC2626">▲ peor</b>':' <b style="color:#0B815E">▼ mejor</b>'):'')+
+        '</div></div>'+
       '</div>';
 
-    var top=Object.keys(motivos).map(function(k){return [k,motivos[k]];})
+    /* Los motivos también son del período elegido. Antes eran siempre del año, así que
+       cambiar de mes no movía esta lista y no se veía qué falló en ese mes en concreto. */
+    var motMostrar = (sel!=null) ? (motivosPer[sel]||{}) : motivos;
+    var top=Object.keys(motMostrar).map(function(k){return [k,motMostrar[k]];})
               .sort(function(a,b){return b[1]-a[1];}).slice(0,6);
     var lista = top.length ? ('<div style="margin-top:12px">'+
       '<div style="font-size:12px;font-weight:800;color:#0E3B36;margin-bottom:5px">Motivos de derivación</div>'+
@@ -3297,7 +3320,7 @@ if(document.readyState!=='loading'){ cargarEnVivo(); cargarDetalleFino(); }
           '<div style="width:150px;font-size:11.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+x[0]+'</div>'+
           '<div style="flex:1;background:#F1F6F4;border-radius:4px;height:13px;overflow:hidden"><div style="width:'+Math.max(5,Math.round(x[1]/mx*100))+'%;height:100%;background:#B45309;border-radius:4px"></div></div>'+
           '<div style="width:118px;text-align:right;font-size:11.5px;font-weight:700;color:#5F726C">'+x[1].toLocaleString("es-PE")+
-            ' · '+(totalLote?(x[1]/totalLote*100).toFixed(2):"0")+'%</div></div>';
+            ' · '+(lotePer?(x[1]/lotePer*100).toFixed(2):"0")+'%</div></div>';
       }).join("")+'</div>') : "";
 
     if(!totalDer) return '<div class="fc-sec">Derivados</div>'+
