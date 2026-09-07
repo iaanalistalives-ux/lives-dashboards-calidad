@@ -710,6 +710,7 @@
         <button type="button" onclick="tabDash(1,this)">📈 Tendencia</button>
         <button type="button" onclick="tabDash(2,this)">🔍 Motivos</button>
         <button type="button" onclick="tabDash(3,this)">🏭 Responsables</button>
+        <button type="button" onclick="tabDash(4,this)">🧵 Talleres</button>
       </div>
 
       <div class="tabpane active">
@@ -765,6 +766,21 @@
       </div>
       </div>
       </div>
+      <div class="tabpane" id="paneTalleres">
+        <div class="panel"><span class="tira volumen"></span>
+          <div class="pt">🧵 Talleres — las tres tasas juntas <span id="tallPer" style="font-weight:400;color:var(--stone);font-size:13px"></span></div>
+          <div class="ph">Cada taller con sus tres indicadores en el tiempo: <b style="color:#DC2626">defectos sobre la muestra</b>,
+            <b style="color:#B45309">derivados sobre el lote</b> y <b style="color:#4E6B78">auditorías rechazadas sobre el total</b>.
+            Son universos distintos, así que las líneas no se suman entre sí — lo que se compara es cómo se mueve cada una.
+            Se muestran los tres talleres con más rechazo del período; usa el selector para ver otro.</div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0 14px">
+            <span style="font-size:12px;color:var(--stone)">Ver:</span>
+            <select id="tallSel" class="fk-sel" style="margin-left:0" onchange="renderTalleres()"></select>
+          </div>
+          <div id="tallGrid"></div>
+        </div>
+      </div>
+
       <div class="tabpane">
 <div class="grid12" id="rowTallerAudt">
         <!-- DESEMPEÑO ACUMULADO TALLERES EXTERNOS -->
@@ -1792,6 +1808,7 @@ function renderPeriod(mode,value){
         scales:{x:{min:0,grid:{color:WARML},border:{display:false},ticks:{precision:0}},y:{grid:{display:false},border:{color:WARM},ticks:{font:{size:10}}}}},plugins:[valueLabel]}));
   }
   try{ renderUniverso(); }catch(e){ console.warn('renderUniverso', e); }
+  try{ renderTalleres(); }catch(e){ console.warn('renderTalleres', e); }
   try{ alinearNumeros(); }catch(e){}
   // Al final del render, cuando ya se dibujó todo: los paneles que quedaron sin datos
   // se ocultan y devuelven su espacio.
@@ -2400,6 +2417,197 @@ function alinearNumeros(){
       if(celda && celda.classList.contains('nu')) th.classList.add('nu');
     });
   }catch(e){}
+}
+
+/* ============================================================================
+   PESTAÑA TALLERES — las tres tasas juntas, por taller
+   ----------------------------------------------------------------------------
+   Cada taller con sus tres indicadores en la misma línea de tiempo:
+     · Defectos sobre la MUESTRA inspeccionada (AQL)
+     · Derivados sobre el LOTE completo
+     · Auditorías rechazadas sobre el TOTAL de auditorías
+   Son tres universos distintos y por eso no se suman: lo que se compara es cómo se mueve
+   cada uno. Un taller que baja en rechazo pero sube en derivados no está mejorando — está
+   aprobando lote que después hay que separar.
+   El eje sigue al filtro de arriba (semana o mes) y la serie recorre el año, para que
+   siempre haya varios puntos: una tendencia de un solo punto no es una tendencia.
+   ========================================================================== */
+function renderTalleres(){
+  var cont=document.getElementById('tallGrid'); if(!cont) return;
+  var EJE=(typeof ejeTendencia==='function')?ejeTendencia():{clave:function(r){return Number(r['SEMANA'])||0;},etq:function(k){return 'S'+k;},titulo:'Tendencia',unidad:'semanas',min:200};
+  var anio=(typeof filasAnioDer==='function')?filasAnioDer():((typeof STATE!=='undefined'&&STATE.rows)?STATE.rows:[]);
+  var externos=anio.filter(function(r){ return String(r['INT/EXT']||'')==='EXTERNO'; });
+
+  var elPer=document.getElementById('tallPer');
+  if(elPer){
+    try{ var pa=periodoActualDer();
+      var MES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Setiembre','Octubre','Noviembre','Diciembre'];
+      elPer.textContent = '· '+(pa.modo==='week'&&pa.valor!=null ? ('Semana '+pa.valor)
+        : (pa.modo==='month'&&pa.valor!=null ? (MES[pa.valor]||pa.valor) : 'Año completo'));
+    }catch(e){}
+  }
+
+  // acumular por taller y por período
+  var T={};
+  externos.forEach(function(r){
+    var k=String(r['SERVICIO']||'').trim(); if(!k) return;
+    var per=EJE.clave(r); if(!per) return;
+    var L=Number(r['LOTE_CONTABLE']!=null&&r['LOTE_CONTABLE']!==''?r['LOTE_CONTABLE']:r['LOTE'])||0;
+    var M=Number(r['MUESTRA_CONTABLE']!=null&&r['MUESTRA_CONTABLE']!==''?r['MUESTRA_CONTABLE']:r['MUESTRA'])||0;
+    T[k]=T[k]||{tot:{aud:0,rech:0}, per:{}};
+    /* `approved()` no existe en este ámbito; el archivo determina el rechazo comparando la
+       columna RESULTADO, igual que el resto de los paneles. */
+    var esRech = String(r['RESULTADO']||'')==='RECHAZADO';
+    T[k].tot.aud++; if(esRech) T[k].tot.rech++;
+    var P=(T[k].per[per]=T[k].per[per]||{aud:0,rech:0,lote:0,mu:0,der:0,def:0});
+    P.aud++; if(esRech) P.rech++;
+    P.lote+=L; P.mu+=M;
+    derParse(r['DERIVADOS']).forEach(function(d){ P.der+=d.cant; });
+    (function(){ var a={}; defCount(r['DEFECTOS'],a); for(var q in a) P.def+=a[q]; })();
+  });
+
+  // selector: todos los talleres, ordenados por % de rechazo
+  var lista=Object.keys(T).map(function(k){
+    return {k:k, aud:T[k].tot.aud, pct: T[k].tot.aud? (T[k].tot.rech/T[k].tot.aud*100):0};
+  }).sort(function(a,b){ return b.pct-a.pct || b.aud-a.aud; });
+
+  var sel=document.getElementById('tallSel');
+  if(sel && !sel.dataset.armado){
+    sel.innerHTML='<option value="">Los 3 con más rechazo</option>'+
+      lista.map(function(x){ return '<option value="'+x.k+'">'+x.k+' ('+x.aud+' aud.)</option>'; }).join('');
+    sel.dataset.armado='1';
+  }
+  var elegido = sel ? sel.value : '';
+  var mostrar = elegido ? lista.filter(function(x){ return x.k===elegido; })
+                        : lista.filter(function(x){ return x.aud>=2; }).slice(0,3);
+  if(!mostrar.length) mostrar = lista.slice(0,3);
+  if(!mostrar.length){ cont.innerHTML='<div style="font-size:13px;color:var(--stone)">No hay talleres externos con auditorías en este período.</div>'; return; }
+
+  var MIN=Math.max(1, Math.round(EJE.min/4));   // umbral por período para las tasas de volumen
+  var COLS={def:'#DC2626', der:'#B45309', rech:'#4E6B78'};
+
+  cont.innerHTML = mostrar.map(function(t){
+    var per=T[t.k].per;
+    var claves=Object.keys(per).map(Number).sort(function(a,b){return a-b;});
+    // tres series; null cuando el denominador no da para calcular
+    var S={def:[],der:[],rech:[]};
+    claves.forEach(function(c){
+      var P=per[c];
+      S.def.push({k:c, v: P.mu>=MIN ? +(P.def/P.mu*100).toFixed(2) : null, n:P.def, d:P.mu});
+      S.der.push({k:c, v: P.lote>=EJE.min ? +(P.der/P.lote*100).toFixed(2) : null, n:P.der, d:P.lote});
+      S.rech.push({k:c, v: P.aud>0 ? +(P.rech/P.aud*100).toFixed(1) : null, n:P.rech, d:P.aud});
+    });
+    var todos=[].concat(S.def,S.der,S.rech).map(function(x){return x.v;}).filter(function(v){return v!==null;});
+    if(!todos.length) return '';
+    var mx=Math.max.apply(null,todos)||1;
+
+    var W=Math.max(260, claves.length*54), H=120, PAD=8;
+    function ruta(serie){
+      var pts=serie.map(function(x,i){
+        if(x.v===null) return null;
+        var px=(claves.length>1? (i/(claves.length-1))*(W-2*PAD)+PAD : W/2);
+        var py=H-PAD-((x.v/mx)*(H-2*PAD));
+        return px.toFixed(1)+','+py.toFixed(1);
+      }).filter(Boolean);
+      return pts.length>=2 ? pts.join(' ') : (pts.length===1? pts[0]+' '+pts[0] : '');
+    }
+    function puntos(serie,color){
+      return serie.map(function(x,i){
+        if(x.v===null) return '';
+        var px=(claves.length>1? (i/(claves.length-1))*(W-2*PAD)+PAD : W/2);
+        var py=H-PAD-((x.v/mx)*(H-2*PAD));
+        return '<circle cx="'+px.toFixed(1)+'" cy="'+py.toFixed(1)+'" r="3.4" fill="'+color+'" stroke="#fff" stroke-width="1.6">'+
+               '<title>'+EJE.etq(x.k)+': '+x.n+' de '+x.d+' = '+x.v+'%</title></circle>';
+      }).join('');
+    }
+    var svg='<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" style="width:100%;height:130px;display:block">'+
+      '<polyline points="'+ruta(S.def)+'" fill="none" stroke="'+COLS.def+'" stroke-width="2.4" stroke-linejoin="round"/>'+
+      '<polyline points="'+ruta(S.der)+'" fill="none" stroke="'+COLS.der+'" stroke-width="2.4" stroke-linejoin="round"/>'+
+      '<polyline points="'+ruta(S.rech)+'" fill="none" stroke="'+COLS.rech+'" stroke-width="2.4" stroke-dasharray="5 3" stroke-linejoin="round"/>'+
+      puntos(S.def,COLS.def)+puntos(S.der,COLS.der)+puntos(S.rech,COLS.rech)+'</svg>';
+
+    var etiquetas='<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--stone);margin-top:2px">'+
+      claves.map(function(c){ return '<span>'+EJE.etq(c)+'</span>'; }).join('')+'</div>';
+
+    function ultimo(serie){ for(var i=serie.length-1;i>=0;i--) if(serie[i].v!==null) return serie[i]; return null; }
+    function primero(serie){ for(var i=0;i<serie.length;i++) if(serie[i].v!==null) return serie[i]; return null; }
+
+    /* ===== LECTURA EN PALABRAS =====
+       Tres números correctos no son una conclusión: quien los mira todavía tiene que
+       interpretarlos. Esta frase describe la RELACIÓN entre las tres tasas, que es
+       justamente lo que se pregunta al ver el gráfico.
+       Solo describe lo que muestran los datos — nunca atribuye una causa que no esté ahí. */
+    function lectura(){
+      var uDef=ultimo(S.def), uDer=ultimo(S.der), uRe=ultimo(S.rech);
+      var pDef=primero(S.def), pDer=primero(S.der), pRe=primero(S.rech);
+      var partes=[], color='#5F726C', titulo='';
+
+      // 1) ¿La muestra está viendo lo que el lote separa?
+      if(uDef && uDer && uDef.v>0 && uDer.v>0){
+        var veces = uDer.v / uDef.v;
+        if(veces >= 2){
+          titulo='Aprueba en muestra pero falla en lote';
+          color='#B45309';
+          partes.push('El muestreo detecta <b>'+uDef.v+'%</b> de problemas, pero al revisar el lote completo '+
+            'hay que separar <b>'+uDer.v+'%</b>: '+(veces>=10?'más de diez veces':(veces>=3?'más del triple':'más del doble'))+
+            '. No es que el taller haya empeorado — es que la inspección por muestreo no lo está viendo.');
+        } else if(veces <= 0.5){
+          titulo='La muestra detecta más de lo que se separa';
+          color='#0B815E';
+          partes.push('Se encuentra <b>'+uDef.v+'%</b> en la muestra y solo se separa <b>'+uDer.v+'%</b> del lote: '+
+            'el taller está corrigiendo antes de despachar, o la inspección es más exigente que el criterio de separación.');
+        }
+      }
+
+      // 2) ¿Las tres suben juntas?
+      var suben=0, hay=0;
+      [[pDef,uDef],[pDer,uDer],[pRe,uRe]].forEach(function(par){
+        if(par[0] && par[1] && par[0]!==par[1]){ hay++; if(par[1].v > par[0].v) suben++; }
+      });
+      if(hay>=2 && suben===hay){
+        titulo = titulo || 'Empeorando en todos los frentes';
+        color='#DC2626';
+        partes.push('Las tres tasas subieron respecto al primer período con datos: aquí sí el desempeño cayó de verdad, no es un efecto del muestreo.');
+      } else if(hay>=2 && suben===0){
+        titulo = titulo || 'Mejorando de forma pareja';
+        color='#0B815E';
+        partes.push('Las tres tasas bajaron respecto al primer período con datos.');
+      }
+
+      // 3) Rechazo alto con lote limpio
+      if(uRe && uDer && uRe.v>=30 && uDer.v<1){
+        titulo = titulo || 'Rechazo alto sin derivados';
+        partes.push('Se rechaza el <b>'+uRe.v+'%</b> de las auditorías pero casi no se separan prendas del lote: '+
+          'conviene revisar por qué se rechaza, porque el problema no está apareciendo en el conteo de prendas.');
+      }
+
+      if(!partes.length) return '';
+      return '<div style="background:var(--card);border-left:4px solid '+color+';border-radius:0 8px 8px 0;'+
+        'padding:10px 13px;margin:10px 0 4px;font-size:12.5px;line-height:1.55">'+
+        (titulo?('<b style="color:'+color+'">'+titulo+'.</b> '):'')+partes.join(' ')+'</div>';
+    }
+    function chip(txt,color,x){
+      if(!x) return '<span style="font-size:11.5px;color:var(--stone)">'+txt+': sin dato</span>';
+      return '<span style="font-size:11.5px"><b style="color:'+color+'">'+txt+' '+x.v+'%</b>'+
+             ' <span style="color:var(--stone)">('+x.n.toLocaleString('es-PE')+' de '+x.d.toLocaleString('es-PE')+')</span></span>';
+    }
+    return '<div style="background:var(--warm-light);border-radius:var(--r);padding:13px 15px;margin-bottom:12px">'+
+      '<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:2px">'+
+        '<b style="font-size:14px;color:var(--petrol)">'+t.k+'</b>'+
+        '<span style="font-size:12px;color:var(--stone)">'+t.aud+' auditoría(s) en el año · '+t.pct.toFixed(1)+'% de rechazo</span>'+
+        '<button type="button" class="btn" style="margin-left:auto;font-size:11.5px;padding:5px 11px" '+
+          'onclick="generarFicha('+JSON.stringify(t.k).replace(/"/g,'&quot;')+', curPeriodTok())">DETALLE</button>'+
+      '</div>'+
+      '<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:6px">'+
+        chip('Defectos/muestra',COLS.def,ultimo(S.def))+
+        chip('Derivados/lote',COLS.der,ultimo(S.der))+
+        chip('Rechazo',COLS.rech,ultimo(S.rech))+
+      '</div>'+
+      lectura()+
+      '<div style="overflow-x:auto">'+svg+etiquetas+'</div>'+
+      '<div style="font-size:11px;color:var(--stone);margin-top:5px">Último valor de cada línea. Los tramos sin dato suficiente no se dibujan.</div>'+
+    '</div>';
+  }).join('') || '<div style="font-size:13px;color:var(--stone)">Sin datos suficientes para graficar en este período.</div>';
 }
 
 function renderUniverso(){
@@ -3148,6 +3356,7 @@ if(typeof _rpDer==='function'){
     var r=_rpDer.apply(this,arguments);
     try{ derPanel(); }catch(e){ console.warn('derPanel',e); }
     try{ renderUniverso(); }catch(e){ console.warn('renderUniverso',e); }
+    try{ renderTalleres(); }catch(e){ console.warn('renderTalleres',e); }
     try{ if(typeof alinearNumeros==='function') alinearNumeros(); }catch(e){}
     try{ if(typeof ocultarPanelesVacios==='function') setTimeout(ocultarPanelesVacios,60); }catch(e){}
     return r;
