@@ -2455,7 +2455,10 @@ function renderTalleres(){
   // acumular por taller y por período
   var T={};
   externos.forEach(function(r){
-    var k=String(r['SERVICIO']||'').trim(); if(!k) return;
+    var k=String(r['SERVICIO']||'').trim();
+    /* "LIVES" no es un taller externo: es la propia planta. Si la columna SERVICIO viene
+       con ese valor en una fila marcada como externa, no corresponde a este panel. */
+    if(!k || k.toUpperCase()==='LIVES') return;
     var per=EJE.clave(r); if(!per) return;
     var L=Number(r['LOTE_CONTABLE']!=null&&r['LOTE_CONTABLE']!==''?r['LOTE_CONTABLE']:r['LOTE'])||0;
     var M=Number(r['MUESTRA_CONTABLE']!=null&&r['MUESTRA_CONTABLE']!==''?r['MUESTRA_CONTABLE']:r['MUESTRA'])||0;
@@ -2471,20 +2474,32 @@ function renderTalleres(){
     (function(){ var a={}; defCount(r['DEFECTOS'],a); for(var q in a) P.def+=a[q]; })();
   });
 
-  // selector: todos los talleres, ordenados por % de rechazo
+  /* CORREGIDO: el ranking ordenaba por el rechazo del AÑO, así que salían los mismos tres
+     talleres en cualquier período. Ahora ordena por el rechazo del PERÍODO elegido —que es
+     lo que se está mirando— y muestra el acumulado del año como referencia. */
+  var pAct=(typeof periodoActualDer==='function')?periodoActualDer():{modo:'year',valor:null};
+  function delPeriodo(k){
+    if(pAct.valor==null) return T[k].tot;          // vista anual: todo el año
+    var P=T[k].per[pAct.valor];
+    return P ? {aud:P.aud, rech:P.rech} : {aud:0, rech:0};
+  }
   var lista=Object.keys(T).map(function(k){
-    return {k:k, aud:T[k].tot.aud, pct: T[k].tot.aud? (T[k].tot.rech/T[k].tot.aud*100):0};
+    var p=delPeriodo(k);
+    return {k:k, aud:p.aud, rech:p.rech, pct: p.aud? (p.rech/p.aud*100):0,
+            audAnio:T[k].tot.aud, pctAnio: T[k].tot.aud? (T[k].tot.rech/T[k].tot.aud*100):0};
   }).sort(function(a,b){ return b.pct-a.pct || b.aud-a.aud; });
 
   var sel=document.getElementById('tallSel');
-  if(sel && !sel.dataset.armado){
+  if(sel && sel.dataset.armado!=='1'){
     sel.innerHTML='<option value="">Los 3 con más rechazo</option>'+
       lista.map(function(x){ return '<option value="'+x.k+'">'+x.k+' ('+x.aud+' aud.)</option>'; }).join('');
     sel.dataset.armado='1';
   }
   var elegido = sel ? sel.value : '';
+  var conRechazo = lista.filter(function(x){ return x.aud>0 && x.rech>0; });
+  var conAud     = lista.filter(function(x){ return x.aud>0; });
   var mostrar = elegido ? lista.filter(function(x){ return x.k===elegido; })
-                        : lista.filter(function(x){ return x.aud>=2; }).slice(0,3);
+              : (conRechazo.length ? conRechazo.slice(0,3) : conAud.slice(0,3));
   if(!mostrar.length) mostrar = lista.slice(0,3);
   if(!mostrar.length){ cont.innerHTML='<div style="font-size:13px;color:var(--stone)">No hay talleres externos con auditorías en este período.</div>'; return; }
 
@@ -2513,12 +2528,16 @@ function renderTalleres(){
     }).length;
     var haySerie = periodosConDato >= 2;
 
-    var W=Math.max(260, claves.length*54), H=120, PAD=8;
+    /* El SVG usaba preserveAspectRatio="none", que estira el dibujo horizontalmente para
+       llenar el ancho: los puntos salían como óvalos aplastados y las líneas con grosores
+       distintos según el tramo. Ahora el viewBox se dimensiona igual que el espacio real y
+       se conserva la proporción, así los círculos son círculos. */
+    var W=Math.max(560, claves.length*70), H=190, PAD=26;
     function ruta(serie){
       var pts=serie.map(function(x,i){
         if(x.v===null) return null;
         var px=(claves.length>1? (i/(claves.length-1))*(W-2*PAD)+PAD : W/2);
-        var py=H-PAD-((x.v/mx)*(H-2*PAD));
+        var py=BASE-((x.v/mx)*(BASE-TOPE));
         return px.toFixed(1)+','+py.toFixed(1);
       }).filter(Boolean);
       return pts.length>=2 ? pts.join(' ') : (pts.length===1? pts[0]+' '+pts[0] : '');
@@ -2527,7 +2546,7 @@ function renderTalleres(){
       return serie.map(function(x,i){
         if(x.v===null) return '';
         var px=(claves.length>1? (i/(claves.length-1))*(W-2*PAD)+PAD : W/2);
-        var py=H-PAD-((x.v/mx)*(H-2*PAD));
+        var py=BASE-((x.v/mx)*(BASE-TOPE));
         return '<circle cx="'+px.toFixed(1)+'" cy="'+py.toFixed(1)+'" r="3.4" fill="'+color+'" stroke="#fff" stroke-width="1.6">'+
                '<title>'+EJE.etq(x.k)+': '+x.n+' de '+x.d+' = '+x.v+'%</title></circle>';
       }).join('');
@@ -2535,25 +2554,36 @@ function renderTalleres(){
     /* Mismo estilo de tendencia que el resto del tablero: línea de 3px con remates
        redondeados y puntos con borde blanco. Las líneas horizontales de referencia dan
        escala sin cargar el gráfico. */
+    var BASE=H-PAD, TOPE=PAD;
     var guias='';
-    for(var gi=1; gi<=3; gi++){
-      var gy=H-PAD-((gi/4)*(H-2*PAD));
+    for(var gi=0; gi<=4; gi++){
+      var gy=BASE-((gi/4)*(BASE-TOPE));
+      var val=(mx*gi/4);
       guias+='<line x1="'+PAD+'" y1="'+gy.toFixed(1)+'" x2="'+(W-PAD)+'" y2="'+gy.toFixed(1)+
-             '" stroke="#DCE5E2" stroke-width="1"/>';
+             '" stroke="'+(gi===0?'#B9C6C2':'#EDF2F0')+'" stroke-width="1"/>'+
+             '<text x="'+(PAD-5)+'" y="'+(gy+4).toFixed(1)+'" text-anchor="end" '+
+             'font-family="Calibri,Arial,sans-serif" font-size="11" fill="#93A3A0">'+val.toFixed(val<10?1:0)+'%</text>';
     }
     var svg = haySerie
-      ? ('<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" style="width:100%;height:150px;display:block">'+
+      ? ('<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;max-height:230px;display:block">'+
          guias+
          '<polyline points="'+ruta(S.def)+'" fill="none" stroke="'+COLS.def+'" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>'+
          '<polyline points="'+ruta(S.der)+'" fill="none" stroke="'+COLS.der+'" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>'+
          '<polyline points="'+ruta(S.rech)+'" fill="none" stroke="'+COLS.rech+'" stroke-width="2.6" stroke-dasharray="6 4" stroke-linejoin="round" stroke-linecap="round"/>'+
-         puntos(S.def,COLS.def)+puntos(S.der,COLS.der)+puntos(S.rech,COLS.rech)+'</svg>')
+         puntos(S.def,COLS.def)+puntos(S.der,COLS.der)+puntos(S.rech,COLS.rech)+ejeX+'</svg>')
       : ('<div style="background:var(--card);border-radius:8px;padding:12px 14px;font-size:12px;color:var(--stone)">'+
          'Solo hay <b>'+periodosConDato+'</b> período con datos suficientes: todavía no hay tendencia que mostrar. '+
          'Las cifras de arriba son las de ese período.</div>');
 
-    var etiquetas='<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--stone);margin-top:2px">'+
-      claves.map(function(c){ return '<span>'+EJE.etq(c)+'</span>'; }).join('')+'</div>';
+    /* Las etiquetas van DENTRO del SVG, en la misma coordenada que su punto. Antes iban en
+       un div aparte repartido con space-between, y no coincidían con los puntos cuando el
+       gráfico tenía scroll horizontal. */
+    var etiquetas='';
+    var ejeX = claves.map(function(c,i){
+      var px=(claves.length>1? (i/(claves.length-1))*(W-2*PAD)+PAD : W/2);
+      return '<text x="'+px.toFixed(1)+'" y="'+(H-6)+'" text-anchor="middle" '+
+             'font-family="Calibri,Arial,sans-serif" font-size="12" fill="#5F726C">'+EJE.etq(c)+'</text>';
+    }).join('');
 
     function ultimo(serie){ for(var i=serie.length-1;i>=0;i--) if(serie[i].v!==null) return serie[i]; return null; }
     function primero(serie){ for(var i=0;i<serie.length;i++) if(serie[i].v!==null) return serie[i]; return null; }
@@ -2620,7 +2650,10 @@ function renderTalleres(){
     return '<div style="background:var(--warm-light);border-radius:var(--r);padding:13px 15px;margin-bottom:12px">'+
       '<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:2px">'+
         '<b style="font-size:14px;color:var(--petrol)">'+t.k+'</b>'+
-        '<span style="font-size:12px;color:var(--stone)">'+t.aud+' auditoría(s) en el año · '+t.pct.toFixed(1)+'% de rechazo</span>'+
+        '<span style="font-size:12px;color:var(--stone)">'+
+          (t.aud? (t.aud+' auditoría(s) en el período · <b>'+t.pct.toFixed(1)+'%</b> de rechazo') 
+                : 'sin auditorías en el período')+
+          ' · '+t.audAnio+' en el año ('+t.pctAnio.toFixed(1)+'%)</span>'+
         '<button type="button" style="margin-left:auto;font-size:11.5px;font-weight:700;padding:7px 14px;'+
           'border-radius:8px;border:none;background:var(--sage);color:#fff;cursor:pointer;white-space:nowrap" '+
           'onmouseover="this.style.background=\'var(--sage-dark)\'" onmouseout="this.style.background=\'var(--sage)\'" '+
