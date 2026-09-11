@@ -1127,18 +1127,7 @@ function buildState(raw, fname, frozen){
     let nRep=0, nLic=0, loteRep=0, muestraLic=0;
     rows.forEach(r=>{
       const rep=esReproceso(r), lic=!rep && esLicencia(r);
-      /* CAMBIO 09/09/2026 — los reprocesos vuelven a aportar prendas.
-         Antes el tablero los descontaba por la bandera REPROCESO, porque el reproceso
-         revisaba prendas ya contadas en la auditoría original y sumarlas las duplicaba.
-         Ahora el Sheet resuelve esa duplicación en el origen: el reproceso trae vínculo
-         a la auditoría que corrige, y es esa la que deja de aportar el lote. La regla
-         ya viene aplicada en LOTE_CONTABLE / MUESTRA_CONTABLE, así que descontarlos otra
-         vez aquí sería restar dos veces lo mismo: el tablero mostraría 7,001 prendas
-         menos que el Sheet.
-         Las licencias NO cambian: siguen fuera de los indicadores de prendas porque su
-         "muestra" es el lote entero (inspección al 100%) y mezclarla con muestras AQL
-         de 50 prendas desfigura cualquier tasa. */
-      r.__REP=rep; r.__LIC=lic; r.__EXC=lic;
+      r.__REP=rep; r.__LIC=lic; r.__EXC=rep||lic;
       /* Copia intacta de lo que la fila traía, para el panel de análisis. */
       /* Para el panel de análisis se guarda el lote y la muestra CRUDOS, no los _CONTABLE.
          En estas filas el _CONTABLE ya viene en 0 justamente porque no computan: usarlo
@@ -1149,20 +1138,18 @@ function buildState(raw, fname, frozen){
       r.__M_TODO = Number(r["MUESTRA"])||Number(r["MUESTRA_CONTABLE"])||0;
       r.__DEF_TODO = r["DEFECTOS"];
       r.__DER_TODO = r["DERIVADOS"];
-      if(rep){ nRep++; loteRep += r.__L_TODO; }
       if(!r.__EXC) return;
-      nLic++; muestraLic += r.__M_TODO;
+      if(rep){ nRep++; loteRep += r.__L_TODO; } else { nLic++; muestraLic += r.__M_TODO; }
       /* Fuera de los indicadores: se neutraliza numerador y denominador JUNTOS. Vaciar solo
          el lote y dejar los defectos sería el error inverso —porcentajes inflados— que ya
          nos costó una cifra mal presentada (MARUDI marcaba 8.46% donde el real era 5.38%). */
       r["LOTE_CONTABLE"]=0; r["MUESTRA_CONTABLE"]=0; r["LOTE"]=0; r["MUESTRA"]=0;
       r["DEFECTOS"]=""; r["DERIVADOS"]="";
     });
-    if(nRep||nLic) console.info("Universo: "+nLic+" licencia(s) ("+
-      muestraLic.toLocaleString("es-PE")+" prendas revisadas) quedan fuera de los indicadores de prendas. "+
-      nRep+" reproceso(s) ("+loteRep.toLocaleString("es-PE")+" prendas de lote) SÍ cuentan: "+
-      "la regla ya viene aplicada en LOTE_CONTABLE desde el Sheet. "+
-      "El detalle de ambos se muestra en el panel «Reprocesos y licencias».");
+    if(nRep||nLic) console.info("Universo: "+nRep+" reproceso(s) ("+
+      loteRep.toLocaleString("es-PE")+" prendas de lote) y "+nLic+" licencia(s) ("+
+      muestraLic.toLocaleString("es-PE")+" prendas revisadas) quedan fuera de los indicadores. "+
+      "Su detalle se muestra en el panel «Reprocesos y licencias».");
   })();
   // Blindaje columna "N° DE AUDITORÍA": si el Excel trae el encabezado con otra variante
   // (Nº en vez de N°, sin tilde, espacios extra, mayúsculas distintas, etc.) la clave exacta
@@ -1273,6 +1260,7 @@ function selectYear(y){
   const mo={};rows.forEach(r=>{const m=monthOf(r["FECHA"]);if(m==null)return;(mo[m]=mo[m]||{n:0,r:0,iN:0,iR:0,eN:0,eR:0});const o=mo[m];o.n++;if(isRech(r))o.r++;if(esInterno(r)){o.iN++;if(isRech(r))o.iR++;}else if(esExterno(r)){o.eN++;if(isRech(r))o.eR++;}});
   STATE.wk=wk;STATE.mo=mo;
   STATE.perf=computePerf(rows); // valor inicial; renderPeriod() lo recalcula por período real
+  STATE.audTallerRows=rows;
   STATE.audTaller=computeAudTaller(rows); // idem
   document.getElementById("mainView").style.display="block";
   document.getElementById("compareView").style.display="none";
@@ -1406,15 +1394,62 @@ function computePerf(rows){
 // Sin ranking/umbral de "muestra baja" — tabla completa, ordenable, con buscador por nombre.
 let AUDT_SORT={key:"re",dir:-1};
 function computeAudTaller(rows){
+  /* QUÉ MIDE: cuántos lotes aprobó cada auditora de taller que después LIVES
+     rechazó al revisarlos. Es la pregunta real del área: quién está dejando
+     pasar defectos.
+
+     CÓMO SE CALCULA AHORA: cruzando dos auditorías del MISMO lote —la del taller
+     que dijo APROBADO y la interna de LIVES que dijo RECHAZADO—. Antes salía de
+     una columna escrita a mano, AUD. TALLER, que se llenaba mal: llegaron nombres
+     de personas que no eran auditoras y el proceso escrito donde va un taller.
+     Ya no se pide ese campo; el histórico lo conserva.
+
+     EL CRUCE SE HACE POR OP, no por grupo+estilo+color+PO. Medido sobre los datos:
+     con esa clave solo cruzan 8 de 63 lotes, porque el PO se escribe distinto en
+     cada auditoría —'LIVES_T_112_NS' en una, 'LIVES-T-112-NS' en otra— y el
+     estilo tampoco coincide siempre entre procesos. La OP es el único
+     identificador que no depende de cómo lo escriba cada persona.
+
+     Mientras la OP no esté en las dos auditorías, esto devuelve vacío y el panel
+     explica qué falta en vez de quedarse en blanco. */
+  const rechazoInterno={};        /* OP -> true, si LIVES la rechazó */
+  rows.forEach(r=>{
+    if(!esInterno(r)) return;
+    if(String(r["RESULTADO"]||"").toUpperCase().indexOf("RECH")<0) return;
+    const op=String(r["OP"]||"").trim().toUpperCase();
+    if(op) rechazoInterno[op]=true;
+  });
+
   const m={};
   rows.forEach(r=>{
-    const nombre=String(r["AUD. TALLER"]||"").trim();
-    if(!nombre) return;
-    (m[nombre]=m[nombre]||{n:0,ap:0});
-    m[nombre].n++;
-    if(r["RESULTADO"]==="APROBADO") m[nombre].ap++;
+    if(esInterno(r)) return;                                   /* solo talleres */
+    if(String(r["RESULTADO"]||"").toUpperCase().indexOf("APRO")<0) return;
+    const op=String(r["OP"]||"").trim().toUpperCase();
+    if(!op) return;                                            /* sin OP no hay cruce */
+    const quien=String(r["AUDITOR"]||"").trim();
+    if(!quien) return;
+    (m[quien]=m[quien]||{n:0,re:0});
+    m[quien].n++;                                              /* lotes que aprobó */
+    if(rechazoInterno[op]) m[quien].re++;                      /* y LIVES rechazó */
   });
-  return Object.keys(m).map(k=>{const o=m[k];const re=o.n-o.ap;return {k,n:o.n,ap:o.ap,re,pct:+(o.n?re/o.n*100:0).toFixed(1)};});
+  return Object.keys(m).map(k=>{const o=m[k];
+    return {k, n:o.n, ap:o.n-o.re, re:o.re, pct:+(o.n?o.re/o.n*100:0).toFixed(1)};});
+}
+
+/* Cuántas auditorías podrían cruzarse si tuvieran OP. Sirve para explicar en el
+   panel por qué todavía no hay indicador. */
+function coberturaOpCruce(rows){
+  let tallerAprob=0, tallerConOp=0, internoRech=0, internoConOp=0;
+  rows.forEach(r=>{
+    const op=String(r["OP"]||"").trim();
+    const res=String(r["RESULTADO"]||"").toUpperCase();
+    if(esInterno(r)){
+      if(res.indexOf("RECH")>=0){ internoRech++; if(op) internoConOp++; }
+    } else {
+      if(res.indexOf("APRO")>=0){ tallerAprob++; if(op) tallerConOp++; }
+    }
+  });
+  return {tallerAprob, tallerConOp, internoRech, internoConOp};
 }
 
 function renderPerf(){
@@ -1450,7 +1485,31 @@ function renderAudTaller(){
   const panel=document.getElementById("audtPanel");
   const row=document.getElementById("rowTallerAudt");
   const list=STATE.audTaller||[];
-  if(!list.length){panel.style.display="none";row.classList.add("soloPerf");return;}
+  if(!list.length){
+    /* El panel NO se oculta: se deja explicando qué falta para que exista. Si
+       desaparece, el indicador se olvida y nadie vuelve a preguntar por él. */
+    /* Las mismas filas que alimentan el panel, no otra selección: si el panel dice
+       "0 con OP" tiene que ser sobre lo que el usuario está mirando. */
+    const c=coberturaOpCruce(STATE.audTallerRows||[]);
+    panel.style.display="";
+    row.classList.remove("soloPerf");
+    const cuerpo=document.getElementById("audtBody")||panel.querySelector(".pb")||panel;
+    const pct=(a,b)=>b?Math.round(a*100/b):0;
+    cuerpo.innerHTML=
+      '<div style="padding:14px 4px;color:var(--stone);font-size:13px;line-height:1.7">'+
+      '<b style="color:#333">Todavía no se puede calcular.</b><br>'+
+      'Este comparativo cruza la auditoría del taller que <b>aprobó</b> un lote con la '+
+      'auditoría interna de LIVES que lo <b>rechazó</b>. Para emparejarlas hace falta la '+
+      '<b>OP</b> en las dos: es el único dato que no cambia según quién lo escriba.'+
+      '<div style="margin-top:10px;padding:10px;background:#F1F6F4;border-radius:8px">'+
+      'En este período:<br>'+
+      '· Aprobadas en taller: <b>'+c.tallerAprob+'</b>, con OP <b>'+c.tallerConOp+'</b> ('+pct(c.tallerConOp,c.tallerAprob)+'%)<br>'+
+      '· Rechazadas por LIVES: <b>'+c.internoRech+'</b>, con OP <b>'+c.internoConOp+'</b> ('+pct(c.internoConOp,c.internoRech)+'%)'+
+      '</div>'+
+      '<div style="margin-top:8px">El indicador aparece solo en cuanto haya lotes con OP en ambos lados.</div>'+
+      '</div>';
+    return;
+  }
   panel.style.display="";
   row.classList.remove("soloPerf");
   const totN=list.reduce((a,r)=>a+r.n,0), totRe=list.reduce((a,r)=>a+r.re,0);
@@ -1629,6 +1688,7 @@ function renderPeriod(mode,value){
 
   // Talleres externos y auditoras de taller: ahora responden al período activo (semana/mes/año), no solo al año.
   STATE.perf=computePerf(wrows);
+  STATE.audTallerRows=wrows;
   STATE.audTaller=computeAudTaller(wrows);
   STATE.periodLabel=plabel;
   renderPerf();
