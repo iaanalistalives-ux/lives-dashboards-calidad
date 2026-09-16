@@ -1518,11 +1518,19 @@ function renderFicha(kind,key,period){
   const evoTitle=isW?"Evolución semanal 2026 (segundas)":"Evolución mensual 2026 (calendario)";const trWord=isW?"semana":"mes";
   const head={estilo:"Estilo",cliente:"Cliente",grupo:"Grupo",area:"Área generadora"}[kind];
   const titleName=kind==="estilo"?("Estilo "+key):key;
+  const resume=(g,etiq)=>{
+    if(!g.length)return "";
+    const mas=g.length>1?` <span style="opacity:.75">+${g.length-1} ${g.length===2?"otro":"otros"}</span>`:"";
+    return `<span style="opacity:.9">${etiq}</span> <b>${g[0].k}</b>${mas}`;
+  };
+  const sub2=kind==="estilo"
+    ? [resume(grpG,"Grupo:"),resume(cliG,"Cliente:")].filter(Boolean).join(' &nbsp;·&nbsp; ')
+    : "";
   const prin=prinList[0]?`<b>${prinList[0].k}</b>${prinList[1]?" · "+prinList[1].k:""}${prinList[2]?" · "+prinList[2].k:""}`:"—";
   const hoy=new Date().toLocaleDateString("es-PE",{day:"2-digit",month:"2-digit",year:"numeric"});
   document.getElementById("fichaCard").innerHTML=`
     <div class="fc-hd" style="background:var(--sage)">
-      <div><div class="co">LIVES — Control de Calidad · Segundas · ${head}</div><div class="tn">${titleName}</div><div class="tsub">Detalle de desempeño · ${plabel}</div></div>
+      <div><div class="co">LIVES — Control de Calidad · Segundas · ${head}</div><div class="tn">${titleName}</div>${sub2?`<div class="tsub" style="margin-top:3px">${sub2}</div>`:""}<div class="tsub">Detalle de desempeño · ${plabel}</div></div>
       <div class="tpct">${nf(tot)}<small>segundas</small></div></div>
     <div class="fc-body">
       <div class="fc-kpis">
