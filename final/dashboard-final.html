@@ -818,6 +818,11 @@
         <div class="panel pairPanel col4" id="audtPanel" style="display:none;"><span class="tira resultado"></span>
           <div class="pt">🧑‍💼 Auditoras de taller — Comparativo de aprobación/rechazo en LIVES</div>
           <div class="ph">Del período activo (semana, mes o año, según el filtro de arriba). Solo auditorías de acabados externos con auditora de taller informada (dato manual del Excel). % Rechazo = veces que esa auditoría fue <b>rechazada al reauditarse en LIVES</b>, sobre el total de auditorías de esa auditora en el período. Clic en un encabezado para ordenar.</div>
+          <!-- Mensaje de "todavía no se puede calcular". Va en su propio contenedor:
+               antes se escribía encima del panel entero y borraba los contadores y la
+               tabla; al volver a un período con datos, el tablero se quedaba congelado. -->
+          <div id="audtVacio" style="display:none"></div>
+          <div id="audtContenido">
           <div class="perfk" style="grid-template-columns:repeat(3,1fr);">
             <div class="c"><div class="v" id="atT">—</div><div class="l">Auditoras con dato</div></div>
             <div class="c"><div class="v" id="atA">—</div><div class="l">Auditorías con dato</div></div>
@@ -827,6 +832,7 @@
             <input type="text" id="audtSearch" placeholder="Buscar auditora de taller..." oninput="renderAudTaller()" style="width:100%;padding:7px 10px;border:1px solid var(--warm);border-radius:6px;font-family:inherit;font-size:13px;color:#333;">
           </div>
           <div class="tblScroll"><table id="audtTbl"></table></div>
+          </div>
         </div>
       </div>
       </div>
@@ -1493,7 +1499,9 @@ function renderAudTaller(){
     const c=coberturaOpCruce(STATE.audTallerRows||[]);
     panel.style.display="";
     row.classList.remove("soloPerf");
-    const cuerpo=document.getElementById("audtBody")||panel.querySelector(".pb")||panel;
+    const cuerpo=document.getElementById("audtVacio");
+    document.getElementById("audtContenido").style.display="none";
+    cuerpo.style.display="";
     const pct=(a,b)=>b?Math.round(a*100/b):0;
     cuerpo.innerHTML=
       '<div style="padding:14px 4px;color:var(--stone);font-size:13px;line-height:1.7">'+
@@ -1512,6 +1520,8 @@ function renderAudTaller(){
   }
   panel.style.display="";
   row.classList.remove("soloPerf");
+  document.getElementById("audtVacio").style.display="none";
+  document.getElementById("audtContenido").style.display="";
   const totN=list.reduce((a,r)=>a+r.n,0), totRe=list.reduce((a,r)=>a+r.re,0);
   document.getElementById("atT").textContent=list.length;
   document.getElementById("atA").textContent=nf(totN);
