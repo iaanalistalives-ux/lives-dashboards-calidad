@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Auditoría Final — Interna y Talleres · LIVES (Supabase, prueba)</title>
+<title>Auditoría Final — Interna y Talleres · LIVES</title>
 <style>
   /* Paleta del estándar LIVES v2. Los colores ya eran los correctos; lo que faltaba eran
    las variables de sombra (--sh), radio (--r) y petróleo secundario, que son las que
@@ -2046,7 +2046,7 @@ var NUMERICAS=['SEMANA','ANIO','MES','LOTE','MUESTRA','OBS','%','CAJAS',
                'N_AUDITORIA','REPETIDO','REPROCESO','COMPUTABLE',
                'LOTE_CONTABLE','MUESTRA_CONTABLE'];
 
-/* ===== LECTURA DESDE SUPABASE (versión de prueba, 16/09/2026) =====
+/* ===== LECTURA DESDE SUPABASE (desde el 16/09/2026) =====
    Lee la vista publico_final, que calcula lo mismo que la hoja PUBLICO_FINAL.
    Las filas se arman con los MISMOS nombres de columna que traía el CSV, así que
    buildState() y todos los paneles calculan exactamente igual que antes.
@@ -2101,9 +2101,15 @@ function sbDatosAl(){
     .then(function(filas){
       var f=(filas||[]).filter(function(x){ return x.tabla==='auditorias'; })[0];
       if(!f || !f.ultima_copia) return {txt:'', error:''};
-      var d=new Date(f.ultima_copia);
-      var txt=d.toLocaleString('es-PE',{timeZone:'America/Lima',day:'2-digit',month:'2-digit',
-                                        hour:'2-digit',minute:'2-digit',hour12:false}).replace(',', '');
+      /* DD/MM HH:MM en hora de Lima, armado por partes: toLocaleString no
+         garantiza los ceros a la izquierda en todos los navegadores. */
+      var partes={};
+      new Intl.DateTimeFormat('es-PE',{timeZone:'America/Lima',day:'2-digit',month:'2-digit',
+                                       hour:'2-digit',minute:'2-digit',hourCycle:'h23'})
+        .formatToParts(new Date(f.ultima_copia))
+        .forEach(function(p){ partes[p.type]=p.value; });
+      function dos(v){ return ('0'+(v||'')).slice(-2); }
+      var txt=dos(partes.day)+'/'+dos(partes.month)+' '+dos(partes.hour)+':'+dos(partes.minute);
       var err=String(f.resultado||'').indexOf('ERROR')===0 ? f.resultado : '';
       return {txt:txt, error:err};
     })
@@ -2170,7 +2176,7 @@ function cargarEnVivo(){
     if(!filas.length) throw new Error('Supabase respondió pero sin auditorías');
     var al=res[1];
     var html='<b>Datos al '+(al.txt||'—')+'.</b> '+filas.length.toLocaleString('es-PE')+
-             ' auditorías · fuente: Supabase (versión de prueba)';
+             ' auditorías · fuente: Supabase';
     if(al.error) html+=' · <b>la última copia falló</b>, los datos pueden estar atrasados';
     armarTablero(filas,'En vivo · Supabase',html, al.error?'error':'ok');
   }).catch(function(e){
