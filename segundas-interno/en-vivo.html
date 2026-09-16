@@ -506,19 +506,19 @@
           <div class="panel col4">
             <span class="tira volumen"></span>
             <div class="pt">Detalle por mes</div>
-            <div class="ph">Confeccionadas, segundas y % de cada mes del año seleccionado.</div>
+            <div class="ph">Despachadas, segundas y % de cada mes del año seleccionado.</div>
             <div style="overflow-x:auto;"><table id="mTbl"></table></div>
           </div>
           <div class="panel col8" id="semPanel">
             <span class="tira resultado"></span>
             <div class="pt">Tendencia semanal</div>
-            <div class="ph">% de segundas de las últimas 7 semanas hasta la seleccionada. Cada punto es segundas ÷ confeccionadas de esa semana.</div>
+            <div class="ph">% de segundas de las últimas 7 semanas hasta la seleccionada. Cada punto es segundas ÷ despachadas de esa semana.</div>
             <div class="cwrap tall"><canvas id="cSem"></canvas></div>
           </div>
           <div class="panel col4" id="semTblPanel">
             <span class="tira volumen"></span>
             <div class="pt">Detalle por semana</div>
-            <div class="ph">La última fila es el promedio ponderado del tramo: suma de segundas ÷ suma de confeccionadas, no promedio de porcentajes.</div>
+            <div class="ph">La última fila es el promedio ponderado del tramo: suma de segundas ÷ suma de despachadas, no promedio de porcentajes.</div>
             <div style="overflow-x:auto;"><table id="sTbl"></table></div>
           </div>
         </div>
@@ -529,7 +529,7 @@
           <div class="panel col6" id="areaPanel">
             <span class="tira riesgo"></span>
             <div class="pt">Área generadora</div>
-            <div class="ph">% de segundas sobre las confeccionadas del período, por área que las generó. Clic en una barra para su detalle.</div>
+            <div class="ph">% de segundas sobre las despachadas del período, por área que las generó. Clic en una barra para su detalle.</div>
             <div class="cwrap tall"><canvas id="cArea"></canvas></div>
           </div>
           <div class="panel col6" id="motPanel">
@@ -545,7 +545,7 @@
         <div class="grid">
           <div class="panel col6">
             <span class="tira volumen"></span>
-            <div class="pt">Por cliente</div><div class="ph">Clientes con más segundas en el período. El % es sobre las segundas del período, no sobre lo confeccionado.</div>
+            <div class="pt">Por cliente</div><div class="ph">Clientes con más segundas en el período. El % es sobre las segundas del período, no sobre lo despachado.</div>
             <div style="overflow-x:auto;"><table id="cliRank"></table></div>
           </div>
           <div class="panel col6">
@@ -571,7 +571,7 @@
        <div id="anioBlock">
         <div class="sectitle" id="desempTitle">Informe de desempeño — acumulado</div>
         <div class="kpis">
-          <div class="kpi neutro"><span class="banda"></span><div class="cuerpo"><div class="l" id="dConfL">Confeccionadas</div><div class="row"><span class="v" id="dConf">—</span></div></div></div>
+          <div class="kpi neutro"><span class="banda"></span><div class="cuerpo"><div class="l" id="dConfL">Despachadas</div><div class="row"><span class="v" id="dConf">—</span></div></div></div>
           <div class="kpi neutro"><span class="banda"></span><div class="cuerpo"><div class="l" id="dSegL">Segundas</div><div class="row"><span class="v" id="dSeg">—</span></div></div></div>
           <div class="kpi alert"><span class="banda"></span><div class="cuerpo"><div class="l" id="dPctL">% acumulado</div><div class="row"><span class="v" id="dPct">—</span></div><div class="s" id="dPctS">—</div></div></div>
         </div>
@@ -585,7 +585,7 @@
           <div class="panel col6">
             <span class="tira riesgo"></span>
             <div class="pt">Por área generadora — acumulado</div>
-            <div class="ph">% sobre las confeccionadas del año. Toca "DETALLE" para ver su Pareto de motivos, grupos y evolución.</div>
+            <div class="ph">% sobre las despachadas del año. Toca "DETALLE" para ver su Pareto de motivos, grupos y evolución.</div>
             <div style="overflow-x:auto;"><table id="areaTbl"></table></div>
           </div>
           <div class="panel col6">
@@ -607,7 +607,7 @@
      <details class="help">
        <summary>¿Cómo leo este tablero?</summary>
        <p><b>Qué es una "segunda".</b> Una prenda que no pasó el control de calidad y no puede despacharse como primera: se reprocesa, se vende como segunda o se descarta.</p>
-       <p><b>El indicador.</b> % de segundas = prendas de segunda ÷ prendas confeccionadas, del mismo período, por cien. Cuando se suman varias semanas o meses, se suman los numeradores y los denominadores antes de dividir (promedio ponderado); nunca se promedian porcentajes.</p>
+       <p><b>El indicador.</b> % de segundas = prendas de segunda ÷ prendas despachadas, del mismo período, por cien. Cuando se suman varias semanas o meses, se suman los numeradores y los denominadores antes de dividir (promedio ponderado); nunca se promedian porcentajes.</p>
        <p><b>La meta es 2%</b>, fijada por Gerencia. Semáforo: hasta 2% en verde, hasta 2.4% en ámbar (dentro del 20% por encima de la meta), y por encima de eso en rojo. Los registros históricos anteriores al cambio conservan la meta de 2.5% con la que se midieron en su momento.</p>
        <p><b>El "mes" del año en curso</b> no es el mes del calendario: se arma con rangos fijos de semana, igual que el reporte semanal de origen. En los comparativos entre años sí se usa mes calendario, porque es la única forma de comparar años completos.</p>
        <p><b>Cuando falta el dato.</b> Ningún panel se rellena con ceros: si el período no tiene registros, el tablero lo dice; si un ranking se queda sin filas o un gráfico sin nada que dibujar, ese panel se oculta y el de al lado ocupa el ancho completo. Las telas solo existen desde que Athina sube el reporte nuevo, así que en semanas migradas del histórico ese panel avisa que no hay cobertura.</p>
@@ -815,8 +815,8 @@ function curTok(){if(CURMODE==="year")return "acum";var v=Array.isArray(CURVAL)?
 const valueLabel={id:"valueLabel",afterDatasetsDraw(chart,a,opts){const{ctx}=chart;ctx.save();const meta=chart.getDatasetMeta(0);meta.data.forEach((bar,i)=>{const raw=chart.data.datasets[0].data[i];const ex=opts.extra?opts.extra[i]:"";const sf=opts.suffix||"";ctx.fillStyle="#333";ctx.font="700 11px Calibri, Arial";ctx.textBaseline="middle";if(chart.options.indexAxis==="y"){ctx.textAlign="left";ctx.fillText(raw+sf+(ex||""),bar.x+6,bar.y);}else{ctx.textAlign="center";ctx.fillText(raw+sf,bar.x,bar.y-8);}});ctx.restore();}};
 
 /* setup título según KIND */
-document.getElementById("hTitle").textContent=KIND==="gerencia"?"REPORTE DE SEGUNDAS EN PRENDAS CONFECCIONADAS":"REPORTE DE SEGUNDAS EN PRENDAS CONFECCIONADAS - INTERNO";
-document.getElementById("hSub").textContent=KIND==="gerencia"?"Segundas sobre prendas confeccionadas · 2026 vs 2025":"Detalle por cliente, motivo, grupo, estilo y tela";
+document.getElementById("hTitle").textContent=KIND==="gerencia"?"REPORTE DE SEGUNDAS EN PRENDAS DESPACHADAS":"REPORTE DE SEGUNDAS EN PRENDAS DESPACHADAS - INTERNO";
+document.getElementById("hSub").textContent=KIND==="gerencia"?"Segundas sobre prendas despachadas · 2026 vs 2025":"Detalle por cliente, motivo, grupo, estilo y tela";
 document.title=KIND==="gerencia"?"Segundas — Gerencia · LIVES":"Segundas — Interno · LIVES";
 function applyKind(){document.querySelectorAll("[data-kind]").forEach(el=>{const k=el.getAttribute("data-kind");el.classList.toggle("khide",!(k===KIND||k==="both"));});}
 
@@ -888,7 +888,7 @@ async function cargarDesdeSheet(manual){
     const [dataRowsRaw,repRowsRaw]=await Promise.all([gvizFetch(TAB_DATA),gvizFetch(TAB_REP)]);
     if(!dataRowsRaw.length||!repRowsRaw.length){showErr("El Sheet respondió pero todavía no tiene filas cargadas.");return;}
     const data=dataRowsRaw.map(r=>Object.assign({},r,{FECHA:gvizDateISO(r["FECHA"])}));
-    const repRows=repRowsRaw.map(r=>({fecha:gvizDateISO(r["FECHA"]),conf:num(r["PRENDAS CONFECCIONADAS"]),seg:num(r["CANTIDAD"]),precio:num(r["PRECIO"]),week:num(r["SEMANA"])}));
+    const repRows=repRowsRaw.map(r=>({fecha:gvizDateISO(r["FECHA"]),conf:num(r["PRENDAS DESPACHADAS"]),seg:num(r["CANTIDAD"]),precio:num(r["PRECIO"]),week:num(r["SEMANA"])}));
     buildState({data,telas:[],repRows},"Sheet en vivo — Segundas",false);
     document.getElementById("drop").style.display="none";
     document.getElementById("lastLoad").textContent=new Date().toLocaleTimeString("es-PE",{hour:"2-digit",minute:"2-digit"});
@@ -966,10 +966,10 @@ function extractAll(wb){
       else if(["COD TELA","SEMANA"].every(c=>cols.includes(c)))telas=arr;}
     // REPORTES: header desplazado -> leer como matriz
     if(!repRows){const m=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,defval:null});
-      let hi=-1;for(let i=0;i<m.length;i++){const row=(m[i]||[]).map(x=>String(x).trim().toUpperCase());if(row.includes("FECHA")&&row.includes("SEMANA")&&row.some(c=>c.includes("CONFECCION"))){hi=i;break;}}
+      let hi=-1;for(let i=0;i<m.length;i++){const row=(m[i]||[]).map(x=>String(x).trim().toUpperCase());if(row.includes("FECHA")&&row.includes("SEMANA")&&row.some(c=>c.includes("DESPACHAD")||c.includes("CONFECCION"))){hi=i;break;}}
       if(hi>=0){const H=(m[hi]||[]).map(x=>String(x).trim().toUpperCase());
         const ci=n=>H.findIndex(h=>h.includes(n));
-        const iF=ci("FECHA"),iC=ci("CONFECCION"),iS=H.indexOf("CANTIDAD"),iP=ci("PRECIO"),iW=H.indexOf("SEMANA");
+        const iF=ci("FECHA"),iC=ci("DESPACHAD"),iS=H.indexOf("CANTIDAD"),iP=ci("PRECIO"),iW=H.indexOf("SEMANA");
         const out=[];for(let i=hi+1;i<m.length;i++){const r=m[i]||[];if(r[iF]==null)continue;out.push({fecha:r[iF],conf:num(r[iC]),seg:num(r[iS]),precio:num(r[iP]),week:num(r[iW])});}
         if(out.length)repRows=out;}}
   }
@@ -1123,7 +1123,7 @@ function renderPeriod(mode,valueOrArr){
     document.querySelectorAll(".tabs,.tabpane").forEach(function(e){e.style.display=vacio?"none":"";});
     document.getElementById("clickHint").style.display=vacio?"none":"";
   }
-  document.getElementById("srcNote").innerHTML=`<b>Fuente:</b> <i>${STATE.fname}</i> · Año <b>${Y}</b> · ${isMonth?((latest()?"Mes (rangos fijos): ":"Mes: ")+plabel.replace(" "+Y,"")):plabel}${values.length>1?" ("+values.length+" "+(isMonth?"meses":"semanas")+" seleccionados)":""} · % de segundas = Cantidad ÷ Confeccionadas · Meta 2%.`;
+  document.getElementById("srcNote").innerHTML=`<b>Fuente:</b> <i>${STATE.fname}</i> · Año <b>${Y}</b> · ${isMonth?((latest()?"Mes (rangos fijos): ":"Mes: ")+plabel.replace(" "+Y,"")):plabel}${values.length>1?" ("+values.length+" "+(isMonth?"meses":"semanas")+" seleccionados)":""} · % de segundas = Cantidad ÷ Despachadas · Meta 2%.`;
 
   // ----- período anterior comparable (para el delta y la banda de veredicto) -----
   // Con varias semanas o meses seleccionados a la vez no hay "anterior" evidente,
@@ -1146,11 +1146,11 @@ function renderPeriod(mode,valueOrArr){
   let kp=`<div class="kpi hero ${heroCls}"><span class="banda"></span><div class="cuerpo">`+
     `<div class="l">% de segundas · ${plabel}</div>`+
     `<div class="row"><span class="v">${conf.conf?periodPct+"%":"—"}</span>${dHtml}</div>`+
-    `<div class="s">${nf(conf.seg)} de ${nf(conf.conf)} confeccionadas · meta 2%</div>`+
+    `<div class="s">${nf(conf.seg)} de ${nf(conf.conf)} despachadas · meta 2%</div>`+
     `<div class="spark"><canvas id="spkSeg"></canvas></div></div></div>`;
   if(!isYear)kp+=`<div class="kpi ${pc(aY.seg,aY.conf)>META?"alert":""}"><span class="banda"></span><div class="cuerpo"><div class="l">% acumulado ${Y}</div><div class="row"><span class="v">${pc(aY.seg,aY.conf)}%</span></div><div class="s">${nf(aY.seg)} segundas en el año</div></div></div>`;
   if(KIND==="gerencia"&&prev){const ap=acumY(prev);kp+=`<div class="kpi neutro"><span class="banda"></span><div class="cuerpo"><div class="l">% ${prev} (referencia)</div><div class="row"><span class="v">${pc(ap.seg,ap.conf)}%</span></div><div class="s">año completo anterior</div></div></div>`;}
-  kp+=`<div class="kpi neutro"><span class="banda"></span><div class="cuerpo"><div class="l">Prendas de segunda · ${plabel}</div><div class="row"><span class="v">${nf(conf.seg)}</span></div><div class="s">de ${nf(conf.conf)} confeccionadas</div></div></div>`;
+  kp+=`<div class="kpi neutro"><span class="banda"></span><div class="cuerpo"><div class="l">Prendas de segunda · ${plabel}</div><div class="row"><span class="v">${nf(conf.seg)}</span></div><div class="s">de ${nf(conf.conf)} despachadas</div></div></div>`;
   k.innerHTML=kp;
   renderVerdict(periodPct,conf,plabel,PREV);
   renderSpark(isYear,isMonth,values,allW,allM);
@@ -1206,7 +1206,7 @@ function renderPeriod(mode,valueOrArr){
     options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,layout:{padding:{right:46}},
       onClick:(e,els)=>{if(els.length)openFicha("area",areaG[els[0].index].k,curTok());},
       onHover:(e,els)=>{e.native.target.style.cursor=els.length?"pointer":"default";},
-      plugins:{legend:{display:false},valueLabel:{suffix:"%"},tooltip:{callbacks:{label:c=>nf(areaG[c.dataIndex].v)+" seg · "+c.raw+"% sobre conf. · clic para el detalle"}}},scales:{x:{min:0,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}},y:{grid:{display:false},border:{color:WARM},ticks:{font:{size:10}}}}},plugins:[valueLabel]}));
+      plugins:{legend:{display:false},valueLabel:{suffix:"%"},tooltip:{callbacks:{label:c=>nf(areaG[c.dataIndex].v)+" seg · "+c.raw+"% sobre despachadas · clic para el detalle"}}},scales:{x:{min:0,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}},y:{grid:{display:false},border:{color:WARM},ticks:{font:{size:10}}}}},plugins:[valueLabel]}));
 
   // ----- motivos -----
   const motG=groupSum(drows,"mot").slice(0,8);const motTot=drows.reduce((s,r)=>s+r.cant,0)||1;
@@ -1375,12 +1375,12 @@ function renderVerdict(p,conf,plabel,PREV){
   box.style.display="flex";
   const exceso=Math.round(conf.seg-conf.conf*META/100);
   if(p<=META){box.classList.add("ok");dot.textContent="\u2713";t.textContent="En meta";
-    sub.textContent=`${p}% de segundas en ${plabel}: ${nf(conf.seg)} prendas de ${nf(conf.conf)} confeccionadas, por debajo de la meta de ${META}%.`+(PREV?` El período anterior (${PREV.lbl}) cerró en ${PREV.pct}%.`:"");}
+    sub.textContent=`${p}% de segundas en ${plabel}: ${nf(conf.seg)} prendas de ${nf(conf.conf)} despachadas, por debajo de la meta de ${META}%.`+(PREV?` El período anterior (${PREV.lbl}) cerró en ${PREV.pct}%.`:"");}
   else{
     const lim=p<=META*1.2;
     box.classList.add(lim?"warn":"bad");dot.textContent=lim?"!":"\u2715";
     t.textContent=lim?"Al límite":"Fuera de meta";
-    sub.textContent=`${p}% de segundas en ${plabel}: ${nf(conf.seg)} prendas de ${nf(conf.conf)} confeccionadas, contra una meta de ${META}%. Son ${nf(exceso)} prendas de más respecto de la meta.`+(PREV?` El período anterior (${PREV.lbl}) cerró en ${PREV.pct}%.`:"");
+    sub.textContent=`${p}% de segundas en ${plabel}: ${nf(conf.seg)} prendas de ${nf(conf.conf)} despachadas, contra una meta de ${META}%. Son ${nf(exceso)} prendas de más respecto de la meta.`+(PREV?` El período anterior (${PREV.lbl}) cerró en ${PREV.pct}%.`:"");
   }
 }
 let SPK=null;
@@ -1421,7 +1421,7 @@ function renderInsight(drows,conf,plabel){
 }
 function renderHstate(plabel,conf){
   const el=document.getElementById("hstate");if(!el)return;
-  el.textContent=plabel+(conf.conf?" · "+nf(conf.seg)+" segundas de "+nf(conf.conf)+" confeccionadas":" · sin registros");
+  el.textContent=plabel+(conf.conf?" · "+nf(conf.seg)+" segundas de "+nf(conf.conf)+" despachadas":" · sin registros");
 }
 
 function rankTable(id,items,head,kind,tot){
@@ -1446,15 +1446,15 @@ function renderDesempeno(){
   const dpc=document.getElementById("dPct").closest(".kpi");
   if(dpc){dpc.classList.toggle("alert",a.conf&&dp>META);}
   const dps=document.getElementById("dPctS");
-  if(dps)dps.textContent=a.conf?(nf(a.seg)+" de "+nf(a.conf)+" confeccionadas · meta "+META+"%"):"Sin registros en el año";
+  if(dps)dps.textContent=a.conf?(nf(a.seg)+" de "+nf(a.conf)+" despachadas · meta "+META+"%"):"Sin registros en el año";
   const dt=document.getElementById("desempTitle");if(dt)dt.textContent=`Informe de desempeño — acumulado ${CURYEAR}`;
-  document.getElementById("dConfL").textContent="Confeccionadas "+CURYEAR;
+  document.getElementById("dConfL").textContent="Despachadas "+CURYEAR;
   document.getElementById("dSegL").textContent="Segundas "+CURYEAR;
   document.getElementById("dPctL").textContent="% Acum. "+CURYEAR;
   // área generadora acum: % sobre conf total del año
   const areaAll=groupSum(D,"area");
   const totConf=a.conf;
-  let ah="<thead><tr><th>Área generadora</th><th style='text-align:right'>Segundas</th><th style='text-align:right'>% sobre conf.</th><th style='text-align:center'>Estado</th><th></th></tr></thead><tbody>";
+  let ah="<thead><tr><th>Área generadora</th><th style='text-align:right'>Segundas</th><th style='text-align:right'>% sobre despachadas</th><th style='text-align:center'>Estado</th><th></th></tr></thead><tbody>";
   areaAll.forEach((x,i)=>{const p=+(x.v/totConf*100).toFixed(2);const ale=i===0;
     ah+=`<tr style="background:${i%2?WARML:'#fff'}"><td style="color:#333;font-weight:700">${x.k}</td><td style="text-align:right">${nf(x.v)}</td><td style="text-align:right;font-weight:700">${p}%</td><td style="text-align:center"><span class="st ${ale?'ale':'bue'}">${ale?'Mayor impacto':'Controlado'}</span></td><td style="text-align:center"><button class="fbtn" onclick="openFicha('area','${String(x.k).replace(/'/g,"\\'")}','acum')">DETALLE</button></td></tr>`;});
   document.getElementById("areaTbl").innerHTML=ah+"</tbody>";
@@ -1587,7 +1587,7 @@ function renderCompare(){
   const cols=[SAGE,SLATE,ROSE,TAN,TAUPE];
   // KPIs por año
   let kp="";
-  ys.forEach((y,i)=>{const a=acumY(y);kp+=`<div class="kpi"><div class="v" style="color:${cols[i%cols.length]}">${pc(a.seg,a.conf)}%</div><div class="l">% Acum. ${y}</div><div class="s">${nf(a.seg)} de ${nf(a.conf)} conf.</div></div>`;});
+  ys.forEach((y,i)=>{const a=acumY(y);kp+=`<div class="kpi"><div class="v" style="color:${cols[i%cols.length]}">${pc(a.seg,a.conf)}%</div><div class="l">% Acum. ${y}</div><div class="s">${nf(a.seg)} de ${nf(a.conf)} desp.</div></div>`;});
   kp+=`<div class="kpi meta"><div class="v">2.00%</div><div class="l">Meta</div></div>`;
   // meses con datos en cualquier año (calendario)
   const monthsSet=[...new Set(STATE.rep.map(r=>r.mcal).filter(m=>m!=null))].sort((a,b)=>a-b);
@@ -1775,8 +1775,8 @@ if(window.__EMBEDSTATE__){try{
   function annualButtons(){var yb=document.getElementById("yearBtns");if(!yb)return false;if(yb.querySelector(".aybtn"))return true;if(!window.__SEG_ANNUAL__)return false;var ys=Object.keys(window.__SEG_ANNUAL__).sort();var html=ys.map(function(y){return '<button class="mbtn ybtn aybtn" data-y="'+y+'" type="button" title="Resumen anual hist\u00F3rico" onclick="showAnnual(\''+y+'\')">'+y+'</button>';}).join("");yb.insertAdjacentHTML("afterbegin",html);return true;}
   function renderAnnual(y){
     var a=window.__SEG_ANNUAL__[y];if(!a)return;var av=document.getElementById("annualView");
-    av.innerHTML='<div class="note"><b>\uD83D\uDCC5 Resumen anual '+y+' (hist\u00F3rico)</b> \u2014 reporte anual, sin detalle semanal/mensual ni telas. % = segundas/confeccionadas (prendas reales). Los desgloses son % de participaci\u00F3n.</div>'
-      +'<div class="kpis"><div class="kpi"><div class="v" style="color:'+(a.pct>2?"#DC2626":"var(--sage)")+'">'+a.pct+'%</div><div class="l">% de segundas</div><div class="s">Meta 2.00%</div></div><div class="kpi"><div class="v">'+nf(a.seg)+'</div><div class="l">Segundas</div></div><div class="kpi"><div class="v">'+nf(a.conf)+'</div><div class="l">Confeccionadas</div></div><div class="kpi"><div class="v">'+fmtM(a.precio||0)+'</div><div class="l">Valor FOB segundas</div></div><div class="kpi"><div class="v">'+nf(a.desp)+'</div><div class="l">Despachadas</div></div></div>'
+    av.innerHTML='<div class="note"><b>\uD83D\uDCC5 Resumen anual '+y+' (hist\u00F3rico)</b> \u2014 reporte anual, sin detalle semanal/mensual ni telas. % = segundas/despachadas (prendas reales). Los desgloses son % de participaci\u00F3n.</div>'
+      +'<div class="kpis"><div class="kpi"><div class="v" style="color:'+(a.pct>2?"#DC2626":"var(--sage)")+'">'+a.pct+'%</div><div class="l">% de segundas</div><div class="s">Meta 2.00%</div></div><div class="kpi"><div class="v">'+nf(a.seg)+'</div><div class="l">Segundas</div></div><div class="kpi"><div class="v">'+nf(a.conf)+'</div><div class="l">Despachadas</div></div><div class="kpi"><div class="v">'+fmtM(a.precio||0)+'</div><div class="l">Valor FOB segundas</div></div><div class="kpi"><div class="v">'+nf(a.desp)+'</div><div class="l">Despachadas</div></div></div>'
       +'<div class="focos"><div class="fk-hd">\uD83D\uDD0E Aspectos del a\u00F1o '+y+' <span>lo m\u00E1s recurrente del a\u00F1o</span></div><div class="fk-grid"><div class="fk-tile"><div class="fk-t">\u00C1rea m\u00E1s cr\u00EDtica</div><div class="fk-big" style="font-size:19px">'+topk(a.area)+'</div></div><div class="fk-tile"><div class="fk-t">Motivo m\u00E1s recurrente</div><div class="fk-big" style="font-size:19px">'+topk(a.motivo)+'</div></div><div class="fk-tile"><div class="fk-t">Cliente top</div><div class="fk-big" style="font-size:19px">'+topk(a.cliente)+'</div></div><div class="fk-tile"><div class="fk-t">Grupo top</div><div class="fk-big" style="font-size:19px">'+topk(a.grupo)+'</div></div><div class="fk-tile"><div class="fk-t">Estilo top</div><div class="fk-big" style="font-size:19px">'+topk(a.estilo)+'</div></div></div></div>'
       +'<div class="grid2"><div class="panel"><div class="pt">\uD83D\uDCE6 Grupos m\u00E1s recurrentes</div><div class="ph">% de participaci\u00F3n en las segundas del a\u00F1o.</div><div class="cwrap" style="height:300px;"><canvas id="avGrupo"></canvas></div></div><div class="panel"><div class="pt">\uD83C\uDFF7\uFE0F Estilos m\u00E1s recurrentes</div><div class="ph">% de participaci\u00F3n.</div><div class="cwrap" style="height:300px;"><canvas id="avEstilo"></canvas></div></div><div class="panel"><div class="pt">\u2699\uFE0F \u00C1reas generadoras</div><div class="ph">% de participaci\u00F3n.</div><div class="cwrap" style="height:300px;"><canvas id="avArea"></canvas></div></div><div class="panel"><div class="pt">\uD83D\uDD27 Motivos</div><div class="ph">% de participaci\u00F3n.</div><div class="cwrap" style="height:300px;"><canvas id="avMot"></canvas></div></div><div class="panel"><div class="pt">\uD83D\uDC65 Clientes</div><div class="ph">% de participaci\u00F3n.</div><div class="cwrap" style="height:300px;"><canvas id="avCli"></canvas></div></div></div>';
     var mk=function(id,dim,color){var b=dimBars(dim);reg(new Chart(document.getElementById(id),{type:"bar",data:{labels:b.labels,datasets:[{data:b.data,backgroundColor:color,borderRadius:3,barThickness:16}]},options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return c.raw+"%";}}}},scales:{x:{min:0,grid:{color:"#F1F6F4"},border:{display:false},ticks:{callback:function(v){return v+"%";}}},y:{grid:{display:false},border:{color:"#DCE5E2"},ticks:{font:{size:9}}}}}}));};
