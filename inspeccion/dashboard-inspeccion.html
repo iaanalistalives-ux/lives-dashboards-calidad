@@ -381,7 +381,7 @@
   </div>
 
   <div class="wrap">
-    <div id="avisoVivo" class="avisoVivo cargando">Cargando datos del Sheet…</div>
+    <div id="avisoVivo" class="avisoVivo cargando">Cargando datos…</div>
     <div id="drop" class="drop" style="display:none">
       <div class="big">Sube tu archivo de auditorías de inspección</div>
       <div class="sm">Arrastra aquí <b>AUDITORIAS SERVICIO INSPECCION.xlsx</b> o haz clic para elegirlo.<br>Se procesa en tu navegador — no se sube a ningún servidor.</div>
@@ -1836,9 +1836,137 @@ var NUMERICAS=['SEMANA','ANIO','MES','LOTE','MUESTRA','OBS','%','CAJAS',
                'N_AUDITORIA','REPETIDO','REPROCESO','COMPUTABLE',
                'LOTE_CONTABLE','MUESTRA_CONTABLE'];
 
+/* ===== LECTURA DESDE SUPABASE (desde el 16/09/2026) =====
+   Lee la vista publico_auditorias, filtrada a este tipo de auditoría. Calcula lo
+   mismo que la hoja PUBLICO_SERVINSP y entrega las filas con los MISMOS nombres de
+   columna que traía el CSV, así que buildState() y todos los paneles calculan
+   exactamente igual que antes.
+   Si Supabase no responde, se lee la hoja publicada como antes (respaldo).
+   La clave es la PUBLICABLE: está hecha para ir en la página y solo permite leer
+   las vistas abiertas. */
+var SB_URL = 'https://xxfufpddgoyhbotjmaiy.supabase.co';
+var SB_KEY = 'sb_publishable_1g-n6UT70EUlNAo8Lyc04w_jKR4LpXZ';
+var SB_TIPO = 'SERVINSP';
+var SB_PAGINA = 1000;   // Supabase entrega como máximo 1 000 filas por pedido
+
+/* columna de la vista → encabezado que esperaba el tablero */
+var SB_A_CSV = {
+  id_auditoria:'ID_AUDITORIA', fecha:'FECHA', semana:'SEMANA', anio:'ANIO', mes:'MES',
+  cliente:'CLIENTE', grupo:'GRUPO', estilo:'ESTILO', color:'COLOR', po:'PO',
+  lote:'LOTE', muestra:'MUESTRA', obs:'OBS', pct:'%', resultado:'RESULTADO',
+  defectos:'DEFECTOS', auditor:'AUDITOR', inspector:'INSPECTOR', linea:'LINEA',
+  servicio:'SERVICIO', destino:'DESTINO', cajas:'CAJAS', tipo_lic:'TIPO_LIC',
+  n_auditoria:'N° DE AUDITORÍA', n_parcial:'N° PARCIAL', reprocesa_de:'REPROCESA DE',
+  motivo_reproceso:'MOTIVO REPROCESO', liquidado:'LIQUIDADO', int_ext:'INT/EXT',
+  derivados:'DERIVADOS', total_derivados:'TOTAL DERIVADOS', aud_taller:'AUD. TALLER',
+  tipo:'TIPO', e_cliente:'E.CLIENTE', op:'OP', cod_tela:'COD TELA', tela:'TELA',
+  tela_origen:'TELA ORIGEN', repetido:'REPETIDO', reproceso:'REPROCESO',
+  computable:'COMPUTABLE', lote_contable:'LOTE_CONTABLE',
+  muestra_contable:'MUESTRA_CONTABLE', captura:'CAPTURA'
+};
+
+/* Lee la vista completa para este tipo, de mil en mil. */
+function sbLeerTodo(){
+  var todas=[];
+  var select=Object.keys(SB_A_CSV).join(',');
+  function pagina(desde){
+    var url=SB_URL+'/rest/v1/publico_auditorias?select='+encodeURIComponent(select)+
+            '&tipo_auditoria=eq.'+SB_TIPO+
+            '&order=id_auditoria.asc&limit='+SB_PAGINA+'&offset='+desde;
+    return fetch(url,{headers:{apikey:SB_KEY},cache:'no-store'})
+      .then(function(r){
+        if(!r.ok) return r.text().then(function(t){ throw new Error('Supabase '+r.status+' '+t.slice(0,120)); });
+        return r.json();
+      })
+      .then(function(lote){
+        todas=todas.concat(lote);
+        return lote.length===SB_PAGINA ? pagina(desde+SB_PAGINA) : todas;
+      });
+  }
+  return pagina(0);
+}
+
+/* Hora de la última revisión de la copia: "16/09 08:33", hora de Lima. */
+function sbDatosAl(){
+  return fetch(SB_URL+'/rest/v1/publico_estado_copia?select=tabla,ultima_copia,resultado',
+               {headers:{apikey:SB_KEY},cache:'no-store'})
+    .then(function(r){ return r.ok ? r.json() : []; })
+    .then(function(filas){
+      var f=(filas||[]).filter(function(x){ return x.tabla==='auditorias'; })[0];
+      if(!f || !f.ultima_copia) return {txt:'', error:''};
+      var partes={};
+      new Intl.DateTimeFormat('es-PE',{timeZone:'America/Lima',day:'2-digit',month:'2-digit',
+                                       hour:'2-digit',minute:'2-digit',hourCycle:'h23'})
+        .formatToParts(new Date(f.ultima_copia))
+        .forEach(function(p){ partes[p.type]=p.value; });
+      function dos(v){ return ('0'+(v||'')).slice(-2); }
+      var txt=dos(partes.day)+'/'+dos(partes.month)+' '+dos(partes.hour)+':'+dos(partes.minute);
+      var err=String(f.resultado||'').indexOf('ERROR')===0 ? f.resultado : '';
+      return {txt:txt, error:err};
+    })
+    .catch(function(){ return {txt:'', error:''}; });
+}
+
+function filaDesdeSupabase(x){
+  var o={};
+  for(var k in SB_A_CSV){
+    var cab=SB_A_CSV[k], v=x[k];
+    if(cab==='FECHA') v=normFecha(v);
+    else if(NUMERICAS.indexOf(cab)>=0){
+      v=(v==null||String(v).trim()==='') ? null : Number(v);
+      if(v!=null && !isFinite(v)) v=null;
+    } else v=(v==null)?'':String(v).trim();   // igual que el CSV: vacío = ''
+    o[cab]=v;
+  }
+  return o;
+}
+
+function armarTablero(filas, origen, avisoHTML, clase){
+  var av=document.getElementById('avisoVivo');
+  try{
+    buildState(filas,origen,false);
+  }catch(errB){
+    console.error('buildState falló:',errB);
+    if(av){
+      av.innerHTML='<b>Los datos llegaron pero el tablero no pudo armarlos.</b> '+
+        'Se leyeron '+filas.length.toLocaleString('es-PE')+' filas. '+
+        '<span style="opacity:.75">Error: '+errB.message+'</span>';
+      av.className='avisoVivo error';
+    }
+    var dr2=document.getElementById('drop'); if(dr2) dr2.style.display='';
+    return;
+  }
+  if(av){
+    av.innerHTML=avisoHTML+' &nbsp;<button type="button" id="btnRefrescar">Actualizar</button>';
+    av.className='avisoVivo '+clase;
+    var b=document.getElementById('btnRefrescar');
+    if(b) b.onclick=function(){ cargarEnVivo(); };
+  }
+}
+
 function cargarEnVivo(){
   var av=document.getElementById('avisoVivo');
-  if(av){ av.textContent='Cargando datos del Sheet…'; av.className='avisoVivo cargando'; }
+  if(av){ av.textContent='Cargando datos…'; av.className='avisoVivo cargando'; }
+  Promise.all([sbLeerTodo(), sbDatosAl()]).then(function(res){
+    var filas=res[0].map(filaDesdeSupabase).filter(function(o){ return o['RESULTADO']; });
+    if(!filas.length) throw new Error('Supabase respondió pero sin auditorías');
+    /* Mismo orden que la hoja publicada (ID de mayor a menor): así los empates en
+       los rankings salen en el mismo orden que antes. */
+    filas.sort(function(x,y){ var a=x['ID_AUDITORIA'], c=y['ID_AUDITORIA']; return a<c?1:(a>c?-1:0); });
+    var al=res[1];
+    var html='<b>Datos al '+(al.txt||'—')+'.</b> '+filas.length.toLocaleString('es-PE')+
+             ' auditorías · fuente: Supabase';
+    if(al.error) html+=' · <b>la última copia falló</b>, los datos pueden estar atrasados';
+    armarTablero(filas,'En vivo · Supabase',html, al.error?'error':'ok');
+  }).catch(function(e){
+    console.warn('Supabase no respondió, se usa la hoja publicada:', e);
+    cargarDesdeHoja(e.message);
+  });
+}
+
+/* Respaldo: la lectura de siempre, desde la hoja PUBLICO_SERVINSP publicada. */
+function cargarDesdeHoja(motivo){
+  var av=document.getElementById('avisoVivo');
   fetch(CSV_LIVE+'&_='+Date.now(),{cache:'no-store'})
     .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.text(); })
     .then(function(txt){
@@ -1863,36 +1991,15 @@ function cargarEnVivo(){
         if(o['RESULTADO']) filas.push(o);
       }
       if(!filas.length) throw new Error('el CSV llegó pero ninguna fila tiene RESULTADO');
-      try{
-        buildState(filas,'En vivo · Sheet maestro',false);
-      }catch(errB){
-        console.error('buildState falló:',errB);
-        var av2=document.getElementById('avisoVivo');
-        if(av2){
-          av2.innerHTML='<b>Los datos llegaron pero el tablero no pudo armarlos.</b> '+
-            'Se leyeron '+filas.length.toLocaleString('es-PE')+' filas del Sheet. '+
-            'Columnas recibidas: '+cab.filter(function(c){return c;}).join(', ')+'. '+
-            '<span style="opacity:.75">Error: '+errB.message+'</span>';
-          av2.className='avisoVivo error';
-        }
-        var dr2=document.getElementById('drop'); if(dr2) dr2.style.display='';
-        return;
-      }
-      if(av){
-        av.innerHTML='<b>En vivo.</b> '+filas.length.toLocaleString('es-PE')+
-          ' auditorías leídas del Sheet · actualizado '+
-          new Date().toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'})+
-          ' &nbsp;<button type="button" id="btnRefrescar">Actualizar</button>';
-        av.className='avisoVivo ok';
-        var b=document.getElementById('btnRefrescar');
-        if(b) b.onclick=function(){ cargarEnVivo(); };
-      }
+      armarTablero(filas,'En vivo · Sheet maestro',
+        '<b>Supabase no respondió</b> ('+motivo+'); se leyeron '+
+        filas.length.toLocaleString('es-PE')+' auditorías de la hoja publicada · '+
+        new Date().toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'}),'cargando');
     })
     .catch(function(e){
       console.error(e);
       if(av){
-        av.innerHTML='<b>No llegaron los datos del Sheet.</b> '+
-          'Revisa que la hoja PUBLICO_SERVINSP siga publicada en la web. '+
+        av.innerHTML='<b>No llegaron los datos.</b> Ni Supabase ni la hoja publicada respondieron. '+
           'Mientras tanto puedes cargar el Excel a mano abajo. '+
           '<span style="opacity:.7">('+e.message+')</span>';
         av.className='avisoVivo error';
