@@ -678,6 +678,15 @@ const META=2;
 /* Semaforo unico del estandar: en meta, hasta 20% por encima, y mas. Antes el
    archivo pintaba solo verde/rojo, sin la franja intermedia. */
 function col3(p){return p<=META?SAGE:(p<=META*1.2?TAN:ROSE);}
+/* Tooltip de las tendencias: además del porcentaje muestra el universo sobre el que
+   está calculado —segundas y prendas despachadas de ese punto—, porque un % suelto no
+   permite decidir: 3% sobre 90,000 despachadas y 3% sobre 27,000 no son lo mismo. */
+function tipUniverso(c){
+  const base=c.dataset.label+": "+(c.raw==null?"—":c.raw+"%");
+  const u=c.dataset.universo&&c.dataset.universo[c.dataIndex];
+  if(!u||!u.conf)return base;
+  return base+"  ("+nf(u.seg)+" segundas de "+nf(u.conf)+" despachadas)";
+}
 function cls3(p){return p<=META?"bue":(p<=META*1.2?"rev":"ale");}
 
 /* ===== v2.1: tendencias con el valor visible sobre cada punto ===== */
@@ -1110,7 +1119,7 @@ function renderPeriod(mode,valueOrArr){
         {label:"Meta 2%",data:yrs.map(()=>META),borderColor:TAN,borderWidth:1.5,borderDash:[6,5],pointRadius:0,fill:false,sinEtiquetas:true}
       ]},
       options:{responsive:true,animation:ANIM,layout:{padding:{top:30,bottom:14}},
-        plugins:{legend:{position:"top",align:"end",labels:{boxWidth:12,usePointStyle:true,padding:14}},etiquetasTendencia:{fmt:v=>v.toFixed(2)+"%"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+c.raw+"%"}}},
+        plugins:{legend:{position:"top",align:"end",labels:{boxWidth:12,usePointStyle:true,padding:14}},etiquetasTendencia:{fmt:v=>v.toFixed(2)+"%"},tooltip:{mode:"index",intersect:false,callbacks:{label:tipUniverso}}},
         scales:{x:{grid:{display:false},border:{color:WARM}},y:{min:0,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}}}},plugins:[etiquetasTendencia]}));
   } else if(atp){ atp.style.display="none"; }
 
@@ -1165,15 +1174,16 @@ function renderPeriod(mode,valueOrArr){
   const mo=monthsOfYear();
   const mlabels=mo.map(m=>MESES[m]);
   const pY=mo.map(m=>{const r=repMonth(m);return pc(r.seg,r.conf);});
-  const dsM=[Object.assign({},serieTendencia(SAGE,"15,122,90"),{label:"% "+Y,data:pY,pointBackgroundColor:pY.map(p=>col3(p))}),
+  const uniM=mo.map(m=>{const r=repMonth(m);return {conf:r.conf,seg:r.seg};});
+  const dsM=[Object.assign({},serieTendencia(SAGE,"15,122,90"),{label:"% "+Y,data:pY,pointBackgroundColor:pY.map(p=>col3(p)),universo:uniM}),
     {label:"Meta 2%",data:mo.map(()=>META),borderColor:TAN,borderWidth:1.5,borderDash:[6,5],pointRadius:0,fill:false,sinEtiquetas:true}];
   if(cmp){const pP=mo.map(m=>{const r=repMonthCal(m,prev);return pc(r.seg,r.conf);});
     dsM.splice(1,0,{label:"% "+prev,data:pP,borderColor:SLATE,borderWidth:2,pointRadius:3,pointBackgroundColor:SLATE,tension:.35,fill:false,sinEtiquetas:true});}
   verPanel("cMes",mo.length>=1);
   if(mo.length)
-  reg(new Chart(document.getElementById("cMes"),{type:"line",data:{labels:mlabels,datasets:dsM},options:{responsive:true,animation:ANIM,layout:{padding:{top:30,bottom:14}},plugins:{legend:{position:"top",align:"end",labels:{boxWidth:12,usePointStyle:true,padding:14}},etiquetasTendencia:{fmt:v=>v.toFixed(2)+"%"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+c.raw+"%"}}},scales:{x:{grid:{display:false},border:{color:WARM}},y:{min:0,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}}}},plugins:[etiquetasTendencia]}));
+  reg(new Chart(document.getElementById("cMes"),{type:"line",data:{labels:mlabels,datasets:dsM},options:{responsive:true,animation:ANIM,layout:{padding:{top:30,bottom:14}},plugins:{legend:{position:"top",align:"end",labels:{boxWidth:12,usePointStyle:true,padding:14}},etiquetasTendencia:{fmt:v=>v.toFixed(2)+"%"},tooltip:{mode:"index",intersect:false,callbacks:{label:tipUniverso}}},scales:{x:{grid:{display:false},border:{color:WARM}},y:{min:0,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}}}},plugins:[etiquetasTendencia]}));
   // tabla mensual
-  let mh="<thead><tr><th>Mes</th><th style='text-align:right'>Conf. "+Y+"</th><th style='text-align:right'>Seg.</th><th style='text-align:right'>% "+Y+"</th>"+(cmp?"<th style='text-align:right'>% "+prev+"</th>":"")+"<th style='text-align:right'>Valor $</th><th style='text-align:center'>Estado</th></tr></thead><tbody>";
+  let mh="<thead><tr><th>Mes</th><th style='text-align:right'>Desp. "+Y+"</th><th style='text-align:right'>Seg.</th><th style='text-align:right'>% "+Y+"</th>"+(cmp?"<th style='text-align:right'>% "+prev+"</th>":"")+"<th style='text-align:right'>Valor $</th><th style='text-align:center'>Estado</th></tr></thead><tbody>";
   mo.forEach(m=>{const r=repMonth(m),p=pc(r.seg,r.conf);const ok=p<=META;const c3=cls3(p);
     mh+=`<tr><td style="color:#333;font-weight:700">${MESES[m]}</td><td style="text-align:right">${nf(r.conf)}</td><td style="text-align:right">${nf(r.seg)}</td><td style="text-align:right" class="${ok?'under':'over'}">${p}%</td>`;
     if(cmp){const rp=repMonthCal(m,prev);mh+=`<td style="text-align:right;color:var(--slate)">${pc(rp.seg,rp.conf)}%</td>`;}
@@ -1188,11 +1198,11 @@ function renderPeriod(mode,valueOrArr){
     const wlist=wks.filter(w=>w<=(isMonth?Math.max(...wks):value)).slice(-7);
     const wp=wlist.map(w=>{const r=repWeek(w);return {w,conf:r.conf,seg:r.seg,p:pc(r.seg,r.conf)};});
     reg(new Chart(document.getElementById("cSem"),{type:"line",data:{labels:wp.map(x=>"S"+x.w),datasets:[
-      Object.assign({},serieTendencia(SAGE,"15,122,90"),{label:"% segundas",data:wp.map(x=>x.p),pointBackgroundColor:wp.map(x=>col3(x.p))}),
+      Object.assign({},serieTendencia(SAGE,"15,122,90"),{label:"% segundas",data:wp.map(x=>x.p),pointBackgroundColor:wp.map(x=>col3(x.p)),universo:wp.map(x=>({conf:x.conf,seg:x.seg}))}),
       {label:"Meta 2%",data:wp.map(()=>META),borderColor:TAN,borderWidth:1.5,borderDash:[6,5],pointRadius:0,fill:false,sinEtiquetas:true}]},
-      options:{responsive:true,animation:ANIM,layout:{padding:{top:30,bottom:14}},plugins:{legend:{position:"top",align:"end",labels:{boxWidth:12,usePointStyle:true,padding:14}},etiquetasTendencia:{fmt:v=>v.toFixed(2)+"%"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+c.raw+"%"}}},scales:{x:{grid:{display:false},border:{color:WARM}},y:{min:0,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}}}},plugins:[etiquetasTendencia]}));
+      options:{responsive:true,animation:ANIM,layout:{padding:{top:30,bottom:14}},plugins:{legend:{position:"top",align:"end",labels:{boxWidth:12,usePointStyle:true,padding:14}},etiquetasTendencia:{fmt:v=>v.toFixed(2)+"%"},tooltip:{mode:"index",intersect:false,callbacks:{label:tipUniverso}}},scales:{x:{grid:{display:false},border:{color:WARM}},y:{min:0,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}}}},plugins:[etiquetasTendencia]}));
     const wSumSeg=wp.reduce((s,x)=>s+x.seg,0),wSumConf=wp.reduce((s,x)=>s+x.conf,0);
-    let sh="<thead><tr><th>Semana</th><th style='text-align:right'>Conf.</th><th style='text-align:right'>Seg.</th><th style='text-align:right'>%</th><th style='text-align:center'>Estado</th></tr></thead><tbody>";
+    let sh="<thead><tr><th>Semana</th><th style='text-align:right'>Desp.</th><th style='text-align:right'>Seg.</th><th style='text-align:right'>%</th><th style='text-align:center'>Estado</th></tr></thead><tbody>";
     wp.forEach(x=>{const ok=x.p<=META,c3=cls3(x.p);sh+=`<tr><td style="color:#333;font-weight:700">S${x.w}</td><td style="text-align:right">${nf(x.conf)}</td><td style="text-align:right">${nf(x.seg)}</td><td style="text-align:right" class="${ok?'under':'over'}">${x.p}%</td><td style="text-align:center"><span class="st ${c3}">${c3==='bue'?'Bajo meta':(c3==='rev'?'Al límite':'Sobre meta')}</span></td></tr>`;});
     sh+=`<tr style="background:var(--warm-light)"><td style="color:#333;font-weight:700">Prom. ponderado</td><td style="text-align:right">${nf(wSumConf)}</td><td style="text-align:right">${nf(wSumSeg)}</td><td style="text-align:right;font-weight:700">${pc(wSumSeg,wSumConf)}%</td><td></td></tr>`;
     document.getElementById("sTbl").innerHTML=sh+"</tbody>";
@@ -1622,9 +1632,9 @@ function renderCompare(){
       <div class="panel"><div class="pt">🔧 Motivos — % del total, por año</div><div class="ph">Participación de cada motivo en las segundas de cada año.</div>
         <div class="cwrap" style="height:300px;"><canvas id="cCmpMot"></canvas></div></div>
     </div>`;
-  reg(new Chart(document.getElementById("cCmpMes"),{type:"line",data:{labels:monthsSet.map(m=>MESES[m]),datasets:ds},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"top",labels:{boxWidth:14,usePointStyle:true}},tooltip:{callbacks:{label:c=>c.dataset.label+": "+(c.raw==null?"—":c.raw+"%")}}},scales:{x:{grid:{display:false},border:{color:WARM}},y:{min:0,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}}}}}));
-  reg(new Chart(document.getElementById("cCmpArea"),{type:"bar",data:{labels:areaOrder,datasets:areaDs},options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"top",labels:{boxWidth:14,usePointStyle:true}},tooltip:{callbacks:{label:c=>c.dataset.label+": "+c.raw+"%"}}},scales:{x:{min:0,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}},y:{grid:{display:false},border:{color:WARM},ticks:{font:{size:10}}}}}}));
-  reg(new Chart(document.getElementById("cCmpMot"),{type:"bar",data:{labels:motOrder,datasets:motDs},options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"top",labels:{boxWidth:14,usePointStyle:true}},tooltip:{callbacks:{label:c=>c.dataset.label+": "+c.raw+"%"}}},scales:{x:{min:0,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}},y:{grid:{display:false},border:{color:WARM},ticks:{font:{size:10}}}}}}));
+  reg(new Chart(document.getElementById("cCmpMes"),{type:"line",data:{labels:monthsSet.map(m=>MESES[m]),datasets:ds},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"top",labels:{boxWidth:14,usePointStyle:true}},tooltip:{mode:"index",intersect:false,callbacks:{label:tipUniverso}}},scales:{x:{grid:{display:false},border:{color:WARM}},y:{min:0,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}}}}}));
+  reg(new Chart(document.getElementById("cCmpArea"),{type:"bar",data:{labels:areaOrder,datasets:areaDs},options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"top",labels:{boxWidth:14,usePointStyle:true}},tooltip:{mode:"index",intersect:false,callbacks:{label:tipUniverso}}},scales:{x:{min:0,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}},y:{grid:{display:false},border:{color:WARM},ticks:{font:{size:10}}}}}}));
+  reg(new Chart(document.getElementById("cCmpMot"),{type:"bar",data:{labels:motOrder,datasets:motDs},options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"top",labels:{boxWidth:14,usePointStyle:true}},tooltip:{mode:"index",intersect:false,callbacks:{label:tipUniverso}}},scales:{x:{min:0,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}},y:{grid:{display:false},border:{color:WARM},ticks:{font:{size:10}}}}}}));
   const hoy=new Date().toLocaleDateString("es-PE",{day:"numeric",month:"long",year:"numeric"});
   document.getElementById("foot").innerHTML="Confidencial — Uso Interno · Calidad Manufactura LIVES · "+(KIND==="gerencia"?"Gerencia":"Interno")+" · Comparativo · Generado el "+hoy;
 }
