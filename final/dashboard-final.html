@@ -2083,13 +2083,17 @@ var SB_A_CSV = {
   muestra_contable:'MUESTRA_CONTABLE', captura:'CAPTURA'
 };
 
-/* Lee una vista completa, de mil en mil. */
-function sbLeerTodo(vista, select, orden){
+/* Lee una vista completa, de mil en mil, por partes siguiendo una columna que no
+   se repite (clave): cada parte empieza donde terminó la anterior. Pedir
+   "saltando N filas" obligaba a reordenar todo en cada parte y, con miles de
+   filas, se pasaba del tiempo límite. */
+function sbLeerTodo(vista, select, clave){
   var todas=[];
   function pagina(desde){
     var url=SB_URL+'/rest/v1/'+vista+'?select='+encodeURIComponent(select)+
-            '&order='+encodeURIComponent(orden)+
-            '&limit='+SB_PAGINA+'&offset='+desde;
+            (desde!=='' ? '&'+clave+'=gt.'+encodeURIComponent(desde) : '')+
+            '&order='+encodeURIComponent(clave+'.asc')+
+            '&limit='+SB_PAGINA;
     return fetch(url,{headers:{apikey:SB_KEY},cache:'no-store'})
       .then(function(r){
         if(!r.ok) return r.text().then(function(t){ throw new Error('Supabase '+r.status+' '+t.slice(0,120)); });
@@ -2097,10 +2101,10 @@ function sbLeerTodo(vista, select, orden){
       })
       .then(function(lote){
         todas=todas.concat(lote);
-        return lote.length===SB_PAGINA ? pagina(desde+SB_PAGINA) : todas;
+        return lote.length===SB_PAGINA ? pagina(lote[lote.length-1][clave]) : todas;
       });
   }
-  return pagina(0);
+  return pagina('');
 }
 
 /* Hora de la última copia de las auditorías: "16/09 08:33". */
@@ -2176,7 +2180,7 @@ function cargarEnVivo(){
   var av=document.getElementById('avisoVivo');
   if(av){ av.textContent='Cargando datos…'; av.className='avisoVivo cargando'; }
   Promise.all([
-    sbLeerTodo('publico_final', Object.keys(SB_A_CSV).join(','), 'id_auditoria.asc'),
+    sbLeerTodo('publico_final', Object.keys(SB_A_CSV).join(','), 'id_auditoria'),
     sbDatosAl()
   ]).then(function(res){
     var filas=res[0].map(filaDesdeSupabase).filter(function(o){ return o['RESULTADO']; });
@@ -2267,7 +2271,7 @@ var DET_OK  = false;
    por separado. Las digitadas y el histórico traen el nombre partido en texto. */
 function cargarDetalleFino(){
   return FILAS_LISTAS.then(function(){
-    return sbLeerTodo('publico_final_detalle', 'id_auditoria,clase,categoria,subtipo,cantidad', 'id_auditoria.asc');
+    return sbLeerTodo('publico_final_detalle', 'orden,id_auditoria,clase,categoria,subtipo,cantidad', 'orden');
   }).then(function(filas){
     DET_DER = {}; DET_DEF = {};
     filas.forEach(function(x){
