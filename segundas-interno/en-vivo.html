@@ -885,6 +885,58 @@ function gvizDateISO(v){
   if(m)return m[3]+"-"+m[1].padStart(2,"0")+"-"+m[2].padStart(2,"0");
   return s;
 }
+/* ===== Lectura desde Supabase (SQL 14) =====================================
+   Las vistas publico_segundas_* son copia del mismo Sheet, con los mismos valores.
+   Se leen por partes siguiendo el id (nunca saltando filas con offset) y en
+   paralelo. Si Supabase falla o llega vacío, se usa el Sheet publicado como antes. */
+const SB_URL="https://xxfufpddgoyhbotjmaiy.supabase.co";
+const SB_KEY="sb_publishable_1g-n6UT70EUlNAo8Lyc04w_jKR4LpXZ";
+const SB_ESPERA=20000;
+function sbGet(ruta){
+  const ctl=(typeof AbortController!=="undefined")?new AbortController():null;
+  const t=setTimeout(()=>{if(ctl)ctl.abort();},SB_ESPERA);
+  return fetch(SB_URL+"/rest/v1/"+ruta,{headers:{apikey:SB_KEY},cache:"no-store",signal:ctl?ctl.signal:undefined})
+    .then(r=>{clearTimeout(t);if(!r.ok)throw new Error("Supabase "+r.status);return r.json();},e=>{clearTimeout(t);throw e;});
+}
+async function sbLeerVista(vista,cols){
+  const [primero,ultimo]=await Promise.all([
+    sbGet(vista+"?select=id&order=id.asc&limit=1"),
+    sbGet(vista+"?select=id&order=id.desc&limit=1")]);
+  if(!primero.length)return [];
+  const desde=primero[0].id, hasta=ultimo[0].id, TRAMO=1000, rangos=[];
+  for(let a=desde;a<=hasta;a+=TRAMO)rangos.push(a);
+  const partes=[];
+  for(let i=0;i<rangos.length;i+=6){
+    const lote=await Promise.all(rangos.slice(i,i+6).map(a=>
+      sbGet(vista+"?select="+cols+"&id=gte."+a+"&id=lt."+(a+TRAMO)+"&order=id.asc")));
+    lote.forEach(x=>partes.push(x));
+  }
+  return [].concat.apply([],partes);
+}
+async function cargarDesdeSupabase(){
+  const [det,rep,est]=await Promise.all([
+    sbLeerVista("publico_segundas_detalle","id,fecha,cliente,estilo,color,grupo,area_generadora,motivo,cantidad,cod_tela,nombre_tela,semana,anio"),
+    sbLeerVista("publico_segundas_reportes","id,fecha,prendas_despachadas,cantidad,precio,semana"),
+    sbGet("publico_segundas_estado?select=tabla,ultima_copia,resultado")]);
+  if(!det.length||!rep.length)throw new Error("Supabase respondió sin filas");
+  // Mismos nombres de columna que el Sheet: el resto del dashboard no cambia.
+  const data=det.map(r=>({"FECHA":r.fecha,"CLIENTE":r.cliente,"ESTILO":r.estilo,"COLOR":r.color,"GRUPO":r.grupo,
+    "AREA GENERADORA":r.area_generadora,"MOTIVO DE 2DA":r.motivo,"CANTIDAD":r.cantidad,
+    "COD TELA":r.cod_tela,"NOMBRE TELA":r.nombre_tela,"SEMANA":r.semana,"AÑO":r.anio}));
+  const repRows=rep.map(r=>({fecha:r.fecha,conf:num(r.prendas_despachadas),seg:num(r.cantidad),precio:num(r.precio),week:num(r.semana)}));
+  let sello=null;
+  (est||[]).forEach(e=>{if(e.ultima_copia&&(!sello||e.ultima_copia<sello))sello=e.ultima_copia;});
+  return {data,repRows,sello};
+}
+function textoSello(iso){
+  if(!iso)return "Datos al —";
+  const partes={};
+  new Intl.DateTimeFormat("es-PE",{timeZone:"America/Lima",day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"})
+    .formatToParts(new Date(iso)).forEach(x=>{partes[x.type]=x.value;});
+  const d2=v=>String(v||"").padStart(2,"0");
+  return "Datos al "+d2(partes.day)+"/"+d2(partes.month)+" "+d2(partes.hour)+":"+d2(partes.minute);
+}
+
 let _cargandoSheet=false;
 async function cargarDesdeSheet(manual){
   if(_cargandoSheet)return;
@@ -894,13 +946,22 @@ async function cargarDesdeSheet(manual){
   document.getElementById("err").style.display="none";
   try{
     if(SHEET_ID.indexOf("PEGAR_AQUI")>=0){showErr("Falta configurar el ID del Sheet en este archivo (SHEET_ID). Avísale a Christian.");return;}
-    const [dataRowsRaw,repRowsRaw]=await Promise.all([gvizFetch(TAB_DATA),gvizFetch(TAB_REP)]);
-    if(!dataRowsRaw.length||!repRowsRaw.length){showErr("El Sheet respondió pero todavía no tiene filas cargadas.");return;}
-    const data=dataRowsRaw.map(r=>Object.assign({},r,{FECHA:gvizDateISO(r["FECHA"])}));
-    const repRows=repRowsRaw.map(r=>({fecha:gvizDateISO(r["FECHA"]),conf:num(r["PRENDAS DESPACHADAS"]),seg:num(r["CANTIDAD"]),precio:num(r["PRECIO"]),week:num(r["SEMANA"])}));
-    buildState({data,telas:[],repRows},"Sheet en vivo — Segundas",false);
+    let data,repRows,etiqueta;
+    try{
+      const sb=await cargarDesdeSupabase();
+      data=sb.data; repRows=sb.repRows;
+      etiqueta=textoSello(sb.sello);
+    }catch(errSb){
+      console.warn("Supabase no respondió, se usa el Sheet publicado:",errSb);
+      const [dataRowsRaw,repRowsRaw]=await Promise.all([gvizFetch(TAB_DATA),gvizFetch(TAB_REP)]);
+      if(!dataRowsRaw.length||!repRowsRaw.length){showErr("El Sheet respondió pero todavía no tiene filas cargadas.");return;}
+      data=dataRowsRaw.map(r=>Object.assign({},r,{FECHA:gvizDateISO(r["FECHA"])}));
+      repRows=repRowsRaw.map(r=>({fecha:gvizDateISO(r["FECHA"]),conf:num(r["PRENDAS DESPACHADAS"]),seg:num(r["CANTIDAD"]),precio:num(r["PRECIO"]),week:num(r["SEMANA"])}));
+      etiqueta=textoSello(new Date().toISOString())+" (respaldo: Sheet)";
+    }
+    buildState({data,telas:[],repRows},"Datos en vivo — Segundas",false);
     document.getElementById("drop").style.display="none";
-    document.getElementById("lastLoad").textContent=new Date().toLocaleTimeString("es-PE",{hour:"2-digit",minute:"2-digit"});
+    document.getElementById("lastLoad").textContent=etiqueta;
   }catch(err){
     showErr("No pude conectar con el Sheet: "+err.message);
     console.error(err);
