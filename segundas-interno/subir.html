@@ -386,7 +386,11 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 </script>
 <script>
 // ⚠ Completar con la URL /exec de la implementación del Apps Script (Code.gs) antes de usar.
-const APP_URL = "https://script.google.com/macros/s/AKfycbwExn72h-VrcHJGfNviI39l9hxij2c37PaW4ilPvsUS239OCCKSqW4I8BQfNFS-Br8Yrw/exec";
+/* 23/09 · La semana se guarda DIRECTO en Supabase (sync_segundas_semana, SQL 42).
+   Antes pasaba por el Apps Script, que escribía en el Sheet y una copia programada
+   traía los datos a Supabase. Se quitó la dirección del Apps Script: dejarla muerta
+   en el código la sigue exponiendo, y ya no se usa. */
+const SB_RPC = SB_URL + '/rest/v1/rpc/sync_segundas_semana';
 const META = 0.02; // 2% — meta vigente confirmada por Calidad. Cambiar aquí si Calidad la actualiza.
 const MESES_ES = {ene:0,feb:1,mar:2,abr:3,may:4,jun:5,jul:6,ago:7,sep:8,set:8,oct:9,nov:10,dic:11};
 
@@ -557,19 +561,27 @@ document.getElementById('btnOtro').onclick = ()=>{
 
 document.getElementById('btnConfirmar').onclick = async ()=>{
   if(!PENDIENTE) return;
-  if(APP_URL.indexOf('PEGAR_AQUI')>=0){
-    document.getElementById('sendErr').innerHTML = '<div class="err">Falta configurar la URL del Apps Script en este archivo (APP_URL). Avísale a Christian.</div>';
-    return;
-  }
   const btn = document.getElementById('btnConfirmar');
   btn.disabled = true; btn.innerHTML = '<span class="spin"></span>Subiendo…';
   try{
-    const resp = await fetch(APP_URL, {
-      method:'POST',
-      body: JSON.stringify({ accion:'subir_semana', anio:PENDIENTE.anio, semana:PENDIENTE.semana, reporte:PENDIENTE.reporte, detalle:PENDIENTE.detalle })
+    /* Un solo reintento si la primera no pasa: una falla de red no puede dejar la
+       pantalla trabada, y volver a mandar la misma semana reemplaza, no duplica. */
+    const cuerpo = JSON.stringify({
+      p_anio: PENDIENTE.anio, p_semana: PENDIENTE.semana,
+      p_reporte: PENDIENTE.reporte, p_detalle: PENDIENTE.detalle,
+      p_usuario: (window.LIVES_SESION && LIVES_SESION.actual() ? (LIVES_SESION.actual().nombre || LIVES_SESION.actual().usuario) : '')
     });
-    const j = await resp.json();
-    if(!j.ok) throw new Error(j.error||'Error desconocido del servidor.');
+    async function mandar(){
+      const resp = await fetch(SB_RPC, { method:'POST', headers:{'Content-Type':'application/json'}, body: cuerpo, cache:'no-store' });
+      const txt = await resp.text();
+      let j = null; try{ j = txt ? JSON.parse(txt) : null; }catch(e){}
+      if(!resp.ok) throw new Error((j && (j.message || j.error)) || ('la base respondió ' + resp.status));
+      return j;
+    }
+    let j;
+    try{ j = await mandar(); }
+    catch(e1){ j = await mandar(); }          // segundo y último intento
+    if(!j || j.ok !== true) throw new Error((j && j.error) || 'La base no confirmó la carga.');
     document.getElementById('cardPreview').classList.add('hide');
     document.getElementById('cardOk').classList.remove('hide');
     document.getElementById('okTitulo').textContent = 'Semana '+j.semana+' ('+PENDIENTE.anio+') subida correctamente';
