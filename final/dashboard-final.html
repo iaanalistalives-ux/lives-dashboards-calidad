@@ -1029,7 +1029,7 @@
       </div>
         <div class="panel col4" id="procesoPanel"><span class="tira volumen"></span>
           <div class="pt">🔄 Resultados por proceso</div>
-          <div class="ph">% de resultados por número de auditoría — 1ra, 2da, 3ra... (período seleccionado).</div>
+          <div class="ph">% de resultados por vuelta del lote: 1ra auditoría, y luego cada reproceso (2da, 3ra...). Un lote que llega limpio siempre es 1ra, aunque sea otro lote parcial del mismo pedido.</div>
           <div class="cwrap" style="height:240px;"><canvas id="cProceso"></canvas></div>
         </div>
         <div class="panel col4"><span class="tira riesgo"></span>
@@ -2148,7 +2148,18 @@ function renderPeriod(mode,value){
   // filtrado (1RA, 2DA, 3RA, 4TA, 5TA...) — nunca agrupa 2DA y 3RA juntas.
   // Si el período (ej. año histórico) no trae la columna N° DE AUDITORÍA, el panel entero
   // se oculta en vez de mostrar datos vacíos o engañosos.
-  const hasProcData = wrows.some(r=>{const v=r["N° DE AUDITORÍA"];return v!=null && String(v).trim()!=="";});
+  /* 23/09 · Este panel cuenta VUELTAS del lote, no lotes parciales.
+     · 1RA AUDITORÍA: el lote llega y se audita. Da igual que sea el 2do o el 3er lote
+       parcial del mismo pedido: mientras llegue limpio, es 1ra.
+     · Si lo rechazan, el reproceso que vuelve es la 2DA; si lo vuelven a rechazar, el
+       siguiente reproceso es la 3RA, y así. Un lote puede tener varios rechazos.
+     La cadena se arma con el vínculo REPROCESA DE que guarda cada reproceso.
+     Antes se agrupaba por el n.º de auditoría guardado, que cuenta lotes parciales: por
+     eso salían barras hasta la 5ta sin que hubiera cinco reprocesos. */
+  const hasProcData = wrows.some(r=>{
+    const a=r["REPROCESO"], b=r["REPROCESA DE"];
+    return (a!=null && String(a).trim()!=="") || (b!=null && String(b).trim()!=="");
+  });
   const procPanelEl = document.getElementById("procesoPanel");
   const procSiblingEl = procPanelEl ? procPanelEl.nextElementSibling : null;
   if(!hasProcData){
@@ -2158,31 +2169,35 @@ function renderPeriod(mode,value){
     if(procPanelEl){ procPanelEl.style.display=""; procPanelEl.dataset.ocultoPorLogica="0"; }
     if(procSiblingEl) procSiblingEl.style.gridColumn="";
     const PROC_ORDER=["1RA","2DA","3RA","4TA","5TA","6TA"];
-    /* CORREGIDO: las dos fuentes escriben este dato distinto.
-       · El piloto AC-009-25 guarda texto: "1ra", "2da", "3ra", "Reproceso".
-       · El histórico que digita Athina guarda el número pelado: 1, 2, 3.
-       Antes se buscaba el texto "1RA" dentro del valor, y un "1" no lo contiene, así que
-       TODO el histórico caía en una categoría inventada llamada "OTRO". El gráfico salía
-       con una sola barra sin significado y se veía igual de creíble que los datos buenos.
-       Ahora el número se traduce a su ordinal antes de clasificar. */
-    const procLabel=t=>{
-      const soloNum=t.replace(/[^0-9]/g,"");
-      if(/^REPRO/.test(t)) return "REPROCESO";
-      // valor numérico puro (formato del histórico): 1 -> 1RA, 2 -> 2DA...
-      if(soloNum && soloNum===t.trim() ){
-        const n=parseInt(soloNum,10);
-        if(n>=1 && n<=PROC_ORDER.length) return PROC_ORDER[n-1]+" AUDITORÍA";
-        if(n>PROC_ORDER.length) return PROC_ORDER[PROC_ORDER.length-1]+" AUDITORÍA";
+    const ordinalTxt=v=>PROC_ORDER[Math.min(v,PROC_ORDER.length)-1]||(v+"TA");
+    const etiquetaVuelta=v=> v<=1 ? "1RA AUDITORÍA"
+      : ordinalTxt(v)+" · REPROCESO"+(v>2?" "+(v-1):"");
+    const esRepro=v=>{ const s=String(v==null?"":v).trim().toUpperCase(); return s==="1"||s==="SI"||s==="SÍ"||s==="TRUE"; };
+
+    /* Vuelta de cada auditoría del año: 1 + los reprocesos que tiene encima. */
+    const vueltas=(function(){
+      const porId={}, byId={};
+      S.rows.forEach(r=>{ const id=String(r["ID_AUDITORIA"]||"").trim(); if(id) byId[id]=r; });
+      function vuelta(r, prof){
+        const id=String(r["ID_AUDITORIA"]||"").trim();
+        if(id && porId[id]!=null) return porId[id];
+        const padre=byId[String(r["REPROCESA DE"]||"").trim()];
+        let v;
+        if(padre && (prof||0)<20) v=vuelta(padre,(prof||0)+1)+1;
+        else v=esRepro(r["REPROCESO"])?2:1;   // marcada reproceso pero sin el vínculo
+        if(id) porId[id]=v;
+        return v;
       }
-      for(const k of PROC_ORDER){ if(t.indexOf(k)>=0) return k+" AUDITORÍA"; }
-      return "SIN CLASIFICAR";
-    };
+      S.rows.forEach(r=>vuelta(r,0));
+      return porId;
+    })();
+
     const proc={};
     wrows.forEach(r=>{
-      const raw=r["N° DE AUDITORÍA"];
-      if(raw==null || String(raw).trim()==="") return; // fila sin esa columna informada — no cuenta ni como "otro"
-      const t=String(raw).toUpperCase();
-      const lbl=procLabel(t);
+      const id=String(r["ID_AUDITORIA"]||"").trim();
+      let v=id?vueltas[id]:null;
+      if(v==null) v=esRepro(r["REPROCESO"])?2:1;
+      const lbl=etiquetaVuelta(v);
       proc[lbl]=proc[lbl]||{ap:0,re:0,n:0};
       proc[lbl].n++;
       if(r["RESULTADO"]==="APROBADO") proc[lbl].ap++; else proc[lbl].re++;
@@ -2191,28 +2206,6 @@ function renderPeriod(mode,value){
       const oa=PROC_ORDER.findIndex(k=>a.indexOf(k)===0), ob=PROC_ORDER.findIndex(k=>b.indexOf(k)===0);
       return (oa<0?99:oa)-(ob<0?99:ob);
     });
-    /* Si quedan filas sin clasificar, se dice en pantalla con el número exacto.
-       Un panel que no entiende sus datos tiene que avisarlo, no inventar una categoría
-       y pintarla como si fuera un hallazgo. */
-    (function(){
-      const sc = proc["SIN CLASIFICAR"];
-      const cont = document.getElementById("procesoPanel");
-      if(!cont) return;
-      let av = document.getElementById("procAviso");
-      if(!av){
-        av=document.createElement("div"); av.id="procAviso";
-        av.style.cssText="background:#FDF6E3;border-left:3px solid var(--tan);border-radius:0 6px 6px 0;padding:8px 11px;margin:0 0 10px;font-size:11.5px;color:#7a5a12;line-height:1.5";
-        const sub=cont.querySelector(".ph");
-        if(sub) sub.parentNode.insertBefore(av, sub.nextSibling); else cont.appendChild(av);
-      }
-      if(sc && sc.n){
-        av.style.display="";
-        av.innerHTML="<b>"+sc.n+" auditoría(s) no se pudieron clasificar</b> por número de auditoría: "+
-          "el valor llegó en un formato que no se reconoce. No están incluidas en las barras de abajo.";
-      }else{
-        av.style.display="none";
-      }
-    })();
     const pa=g=>g.n?+(g.ap/g.n*100).toFixed(1):0, pr=g=>g.n?+(g.re/g.n*100).toFixed(1):0;
     reg(new Chart(document.getElementById("cProceso"),{type:"bar",
       data:{labels:procLabels,datasets:[
