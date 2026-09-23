@@ -390,7 +390,9 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
    Antes pasaba por el Apps Script, que escribía en el Sheet y una copia programada
    traía los datos a Supabase. Se quitó la dirección del Apps Script: dejarla muerta
    en el código la sigue exponiendo, y ya no se usa. */
-const SB_RPC = SB_URL + '/rest/v1/rpc/sync_segundas_semana';
+/* La dirección va completa aquí: SB_URL vive dentro del bloque de sesión y no se
+   ve desde este script. */
+const SB_RPC = 'https://xxfufpddgoyhbotjmaiy.supabase.co/rest/v1/rpc/sync_segundas_semana';
 const META = 0.02; // 2% — meta vigente confirmada por Calidad. Cambiar aquí si Calidad la actualiza.
 const MESES_ES = {ene:0,feb:1,mar:2,abr:3,may:4,jun:5,jul:6,ago:7,sep:8,set:8,oct:9,nov:10,dic:11};
 
