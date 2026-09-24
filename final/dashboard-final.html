@@ -2285,10 +2285,9 @@ if(window.__EMBED__){try{buildState(window.__EMBED__.rows,window.__EMBED__.fname
 /* ===== LECTURA EN VIVO DESDE EL SHEET MAESTRO =====
    No cambia el cálculo: arma las mismas filas que salían del Excel
    y se las pasa a buildState(), igual que hacía handleFile(). */
-/* URL de «Publicar en la web» de la hoja PUBLICO_FINAL, en formato CSV.
-   Publica SOLO esa hoja: el Sheet maestro sigue privado. Si algún día hay que
-   republicarla, se cambia únicamente esta línea. */
-var CSV_LIVE = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTKWLLY0X8T7RtdteQstuEPubtGudtgTpJEa5gRClMFK2PCgDR7wFv07AIYUMJwmtxhL-xX4uEGQkp4/pub?gid=1078730994&single=true&output=csv';
+/* 24/09/2026: ya no hay respaldo a la hoja PUBLICO_ publicada. Estaba abierta a
+   cualquiera con el enlace (sin sesión) y, desde que varios tipos se guardan directo
+   en Supabase, mostraba cifras viejas sin que se notara. */
 
 /* Lector de CSV que respeta las comillas: un defecto puede llevar comas
    dentro del texto y partirlo por comas a secas rompería la fila. */
@@ -2332,7 +2331,7 @@ var NUMERICAS=['SEMANA','ANIO','MES','LOTE','MUESTRA','OBS','%','CAJAS',
    Lee la vista publico_final, que calcula lo mismo que la hoja PUBLICO_FINAL.
    Las filas se arman con los MISMOS nombres de columna que traía el CSV, así que
    buildState() y todos los paneles calculan exactamente igual que antes.
-   Si Supabase no responde, se lee la hoja publicada como antes (respaldo).
+   Si Supabase no responde, se reintenta una vez y se avisa (sin respaldo desde el 24/09).
    La clave es la PUBLICABLE: está hecha para ir en la página y solo permite leer
    las tres vistas abiertas. */
 var SB_URL = 'https://xxfufpddgoyhbotjmaiy.supabase.co';
@@ -2448,7 +2447,8 @@ function armarTablero(filas, origen, avisoHTML, clase){
   }
 }
 
-function cargarEnVivo(){
+function cargarEnVivo(intento){
+  intento=(intento===2)?2:1;
   var av=document.getElementById('avisoVivo');
   if(av){ av.textContent='Cargando datos…'; av.className='avisoVivo cargando'; }
   Promise.all([
@@ -2466,54 +2466,28 @@ function cargarEnVivo(){
     if(al.error) html+=' · <b>la última copia falló</b>, los datos pueden estar atrasados';
     armarTablero(filas,'En vivo · Supabase',html, al.error?'error':'ok');
   }).catch(function(e){
-    console.warn('Supabase no respondió, se usa la hoja publicada:', e);
-    cargarDesdeHoja(e.message);
+    /* Un reintento a los 2,5 s; si tampoco, se avisa. Nunca se lee una copia vieja. */
+    if(intento<2){ console.warn('Supabase no respondió, se reintenta:', e); setTimeout(function(){ cargarEnVivo(2); }, 2500); return; }
+    sinConexion_(e);
   });
 }
 
-/* Respaldo: la lectura de siempre, desde la hoja PUBLICO_FINAL publicada. */
-function cargarDesdeHoja(motivo){
+/* Sin respaldo (24/09/2026). Si Supabase no responde después de un reintento, se
+   avisa y se ofrece reintentar. Si el tablero ya estaba armado, queda como estaba:
+   una falla nunca deja la pantalla bloqueada, y "Reintentar" vuelve a pedir a Supabase. */
+function sinConexion_(e){
+  console.error(e);
+  if(typeof _filasListas==='function'){ try{ _filasListas(); }catch(e2){} }
   var av=document.getElementById('avisoVivo');
-  fetch(CSV_LIVE+'&_='+Date.now(),{cache:'no-store'})
-    .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.text(); })
-    .then(function(txt){
-      var tabla=leerCSV(txt);
-      if(tabla.length<2) throw new Error('la hoja llegó vacía');
-      var cab=tabla[0].map(function(c){ return String(c||'').trim(); });
-      var filas=[];
-      for(var i=1;i<tabla.length;i++){
-        var f=tabla[i];
-        if(!f || f.length<2) continue;
-        var o={};
-        for(var k=0;k<cab.length;k++){
-          if(!cab[k]) continue;
-          var v=f[k];
-          if(cab[k]==='FECHA') v=normFecha(v);
-          else if(NUMERICAS.indexOf(cab[k])>=0){
-            var n=Number(String(v==null?'':v).replace(/[^0-9.\-]/g,''));
-            v = (String(v||'').trim()==='') ? null : (isFinite(n)?n:null);
-          } else v = (v==null?null:String(v).trim());
-          o[cab[k]]=v;
-        }
-        if(o['RESULTADO']) filas.push(o);
-      }
-      if(!filas.length) throw new Error('el CSV llegó pero ninguna fila tiene RESULTADO');
-      armarTablero(filas,'En vivo · Sheet maestro',
-        '<b>Supabase no respondió</b> ('+motivo+'); se leyeron '+
-        filas.length.toLocaleString('es-PE')+' auditorías de la hoja publicada · '+
-        new Date().toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'}),'cargando');
-    })
-    .catch(function(e){
-      console.error(e);
-      _filasListas();
-      if(av){
-        av.innerHTML='<b>No llegaron los datos.</b> Ni Supabase ni la hoja publicada respondieron. '+
-          'Mientras tanto puedes cargar el Excel a mano abajo. '+
-          '<span style="opacity:.7">('+e.message+')</span>';
-        av.className='avisoVivo error';
-      }
-      var dr=document.getElementById('drop'); if(dr) dr.style.display='';
-    });
+  if(av){
+    var msj=String((e&&e.message)||e||'').replace(/[<>&]/g,'');
+    av.innerHTML='<b>No hay conexión con la base de datos.</b> Revisa la señal y vuelve a intentar. '+
+      '<span style="opacity:.7">('+msj+')</span> &nbsp;<button type="button" id="btnRefrescar">Reintentar</button>';
+    av.className='avisoVivo error';
+    var b=document.getElementById('btnRefrescar');
+    if(b) b.onclick=function(){ cargarEnVivo(); };
+  }
+  var dr=document.getElementById('drop'); if(dr) dr.style.display='';
 }
 
 /* ==================================================================
