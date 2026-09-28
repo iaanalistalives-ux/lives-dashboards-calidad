@@ -2461,10 +2461,12 @@ function cargarEnVivo(intento){
     filas.sort(function(x,y){ var a=x['ID_AUDITORIA'], c=y['ID_AUDITORIA']; return a<c?1:(a>c?-1:0); });
     if(!filas.length) throw new Error('Supabase respondió pero sin auditorías');
     var al=res[1];
-    var html='<b>Datos al '+(al.txt||'—')+'.</b> '+filas.length.toLocaleString('es-PE')+
+    /* Desde el 28/09 Auditoría Final se guarda directo en Supabase: los datos son al
+       instante. La hora de la copia del Sheet ya no aplica. */
+    var hora=new Date().toLocaleTimeString('es-PE',{timeZone:'America/Lima',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
+    var html='<b>Datos en vivo</b>, leídos a las '+hora+'. '+filas.length.toLocaleString('es-PE')+
              ' auditorías · fuente: Supabase';
-    if(al.error) html+=' · <b>la última copia falló</b>, los datos pueden estar atrasados';
-    armarTablero(filas,'En vivo · Supabase',html, al.error?'error':'ok');
+    armarTablero(filas,'En vivo · Supabase',html,'ok');
   }).catch(function(e){
     /* Un reintento a los 2,5 s; si tampoco, se avisa. Nunca se lee una copia vieja. */
     if(intento<2){ console.warn('Supabase no respondió, se reintenta:', e); setTimeout(function(){ cargarEnVivo(2); }, 2500); return; }
