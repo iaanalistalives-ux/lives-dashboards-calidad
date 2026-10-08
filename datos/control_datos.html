@@ -439,7 +439,7 @@ th,td{text-align:left;padding:8px 9px;border-bottom:1px solid var(--warm);vertic
 th{color:var(--stone);font-weight:600;font-size:12.5px;text-transform:uppercase;letter-spacing:.03em}
 td.n{text-align:right}
 .pill{display:inline-block;border-radius:20px;padding:2px 10px;font-size:12px;font-weight:700}
-.g-Alta{background:#fdeceb;color:var(--rose)}.g-Media{background:#FFFBEB;color:var(--taupe)}.g-Baja{background:#eef3f1;color:var(--slate)}
+.g-Alta{background:#fdeceb;color:var(--rose)}.g-Media{background:#FFFBEB;color:var(--taupe)}.g-Baja{background:#eef3f1;color:var(--slate)}.g-Pendiente{background:#e6f4ef;color:#0F7A5A}
 .ph{font-size:12.5px;color:var(--stone);margin:2px 0 10px}
 details.help{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:14px 18px}
 details.help summary{font-weight:700;color:var(--sage-dark);cursor:pointer}
@@ -465,7 +465,7 @@ button.btn{background:var(--sage);color:#fff;border:none;border-radius:10px;padd
   <div class="card">
     <div class="tira"></div>
     <div style="font-weight:700;font-size:15px">Qué hay que corregir</div>
-    <div class="ph" id="ph">Agrupado por tipo de problema. La gravedad Alta afecta cifras o indicadores; Media, cruces entre áreas; Baja, prolijidad.</div>
+    <div class="ph" id="ph">Agrupado por tipo de problema. La gravedad Alta afecta cifras o indicadores; Media, cruces entre áreas; Baja, prolijidad. Pendientes no son errores de datos: son rechazos que todavía nadie volvió a auditar.</div>
     <div class="tabs" id="tabs"></div>
     <div id="lista"></div>
     <div style="margin-top:12px"><button class="btn" id="recargar">Actualizar</button></div>
@@ -476,7 +476,7 @@ button.btn{background:var(--sage);color:#fff;border:none;border-radius:10px;padd
       <li><b>De dónde sale:</b> de la vista <code>control_datos</code> en Supabase (reglas de reproceso actualizadas en el SQL 30, 22/09/2026). Revisa las auditorías vivas: no incluye anuladas ni el histórico.</li>
       <li><b>Sello de registro imposible:</b> la auditoría quedó registrada antes de la fecha en que se hizo. Pasa cuando el día y el mes se invierten al escribirlos.</li>
       <li><b>PO con espacios que parten el pedido:</b> "LIVES -S-117-2" y "LIVES-S-117-2" se leen como dos pedidos distintos, y eso esconde rechazos sin reprocesar.</li>
-      <li><b>Mismo lote:</b> una Auditoría Final con el mismo grupo, estilo, color, PO (sin espacios), destino y proceso. Si el PO o el destino se escribió distinto ("504429" y "504429 USA", "USA" y "USA(SEA)"), el sistema lo toma como otro lote.</li><li><b>Lote rechazado sin reproceso:</b> pasaron más de 7 días desde el rechazo y no hay ninguna auditoría posterior de ese lote. <i>Reproceso</i> = volver a auditar el mismo lote después de corregir los defectos.</li>
+      <li><b>Mismo lote:</b> una Auditoría Final con el mismo grupo, estilo, color, PO (sin espacios), destino y proceso. Si el PO o el destino se escribió distinto ("504429" y "504429 USA", "USA" y "USA(SEA)"), el sistema lo toma como otro lote.</li><li><b>Lote rechazado sin reproceso (pestaña Pendientes):</b> pasaron más de 7 días desde el rechazo y no hay ninguna auditoría posterior de ese lote. No es un error de digitación sino trabajo pendiente: se resuelve cuando la auditora registra el reproceso. Por eso no cuenta como gravedad alta. <i>Reproceso</i> = volver a auditar el mismo lote después de corregir los defectos.</li>
       <li><b>Reproceso sin marcar:</b> después del rechazo (otro día, o el mismo día registrada más tarde) hay otra auditoría del mismo lote que no está marcada como reproceso.</li><li><b>Re-auditoría sin vincular al rechazo:</b> después del rechazo se volvió a auditar el mismo lote y se declaró como re-auditoría, pero no quedó vinculada como reproceso de ese rechazo. Cambia cómo cuenta en los indicadores.</li><li><b>Cuándo un rechazo está atendido:</b> cuando hay una auditoría posterior del mismo lote marcada como reproceso, o una auditoría vinculada a ese rechazo aunque su PO esté escrito distinto. En ese caso no aparece aquí.</li>
       <li><b>Sin proceso declarado:</b> falta decir si fue costura, acabados interno o acabados de taller. Solo se revisa en Final, Empaque y Cliente: en Líneas y Servicio de Inspección ese dato no existe.</li>
       <li><b>No hay meta ni semáforo de meta:</b> aquí no se juzga desempeño, solo se listan datos incoherentes. La gravedad la fija el tipo de problema, no un número.</li>
@@ -514,42 +514,49 @@ function pintarSello(iso){
   document.getElementById("sello").textContent="Datos al "+d2(p.day)+"/"+d2(p.month)+" "+d2(p.hour)+":"+d2(p.minute);
 }
 function pintar(){
+  var RES_ERR=RESUMEN.filter(function(r){return r.gravedad!=="Pendiente";});
   var total=DATOS.length;
   var alta=DATOS.filter(function(x){return x.gravedad==="Alta";}).length;
   var media=DATOS.filter(function(x){return x.gravedad==="Media";}).length;
-  var baja=total-alta-media;
+  var pend=DATOS.filter(function(x){return x.gravedad==="Pendiente";}).length;
+  var baja=total-alta-media-pend;
+  total=total-pend;
   var v=document.getElementById("veredicto");
   if(!total){
     v.className="card ver ok";
-    v.innerHTML="<div><h2>Sin incoherencias</h2>Las auditorías vivas no tienen datos que corregir.</div>";
+    v.innerHTML="<div><h2>Sin incoherencias</h2>Las auditorías vivas no tienen datos que corregir."+
+      (pend? " Hay "+n(pend)+" rechazo(s) pendiente(s) de reauditar (ver pestaña Pendientes).":"")+"</div>";
   } else {
     v.className="card ver "+(alta?"mal":"ok");
     v.innerHTML="<div><h2>"+(alta? "Hay "+n(alta)+" cosa(s) urgentes por corregir" : "Quedan detalles por ordenar")+"</h2>"+
       "De "+n(total)+" incoherencias encontradas, "+n(alta)+" afectan cifras o indicadores, "+n(media)+
-      " afectan cruces con otras áreas y "+n(baja)+" son de prolijidad.</div>";
+      " afectan cruces con otras áreas y "+n(baja)+" son de prolijidad."+
+      (pend? " Aparte, "+n(pend)+" rechazo(s) esperan su reproceso (pestaña Pendientes).":"")+"</div>";
   }
   document.getElementById("kpis").innerHTML=
     '<div class="kpi"><div class="banda"></div><div class="lab">Por corregir · gravedad alta</div><div class="val">'+n(alta)+
     '</div><div class="pie">de '+n(total)+' incoherencias en total</div></div>'+
-    '<div class="kpi sec"><div class="banda"></div><div class="lab">Tipos de problema distintos</div><div class="val">'+n(RESUMEN.length)+
-    '</div><div class="pie">'+(RESUMEN[0]? "el más frecuente: "+esc(RESUMEN[0].problema)+" ("+n(RESUMEN[0].casos)+")" : "—")+'</div></div>';
+    '<div class="kpi sec"><div class="banda"></div><div class="lab">Rechazos pendientes de reauditar</div><div class="val">'+n(pend)+
+    '</div><div class="pie">más de 7 días sin reproceso registrado</div></div>'+
+    '<div class="kpi sec"><div class="banda"></div><div class="lab">Tipos de problema distintos</div><div class="val">'+n(RES_ERR.length)+
+    '</div><div class="pie">'+(RES_ERR[0]? "el más frecuente: "+esc(RES_ERR[0].problema)+" ("+n(RES_ERR[0].casos)+")" : "—")+'</div></div>';
   var ins=document.getElementById("insight");
-  if(RESUMEN.length){
-    var top=RESUMEN.slice(0,2).map(function(r){ return esc(r.problema)+" ("+n(r.casos)+")"; }).join(" y ");
+  if(RES_ERR.length){
+    var top=RES_ERR.slice(0,2).map(function(r){ return esc(r.problema)+" ("+n(r.casos)+")"; }).join(" y ");
     ins.style.display="block";
     ins.innerHTML="Lo que más aparece: <b>"+top+"</b>. Corregir eso primero baja la lista más rápido que revisar auditoría por auditoría.";
   } else ins.style.display="none";
-  var gr=["Alta","Media","Baja"];
+  var gr=["Alta","Media","Baja","Pendiente"];
   document.getElementById("tabs").innerHTML=gr.map(function(g){
     var c=DATOS.filter(function(x){return x.gravedad===g;}).length;
-    return '<button class="tab'+(FILTRO===g?" on":"")+'" data-g="'+g+'">'+g+" · "+n(c)+"</button>";
+    return '<button class="tab'+(FILTRO===g?" on":"")+'" data-g="'+g+'">'+(g==="Pendiente"?"Pendientes":g)+" · "+n(c)+"</button>";
   }).join("");
   [].forEach.call(document.querySelectorAll(".tab"),function(b){
     b.onclick=function(){ FILTRO=b.getAttribute("data-g"); pintar(); };
   });
   var filas=DATOS.filter(function(x){return x.gravedad===FILTRO;});
   var res=RESUMEN.filter(function(x){return x.gravedad===FILTRO;});
-  if(!filas.length){ document.getElementById("lista").innerHTML='<div class="vacio">Nada por corregir en esta gravedad.</div>'; return; }
+  if(!filas.length){ document.getElementById("lista").innerHTML='<div class="vacio">'+(FILTRO==="Pendiente"?"No hay rechazos pendientes de reauditar.":"Nada por corregir en esta gravedad.")+'</div>'; return; }
   var resumen='<table><thead><tr><th>Problema</th><th class="n">Casos</th><th>Último</th></tr></thead><tbody>'+
     res.map(function(r){ return "<tr><td>"+esc(r.problema)+'</td><td class="n">'+n(r.casos)+"</td><td>"+esc(r.ultimo||"")+"</td></tr>"; }).join("")+
     "</tbody></table>";
