@@ -3922,7 +3922,7 @@ function armarTablero(filas, origen, avisoHTML, clase){
     return;
   }
   if(av){
-    av.innerHTML=avisoHTML+' &nbsp;<button type="button" id="btnRefrescar">Actualizar</button>';
+    av.innerHTML=avisoHTML;
     av.className='avisoVivo '+clase;
     var b=document.getElementById('btnRefrescar');
     if(b) b.onclick=function(){ cargarEnVivo(); };

@@ -556,6 +556,7 @@ button.btn{background:var(--sage);color:#fff;border:none;border-radius:10px;padd
 @media print{@page{size:A4 landscape;margin:10mm} header{color:#000;background:#fff} .tab{display:none}}
 </style>
 <style id="lsLimp2Css">/* lives-limpieza v2 · sin notas, veredictos ni paneles de título arriba */#veredicto{display:none!important}#insight{display:none!important}#srcNote,#ph{display:none!important}</style>
+<style id="lsSinActCss">/* 12/10/2026: sin botón Actualizar propio; se usa el actualizar del portal */#recargar{display:none!important}</style>
 </head>
 <body>
 <header>
@@ -694,7 +695,7 @@ function cargar(){
   }).catch(function(e){
     document.getElementById("veredicto").className="card ver mal";
     document.getElementById("veredicto").innerHTML="<div><h2>No se pudo leer Supabase</h2>"+esc(e.message)+
-      "<br>Esta pantalla lee solo de Supabase, porque el control se calcula ahí. Vuelve a intentar con Actualizar.</div>";
+      "<br>Esta pantalla lee solo de Supabase, porque el control se calcula ahí. Para volver a intentar, actualiza la pantalla desde el portal.</div>";
   });
 }
 document.getElementById("recargar").onclick=cargar;
