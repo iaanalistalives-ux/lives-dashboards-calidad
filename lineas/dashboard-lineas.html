@@ -2571,16 +2571,16 @@ function renderEngNote(){
   if(ENG_INFO.descartado){
     el.style.display="";
     el.style.borderLeftColor="#DC2626";
-    el.innerHTML="<b>Aviso:</b> "+ENG_INFO.descartado+". Este tablero muestra solo lo que trae el Sheet en vivo; los años que existían únicamente en ese histórico no aparecen.";
+    el.innerHTML="<b>Aviso:</b> "+ENG_INFO.descartado+". Este tablero muestra solo lo que trae la base en vivo; los años que existían únicamente en ese histórico no aparecen.";
     return;
   }
   el.style.borderLeftColor="";
   if(!ENG_INFO.base){ el.style.display="none"; return; }
   var d=ENG_INFO.detalle, ys=Object.keys(d).sort();
   el.style.display="";
-  el.innerHTML="<b>Este tablero junta dos fuentes.</b> "+nf2(ENG_INFO.vivo)+" auditorías vienen del Sheet en vivo y se actualizan solas. Otras "+nf2(ENG_INFO.base)+
+  el.innerHTML="<b>Este tablero junta dos fuentes.</b> "+nf2(ENG_INFO.vivo)+" auditorías vienen de la base en vivo y se actualizan solas. Otras "+nf2(ENG_INFO.base)+
     " vienen de un histórico congelado dentro de este archivo ("+ys.map(function(y){return nf2(d[y])+" de "+y;}).join(", ")+
-    "), que no se actualiza: si esas semanas se corrigen en el Sheet, aquí no cambian.";
+    "), que no se actualiza: si esas semanas se corrigen en la base, aquí no cambian.";
 }
 
 function buildState(raw,fname,frozen){
