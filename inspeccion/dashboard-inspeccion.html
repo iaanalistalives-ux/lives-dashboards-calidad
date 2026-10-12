@@ -2433,13 +2433,43 @@ const etiquetasTendencia={id:"etiquetasTendencia",afterDatasetsDraw(chart,args,o
     });
   });
 }};
-/* Comparativo anual (12/10/2026): valor escrito en cada punto de cada año (líneas) o sobre cada
-   barra (barras por categoría con un color por año). Extiende el estilo de etiquetasTendencia:
+/* Comparativo anual (12/10/2026, ajuste 2): valor escrito en cada punto de cada año (líneas) o sobre
+   cada barra (barras por categoría con un color por año). Líneas: si el gráfico es ancho (>= 56 px por
+   mes y caben al menos el 75 % de las etiquetas) se ven siempre; si es angosto no se ven de entrada y
+   aparecen todas las de un año al pasar el mouse o tocar cerca de su línea (las demás se atenúan). Extiende el estilo de etiquetasTendencia:
    pastilla blanca con el texto del color de su serie. Si dos etiquetas chocan, una se corre arriba
    y la otra abajo; si no hay espacio se omite (el valor queda en el tooltip). Nunca sale del área
    del gráfico. No etiqueta líneas de meta (sinEtiquetas), puntos sin dato ni barras sin datos
    (ds.vacio[i]). Formato: options.plugins.etiquetasAnual.fmt. */
-const etiquetasAnual={id:"etiquetasAnual",afterDatasetsDraw(chart,args,opts){
+const etiquetasAnual={id:"etiquetasAnual",
+beforeDatasetDraw(chart,args){
+  if(chart.$anualModo!=="pasar"||chart.$anualSel==null||args.index===chart.$anualSel)return;
+  chart.ctx.save();chart.ctx.globalAlpha=0.35;chart.$anualAtenuado=true;},
+afterDatasetDraw(chart){if(chart.$anualAtenuado){chart.ctx.restore();chart.$anualAtenuado=false;}},
+afterEvent(chart,args){
+  if((chart.config.type||"")==="bar"||chart.$anualModo!=="pasar")return;
+  const e=args.event;let sel=chart.$anualSel==null?null:chart.$anualSel;
+  if(e.type==="mouseout")sel=null;
+  else if(e.type==="mousemove"||e.type==="click"||e.type==="touchstart"||e.type==="touchmove"){
+    const a=chart.chartArea;
+    if(!a||e.x<a.left-10||e.x>a.right+10||e.y<a.top-20||e.y>a.bottom+10){sel=null;}
+    else{
+      let mejor=null,dist=18;
+      chart.data.datasets.forEach((ds,di)=>{
+        if(ds.sinEtiquetas||!chart.isDatasetVisible(di))return;
+        const pts=chart.getDatasetMeta(di).data.map((el,i)=>({x:el.x,y:el.y,v:ds.data[i]})).filter(p=>p.v!=null&&!isNaN(p.v));
+        if(!pts.length)return;
+        let y;
+        if(e.x<=pts[0].x)y=pts[0].y;else if(e.x>=pts[pts.length-1].x)y=pts[pts.length-1].y;
+        else for(let k=1;k<pts.length;k++){if(e.x<=pts[k].x){const p=pts[k-1],q=pts[k],t=(e.x-p.x)/((q.x-p.x)||1);y=p.y+(q.y-p.y)*t;break;}}
+        const d=Math.abs(e.y-y);if(d<=dist){dist=d;mejor=di;}
+      });
+      sel=mejor;
+    }
+  }
+  if(sel!==chart.$anualSel){chart.$anualSel=sel;args.changed=true;}
+},
+afterDatasetsDraw(chart,args,opts){
   const a=chart.chartArea;if(!a)return;
   const ctx=chart.ctx,fmt=(opts&&opts.fmt)||(v=>v.toFixed(1)+"%");
   const movil=window.matchMedia("(max-width:600px)").matches;
@@ -2486,40 +2516,49 @@ const etiquetasAnual={id:"etiquetasAnual",afterDatasetsDraw(chart,args,opts){
   }
   const fs=movil?10:11,h=fs+6,sep=5;
   ctx.font="700 "+fs+"px Calibri, Arial, sans-serif";
-  /* los puntos también son obstáculos: una etiqueta no tapa el punto de otro año */
-  items.forEach(it=>puestos.push({x:it.el.x-3.5,y:it.el.y-3.5,w:7,h:7,pt:it}));
-  /* el año más reciente elige primero (todos sus meses), luego el anterior, y así: así el año
-     actual queda completo aun en celular. En el mismo mes, el punto de más abajo prefiere su
-     etiqueta abajo y los demás arriba. */
   const anioDe=it=>{const m=String(chart.data.datasets[it.di].label||"").match(/\d{4}/);return m?+m[0]:-it.di;};
-  const porMes={};items.forEach(it=>{(porMes[it.i]=porMes[it.i]||[]).push(it);});
-  Object.keys(porMes).forEach(i=>{const g=porMes[i].slice().sort((p,q)=>p.el.y-q.el.y);
-    g.forEach((it,k)=>{it.lado=(g.length>1&&k===g.length-1)?["abajo","arriba"]:["arriba","abajo"];});});
-  items.slice().sort((p,q)=>(anioDe(q)-anioDe(p))||(p.i-q.i)).forEach(it=>{
+  /* coloca las etiquetas sin dibujar: el año más reciente elige primero (todos sus meses); en el
+     mismo mes, el punto de más abajo prefiere su etiqueta abajo y los demás arriba. */
+  const colocar=(lista,conPuntos)=>{
+    const ocup=conPuntos?lista.map(it=>({x:it.el.x-3.5,y:it.el.y-3.5,w:7,h:7,pt:it})):[];
+    const porMes={};lista.forEach(it=>{(porMes[it.i]=porMes[it.i]||[]).push(it);});
+    Object.keys(porMes).forEach(i=>{const g=porMes[i].slice().sort((p,q)=>p.el.y-q.el.y);
+      g.forEach((it,k)=>{it.lado=(g.length>1&&k===g.length-1)?["abajo","arriba"]:["arriba","abajo"];});});
+    const ok=[];let omit=0;
+    lista.slice().sort((p,q)=>(anioDe(q)-anioDe(p))||(p.i-q.i)).forEach(it=>{
       const w=ctx.measureText(it.txt).width+10;
       const cx=Math.min(Math.max(it.el.x,a.left+w/2),a.right-w/2);
       for(const l of it.lado){
         const cy=l==="arriba"?it.el.y-(h/2+sep):it.el.y+(h/2+sep);
         const r={x:cx-w/2,y:cy-h/2,w:w,h:h};
-        const otros=puestos.filter(p=>p.pt!==it);
-        if(!dentro(r)||otros.some(p=>r.x<p.x+p.w&&r.x+r.w>p.x&&r.y<p.y+p.h&&r.y+r.h>p.y))continue;
-        puestos.push(r);
-        const rr=h/2;
-        ctx.beginPath();ctx.moveTo(r.x+rr,r.y);
-        ctx.arcTo(r.x+r.w,r.y,r.x+r.w,r.y+r.h,rr);ctx.arcTo(r.x+r.w,r.y+r.h,r.x,r.y+r.h,rr);
-        ctx.arcTo(r.x,r.y+r.h,r.x,r.y,rr);ctx.arcTo(r.x,r.y,r.x+r.w,r.y,rr);ctx.closePath();
-        ctx.fillStyle="#fff";ctx.shadowColor="rgba(14,59,54,.18)";ctx.shadowBlur=3;ctx.shadowOffsetY=1;
-        ctx.fill();ctx.shadowColor="transparent";
-        ctx.fillStyle=it.col;ctx.textAlign="center";ctx.fillText(it.txt,cx,cy+0.5);
-        break;
+        if(!dentro(r)||ocup.some(p=>p.pt!==it&&r.x<p.x+p.w&&r.x+r.w>p.x&&r.y<p.y+p.h&&r.y+r.h>p.y))continue;
+        ocup.push(r);ok.push({it,r,cx,cy});return;
       }
-  });
+      omit++;
+    });
+    return {ok,omit};
+  };
+  const pinta=({it,r,cx,cy})=>{
+    const rr=h/2;
+    ctx.beginPath();ctx.moveTo(r.x+rr,r.y);
+    ctx.arcTo(r.x+r.w,r.y,r.x+r.w,r.y+r.h,rr);ctx.arcTo(r.x+r.w,r.y+r.h,r.x,r.y+r.h,rr);
+    ctx.arcTo(r.x,r.y+r.h,r.x,r.y,rr);ctx.arcTo(r.x,r.y,r.x+r.w,r.y,rr);ctx.closePath();
+    ctx.fillStyle="#fff";ctx.shadowColor="rgba(14,59,54,.18)";ctx.shadowBlur=3;ctx.shadowOffsetY=1;
+    ctx.fill();ctx.shadowColor="transparent";
+    ctx.fillStyle=it.col;ctx.textAlign="center";ctx.fillText(it.txt,cx,cy+0.5);
+  };
+  const slot=a.width/Math.max(1,(chart.data.labels||[]).length);
+  const todo=colocar(items,true);
+  const ancho=slot>=56&&items.length>0&&todo.omit/items.length<0.25;
+  if(chart.$anualModo!==(ancho?"visible":"pasar")){chart.$anualModo=ancho?"visible":"pasar";if(ancho)chart.$anualSel=null;}
+  if(ancho)todo.ok.forEach(pinta);
+  else if(chart.$anualSel!=null)colocar(items.filter(it=>it.di===chart.$anualSel),false).ok.forEach(pinta);
   ctx.restore();
 }};
-/* Colores por año (comparativo anual): el más reciente verde LIVES, el anterior Petróleo y los
-   demás en otros tonos de la paleta. ys = años en el orden del gráfico. */
+/* Colores por año (comparativo anual, iguales en todas las pantallas): del más reciente hacia
+   atrás verde LIVES, naranja, azul, morado, gris y café. ys = años en el orden del gráfico. */
 function coloresAnio(ys){
-  const pal=["#0F7A5A","#0E3B36","#4E6B78","#B45309","#F59E0B","#5F726C","#DC2626"];
+  const pal=["#0F7A5A","#E07B00","#2F6FB5","#8E44AD","#6B7280","#B45309"];
   const ord=ys.map(Number).slice().sort((x,y)=>y-x);
   return ys.map(y=>pal[Math.min(ord.indexOf(Number(y)),pal.length-1)]);
 }
@@ -2797,7 +2836,7 @@ function renderCompare(){
   const monthsSet=[...new Set(STATE.allRows.map(r=>monthOf(r["FECHA"])).filter(m=>m!=null))].sort((a,b)=>a-b);
   const apByYM=(y,m)=>{const rs=yrows(y).filter(r=>monthOf(r["FECHA"])===m);return rs.length?+(apN(rs)/rs.length*100).toFixed(1):null;};
   const reByYM=(y,m)=>{const rs=yrows(y).filter(r=>monthOf(r["FECHA"])===m);return rs.length?+(rs.filter(isRech).length/rs.length*100).toFixed(1):null;};
-  const dsR=ys.map((y,i)=>({label:""+y,data:monthsSet.map(m=>reByYM(y,m)),borderColor:cols[i%cols.length],backgroundColor:"transparent",borderWidth:Number(y)===Math.max(...ys.map(Number))?3.5:2.25,pointRadius:3.5,pointBackgroundColor:cols[i%cols.length],tension:.3,spanGaps:true}));
+  const dsR=ys.map((y,i)=>({label:""+y,data:monthsSet.map(m=>reByYM(y,m)),borderColor:cols[i%cols.length],backgroundColor:"transparent",borderWidth:Number(y)===Math.max(...ys.map(Number))?3.5:2.5,pointRadius:3.5,pointBackgroundColor:cols[i%cols.length],tension:.3,spanGaps:true}));
   let tbl="<thead><tr><th>Mes</th>"+ys.map(y=>`<th style='text-align:right'>% Aprob. ${y}</th>`).join("")+"</tr></thead><tbody>";
   const avgY={};ys.forEach(y=>{const rs=yrows(y);avgY[y]=rs.length?+(apN(rs)/rs.length*100).toFixed(1):null;});
   monthsSet.forEach(m=>{tbl+=`<tr><td style="color:#333;font-weight:700">${MESES[m]}</td>`+ys.map(y=>{const p=apByYM(y,m),a=avgY[y];return `<td style="text-align:right;color:${p==null||a==null?'#999':(p>=a?'#0B815E':'#DC2626')}">${p==null?'—':p+'%'}</td>`;}).join("")+"</tr>";});
