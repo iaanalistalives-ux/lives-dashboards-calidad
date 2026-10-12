@@ -1100,6 +1100,96 @@ const etiquetasTendencia={id:"etiquetasTendencia",afterDatasetsDraw(chart,args,o
     });
   });
 }};
+/* Comparativo anual (12/10/2026): valor escrito en cada punto de cada año (líneas) o sobre cada
+   barra (barras por categoría con un color por año). Extiende el estilo de etiquetasTendencia:
+   pastilla blanca con el texto del color de su serie. Si dos etiquetas chocan, una se corre arriba
+   y la otra abajo; si no hay espacio se omite (el valor queda en el tooltip). Nunca sale del área
+   del gráfico. No etiqueta líneas de meta (sinEtiquetas), puntos sin dato ni barras sin datos
+   (ds.vacio[i]). Formato: options.plugins.etiquetasAnual.fmt. */
+const etiquetasAnual={id:"etiquetasAnual",afterDatasetsDraw(chart,args,opts){
+  const a=chart.chartArea;if(!a)return;
+  const ctx=chart.ctx,fmt=(opts&&opts.fmt)||(v=>v.toFixed(1)+"%");
+  const movil=window.matchMedia("(max-width:600px)").matches;
+  const esBarra=(chart.config.type||"")==="bar",horiz=chart.options.indexAxis==="y";
+  const puestos=[];
+  const choca=r=>puestos.some(p=>r.x<p.x+p.w&&r.x+r.w>p.x&&r.y<p.y+p.h&&r.y+r.h>p.y);
+  const dentro=r=>r.x>=a.left-2&&r.x+r.w<=a.right+2&&r.y>=a.top-6&&r.y+r.h<=a.bottom;
+  const items=[];
+  chart.data.datasets.forEach((ds,di)=>{
+    if(ds.sinEtiquetas||!chart.isDatasetVisible(di))return;
+    const meta=chart.getDatasetMeta(di);if(meta.hidden)return;
+    meta.data.forEach((el,i)=>{
+      const v=ds.data[i];if(v===null||v===undefined||isNaN(v))return;
+      if(ds.vacio&&ds.vacio[i])return;
+      const c=Array.isArray(ds.borderColor)?null:ds.borderColor;
+      const bc=Array.isArray(ds.backgroundColor)?ds.backgroundColor[i]:ds.backgroundColor;
+      items.push({di,i,el,v,txt:fmt(v,ds,i),col:(!esBarra&&c)||(typeof bc==="string"?bc:"")||"#0F7A5A"});
+    });
+  });
+  ctx.save();ctx.textBaseline="middle";
+  if(esBarra){
+    /* barras: el valor va al final de cada barra, fuera de ella (la gráfica deja margen a la
+       derecha o arriba para eso); si aun así no entra, va dentro en blanco solo si la barra es
+       lo bastante gruesa; si no, se omite (queda el tooltip). */
+    const fs=movil?9:10,h=fs-2.5;ctx.font="700 "+fs+"px Calibri, Arial, sans-serif";
+    const cabe=r=>r.x>=0&&r.x+r.w<=chart.width-1&&r.y>=0&&r.y+r.h<=a.bottom;
+    items.forEach(it=>{
+      const el=it.el,w=ctx.measureText(it.txt).width;
+      const grosor=horiz?Math.abs(el.height||0):Math.abs(el.width||0);
+      if(grosor&&grosor<5)return;
+      const largo=horiz?Math.abs(el.x-el.base):Math.abs(el.y-el.base);
+      let x,y,al,r,blanco=false;
+      if(horiz){
+        y=el.y;x=Math.max(el.x,el.base)+4;al="left";r={x:x,y:y-h/2,w:w,h:h};
+        if(!cabe(r)){if(grosor<fs+2||largo<w+8)return;x=Math.max(el.x,el.base)-4;al="right";blanco=true;r={x:x-w,y:y-h/2,w:w,h:h};}
+      }else{
+        x=el.x;y=Math.min(el.y,el.base)-7;al="center";r={x:x-w/2,y:y-h/2,w:w,h:h};
+        if(!cabe(r)){if(largo<h+12)return;y=Math.min(el.y,el.base)+8;blanco=true;r={x:x-w/2,y:y-h/2,w:w,h:h};}
+      }
+      if(choca(r))return;puestos.push(r);
+      ctx.textAlign=al;ctx.fillStyle=blanco?"#fff":it.col;ctx.fillText(it.txt,x,y);
+    });
+    ctx.restore();return;
+  }
+  const fs=movil?10:11,h=fs+6,sep=5;
+  ctx.font="700 "+fs+"px Calibri, Arial, sans-serif";
+  /* los puntos también son obstáculos: una etiqueta no tapa el punto de otro año */
+  items.forEach(it=>puestos.push({x:it.el.x-3.5,y:it.el.y-3.5,w:7,h:7,pt:it}));
+  /* el año más reciente elige primero (todos sus meses), luego el anterior, y así: así el año
+     actual queda completo aun en celular. En el mismo mes, el punto de más abajo prefiere su
+     etiqueta abajo y los demás arriba. */
+  const anioDe=it=>{const m=String(chart.data.datasets[it.di].label||"").match(/\d{4}/);return m?+m[0]:-it.di;};
+  const porMes={};items.forEach(it=>{(porMes[it.i]=porMes[it.i]||[]).push(it);});
+  Object.keys(porMes).forEach(i=>{const g=porMes[i].slice().sort((p,q)=>p.el.y-q.el.y);
+    g.forEach((it,k)=>{it.lado=(g.length>1&&k===g.length-1)?["abajo","arriba"]:["arriba","abajo"];});});
+  items.slice().sort((p,q)=>(anioDe(q)-anioDe(p))||(p.i-q.i)).forEach(it=>{
+      const w=ctx.measureText(it.txt).width+10;
+      const cx=Math.min(Math.max(it.el.x,a.left+w/2),a.right-w/2);
+      for(const l of it.lado){
+        const cy=l==="arriba"?it.el.y-(h/2+sep):it.el.y+(h/2+sep);
+        const r={x:cx-w/2,y:cy-h/2,w:w,h:h};
+        const otros=puestos.filter(p=>p.pt!==it);
+        if(!dentro(r)||otros.some(p=>r.x<p.x+p.w&&r.x+r.w>p.x&&r.y<p.y+p.h&&r.y+r.h>p.y))continue;
+        puestos.push(r);
+        const rr=h/2;
+        ctx.beginPath();ctx.moveTo(r.x+rr,r.y);
+        ctx.arcTo(r.x+r.w,r.y,r.x+r.w,r.y+r.h,rr);ctx.arcTo(r.x+r.w,r.y+r.h,r.x,r.y+r.h,rr);
+        ctx.arcTo(r.x,r.y+r.h,r.x,r.y,rr);ctx.arcTo(r.x,r.y,r.x+r.w,r.y,rr);ctx.closePath();
+        ctx.fillStyle="#fff";ctx.shadowColor="rgba(14,59,54,.18)";ctx.shadowBlur=3;ctx.shadowOffsetY=1;
+        ctx.fill();ctx.shadowColor="transparent";
+        ctx.fillStyle=it.col;ctx.textAlign="center";ctx.fillText(it.txt,cx,cy+0.5);
+        break;
+      }
+  });
+  ctx.restore();
+}};
+/* Colores por año (comparativo anual): el más reciente verde LIVES, el anterior Petróleo y los
+   demás en otros tonos de la paleta. ys = años en el orden del gráfico. */
+function coloresAnio(ys){
+  const pal=["#0F7A5A","#0E3B36","#4E6B78","#B45309","#F59E0B","#5F726C","#DC2626"];
+  const ord=ys.map(Number).slice().sort((x,y)=>y-x);
+  return ys.map(y=>pal[Math.min(ord.indexOf(Number(y)),pal.length-1)]);
+}
 
 /* ===== Pestanas y paneles sin datos ===== */
 function tab(i,btn){document.querySelectorAll(".tabs button").forEach(b=>b.classList.remove("active"));btn.classList.add("active");document.querySelectorAll(".tabpane").forEach((p,k)=>p.classList.toggle("active",k===i));charts.forEach(c=>{try{c.resize();}catch(e){}});}
@@ -1541,10 +1631,10 @@ function renderPeriod(mode,valueOrArr){
   const dsM=[Object.assign({},serieTendencia(SAGE,"15,122,90"),{label:"% "+Y,data:pY,pointBackgroundColor:pY.map(p=>col3(p)),universo:uniM}),
     {label:"Meta 2%",data:mo.map(()=>META),borderColor:TAN,borderWidth:1.5,borderDash:[6,5],pointRadius:0,fill:false,sinEtiquetas:true}];
   if(cmp){const pP=mo.map(m=>{const r=repMonthCal(m,prev);return pc(r.seg,r.conf);});
-    dsM.splice(1,0,{label:"% "+prev,data:pP,borderColor:SLATE,borderWidth:2,pointRadius:3,pointBackgroundColor:SLATE,tension:.35,fill:false,sinEtiquetas:true});}
+    dsM.splice(1,0,{label:"% "+prev,data:pP,borderColor:SLATE,borderWidth:2.25,pointRadius:3.5,pointBackgroundColor:SLATE,tension:.35,fill:false});}
   verPanel("cMes",mo.length>=1);
   if(mo.length)
-  reg(new Chart(document.getElementById("cMes"),{type:"line",data:{labels:mlabels,datasets:dsM},options:{responsive:true,animation:ANIM,layout:{padding:{top:30,bottom:14}},plugins:{legend:{position:"top",align:"end",labels:{boxWidth:12,usePointStyle:true,padding:14}},etiquetasTendencia:{fmt:v=>v.toFixed(2)+"%"},tooltip:{mode:"index",intersect:false,callbacks:{label:tipUniverso}}},scales:{x:{grid:{display:false},border:{color:WARM}},y:{min:0,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}}}},plugins:[etiquetasTendencia]}));
+  reg(new Chart(document.getElementById("cMes"),{type:"line",data:{labels:mlabels,datasets:dsM},options:{responsive:true,animation:ANIM,layout:{padding:{top:30,bottom:14}},plugins:{legend:{position:"top",align:"end",labels:{boxWidth:12,usePointStyle:true,padding:14}},etiquetasTendencia:{fmt:v=>v.toFixed(2)+"%"},etiquetasAnual:{fmt:v=>v.toFixed(2)+"%"},tooltip:{mode:"index",intersect:false,callbacks:{label:tipUniverso}}},scales:{x:{grid:{display:false},border:{color:WARM}},y:{min:0,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}}}},plugins:[cmp?etiquetasAnual:etiquetasTendencia]}));
   // tabla mensual
   let mh="<thead><tr><th>Mes</th><th style='text-align:right'>Desp. "+Y+"</th><th style='text-align:right'>Seg.</th><th style='text-align:right'>% "+Y+"</th>"+(cmp?"<th style='text-align:right'>% "+prev+"</th>":"")+"<th style='text-align:right'>Valor $</th><th style='text-align:center'>Estado</th></tr></thead><tbody>";
   mo.forEach(m=>{const r=repMonth(m),p=pc(r.seg,r.conf);const ok=p<=META;const c3=cls3(p);
@@ -1965,7 +2055,7 @@ window.addEventListener("afterprint",()=>{document.body.classList.remove("print-
 function renderCompare(){
   clearCharts();
   const ys=STATE.years;
-  const cols=[SAGE,SLATE,ROSE,TAN,TAUPE];
+  const cols=coloresAnio(ys);
   // KPIs por año
   let kp="";
   ys.forEach((y,i)=>{const a=acumY(y);kp+=`<div class="kpi"><div class="v" style="color:${cols[i%cols.length]}">${pc(a.seg,a.conf)}%</div><div class="l">% Acum. ${y}</div><div class="s">${nf(a.seg)} de ${nf(a.conf)} desp.</div></div>`;});
@@ -1973,8 +2063,8 @@ function renderCompare(){
   // meses con datos en cualquier año (calendario)
   const monthsSet=[...new Set(STATE.rep.map(r=>r.mcal).filter(m=>m!=null))].sort((a,b)=>a-b);
   // datasets línea por año
-  const ds=ys.map((y,i)=>({label:""+y,data:monthsSet.map(m=>{const r=repMonthCal(m,y);return r.conf?pc(r.seg,r.conf):null;}),borderColor:cols[i%cols.length],backgroundColor:"transparent",borderWidth:2.5,pointRadius:3,pointBackgroundColor:cols[i%cols.length],tension:.3,spanGaps:true}));
-  ds.push({label:"Meta",data:monthsSet.map(()=>META),borderColor:TAN,borderWidth:1.5,borderDash:[6,4],pointRadius:0});
+  const ds=ys.map((y,i)=>({label:""+y,data:monthsSet.map(m=>{const r=repMonthCal(m,y);return r.conf?pc(r.seg,r.conf):null;}),borderColor:cols[i%cols.length],backgroundColor:"transparent",borderWidth:Number(y)===Math.max(...ys.map(Number))?3.5:2.25,pointRadius:3.5,pointBackgroundColor:cols[i%cols.length],tension:.3,spanGaps:true}));
+  ds.push({label:"Meta",data:monthsSet.map(()=>META),borderColor:TAN,borderWidth:1.5,borderDash:[6,4],pointRadius:0,sinEtiquetas:true});
   // tabla mes x año
   let tbl="<thead><tr><th>Mes</th>"+ys.map(y=>`<th style='text-align:right'>% ${y}</th>`).join("")+"</tr></thead><tbody>";
   monthsSet.forEach(m=>{tbl+=`<tr><td style="color:#333;font-weight:700">${MESES[m]}</td>`+ys.map(y=>{const r=repMonthCal(m,y);const p=r.conf?pc(r.seg,r.conf):null;return `<td style="text-align:right" class="${p==null?'':(p<=META?'under':'over')}">${p==null?'—':p+'%'}</td>`;}).join("")+"</tr>";});
@@ -2003,9 +2093,9 @@ function renderCompare(){
       <div class="panel"><div class="pt">🔧 Motivos — % del total, por año</div><div class="ph">Participación de cada motivo en las segundas de cada año.</div>
         <div class="cwrap" style="height:300px;"><canvas id="cCmpMot"></canvas></div></div>
     </div>`;
-  reg(new Chart(document.getElementById("cCmpMes"),{type:"line",data:{labels:monthsSet.map(m=>MESES[m]),datasets:ds},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"top",labels:{boxWidth:14,usePointStyle:true}},tooltip:{mode:"index",intersect:false,callbacks:{label:tipUniverso}}},scales:{x:{grid:{display:false},border:{color:WARM}},y:{min:0,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}}}}}));
-  reg(new Chart(document.getElementById("cCmpArea"),{type:"bar",data:{labels:areaOrder,datasets:areaDs},options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"top",labels:{boxWidth:14,usePointStyle:true}},tooltip:{mode:"index",intersect:false,callbacks:{label:tipUniverso}}},scales:{x:{min:0,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}},y:{grid:{display:false},border:{color:WARM},ticks:{font:{size:10}}}}}}));
-  reg(new Chart(document.getElementById("cCmpMot"),{type:"bar",data:{labels:motOrder,datasets:motDs},options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"top",labels:{boxWidth:14,usePointStyle:true}},tooltip:{mode:"index",intersect:false,callbacks:{label:tipUniverso}}},scales:{x:{min:0,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}},y:{grid:{display:false},border:{color:WARM},ticks:{font:{size:10}}}}}}));
+  reg(new Chart(document.getElementById("cCmpMes"),{type:"line",data:{labels:monthsSet.map(m=>MESES[m]),datasets:ds},options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:6}},plugins:{etiquetasAnual:{fmt:v=>v.toFixed(2)+"%"},legend:{position:"top",labels:{boxWidth:14,usePointStyle:true}},tooltip:{mode:"index",intersect:false,callbacks:{label:tipUniverso}}},scales:{x:{grid:{display:false},border:{color:WARM}},y:{min:0,grace:"8%",grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}}}},plugins:[etiquetasAnual]}));
+  reg(new Chart(document.getElementById("cCmpArea"),{type:"bar",data:{labels:areaOrder,datasets:areaDs},options:{layout:{padding:{right:34}},indexAxis:"y",responsive:true,maintainAspectRatio:false,plugins:{etiquetasAnual:{fmt:v=>v.toFixed(1)+"%"},legend:{position:"top",labels:{boxWidth:14,usePointStyle:true}},tooltip:{mode:"index",intersect:false,callbacks:{label:tipUniverso}}},scales:{x:{min:0,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}},y:{grid:{display:false},border:{color:WARM},ticks:{font:{size:10}}}}},plugins:[etiquetasAnual]}));
+  reg(new Chart(document.getElementById("cCmpMot"),{type:"bar",data:{labels:motOrder,datasets:motDs},options:{layout:{padding:{right:34}},indexAxis:"y",responsive:true,maintainAspectRatio:false,plugins:{etiquetasAnual:{fmt:v=>v.toFixed(1)+"%"},legend:{position:"top",labels:{boxWidth:14,usePointStyle:true}},tooltip:{mode:"index",intersect:false,callbacks:{label:tipUniverso}}},scales:{x:{min:0,grid:{color:WARML},border:{display:false},ticks:{callback:v=>v+"%"}},y:{grid:{display:false},border:{color:WARM},ticks:{font:{size:10}}}}},plugins:[etiquetasAnual]}));
   const hoy=new Date().toLocaleDateString("es-PE",{day:"numeric",month:"long",year:"numeric"});
   document.getElementById("foot").innerHTML="Confidencial — Uso Interno · Calidad Manufactura LIVES · "+(KIND==="gerencia"?"Gerencia":"Interno")+" · Comparativo · Generado el "+hoy;
 }
@@ -2143,7 +2233,7 @@ if(window.__EMBEDSTATE__){try{
     var SAGE="#0F7A5A",TAUPE="#B45309",ROSE="#DC2626",RED="#DC2626",TAN2="#F59E0B",WARML="#F1F6F4";
     var pcts=ys.map(pctYear);
     reg(new Chart(document.getElementById("cePct"),{type:"line",data:{labels:ys,datasets:[{label:"% de segundas",data:pcts,borderColor:SAGE,backgroundColor:function(c){var a=c.chart.chartArea;if(!a)return"transparent";var g=c.chart.ctx.createLinearGradient(0,a.top,0,a.bottom);g.addColorStop(0,"rgba(15,122,90,.22)");g.addColorStop(1,"rgba(255,255,255,0)");return g;},fill:true,borderWidth:3.5,tension:.35,pointRadius:5,pointBorderColor:"#fff",pointBorderWidth:2.5,pointBackgroundColor:ys.map(function(y){return pctYear(y)>META?RED:SAGE;})},{label:"Meta 2.00%",data:ys.map(function(){return META;}),borderColor:TAN2,borderWidth:1.5,borderDash:[6,5],pointRadius:0,sinEtiquetas:true}]},options:{responsive:true,maintainAspectRatio:false,animation:{duration:900,easing:"easeOutCubic",delay:function(c){return (c.type==="data"&&c.mode==="default")?c.dataIndex*45:0;}},layout:{padding:{top:30}},plugins:{legend:{position:"top",align:"end",labels:{boxWidth:12,usePointStyle:true,padding:14}},etiquetasTendencia:{fmt:function(v){return v.toFixed(2)+"%";}},tooltip:{callbacks:{label:function(c){return c.dataset.label+": "+c.raw+"%";}}}},scales:{x:{grid:{display:false}},y:{min:0,suggestedMax:4.5,grid:{color:WARML},ticks:{callback:function(v){return v+"%";}}}}},plugins:[etiquetasTendencia]}));
-    reg(new Chart(document.getElementById("ceMoney"),{type:"bar",data:{labels:ys,datasets:[{data:moneys,backgroundColor:ys.map(function(y){return partial(y)?"#F59E0B":TAUPE;}),borderRadius:5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return "$"+Math.round(c.raw).toLocaleString();}}}},scales:{x:{grid:{display:false}},y:{grid:{color:WARML},ticks:{callback:function(v){return "$"+(v/1000)+"K";}}}}}}));
+    reg(new Chart(document.getElementById("ceMoney"),{type:"line",data:{labels:ys,datasets:[{label:"Valor FOB (US$)",data:moneys,borderColor:TAUPE,backgroundColor:"transparent",fill:false,borderWidth:3.5,tension:.35,pointRadius:5,pointHoverRadius:7,pointBorderColor:"#fff",pointBorderWidth:2.5,pointBackgroundColor:ys.map(function(y){return partial(y)?"#F59E0B":TAUPE;})}]},options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:30}},plugins:{legend:{display:false},etiquetasTendencia:{fmt:function(v){return fmtM(v);}},tooltip:{callbacks:{label:function(c){return "$"+Math.round(c.raw).toLocaleString();}}}},scales:{x:{grid:{display:false}},y:{min:0,grid:{color:WARML},ticks:{callback:function(v){return "$"+(v/1000)+"K";}}}}},plugins:[etiquetasTendencia]}));
     var hoy=new Date().toLocaleDateString("es-PE",{day:"numeric",month:"long",year:"numeric"});
     var ft=document.getElementById("foot");if(ft)ft.innerHTML="Confidencial \u2014 Uso Interno \u00B7 Calidad Manufactura LIVES \u00B7 "+(KIND==="gerencia"?"Gerencia":"Interno")+" \u00B7 Comparativo ejecutivo \u00B7 * a\u00F1o en curso parcial \u00B7 Generado el "+hoy;
   }
@@ -2180,58 +2270,102 @@ if(window.__EMBEDSTATE__){try{
 <script id="lsSbJs">(function(){try{var h=document.querySelector(".header");if(!h)return;h.setAttribute("data-ls-sin-barra","");var m=[];["hstate"].forEach(function(i){var e=document.getElementById(i);if(e&&h.contains(e))m.push(e);});Array.prototype.forEach.call(h.querySelectorAll("a,button,select,input"),function(e){if(!m.some(function(x){return x===e||x.contains(e);}))m.push(e);});m=m.filter(function(e){return !m.some(function(x){return x!==e&&x.contains(e);});});if(!m.length)return;m.sort(function(a,b){return a.compareDocumentPosition(b)&4?-1:1;});var b=document.createElement("div");b.className="lsSinBarra";m.forEach(function(e){b.appendChild(e);});h.parentNode.insertBefore(b,h);}catch(e){}})();</script>
 <!-- ===== fin lives-sin-barra v1 ===== -->
 
-<!-- ===== lives-actualizar v1 · 2026-10-06 · aviso de versión nueva (común a todas las herramientas).
-     Revisa cada 3 minutos (y al volver a la pestaña) si el archivo publicado cambió. Si cambió,
-     muestra "Hay una versión nueva · Actualizar". Nunca recarga sola: la persona decide, así no
-     pierde lo que está llenando. Solo pide el encabezado del archivo (HEAD), no lo descarga. ===== -->
+<!-- ===== lives-actualizar v2 · 2026-10-12 · aviso de versión nueva OBLIGATORIO (común a todas las herramientas).
+     Revisa cada 3 minutos (y al volver a la pestaña) si el archivo publicado cambió. Si cambió, tapa la
+     herramienta con un aviso que no se puede cerrar: un solo botón, "Actualizar". En celular ocupa toda la
+     pantalla; en computadora sale al centro. No aparece mientras la persona está escribiendo (espera a que
+     pase 20 s sin teclear) y, antes de recargar, pide a la herramienta que guarde su borrador si tiene uno.
+     Solo pide el encabezado del archivo (HEAD), no lo descarga. ===== -->
 <style id="lsActCss">
-#lsAct{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:2147483000;display:none;
-  align-items:center;gap:12px;flex-wrap:wrap;justify-content:center;max-width:calc(100vw - 32px);
-  background:#0E3B36;color:#fff;border:2px solid #10B981;border-radius:12px;padding:10px 14px;
-  box-shadow:0 8px 24px rgba(14,59,54,.30);font-family:Calibri,Arial,sans-serif;font-size:14px;line-height:1.35}
-#lsAct b{font-weight:700}
-#lsAct button{font-family:inherit;font-size:14px;font-weight:700;border-radius:8px;padding:8px 14px;cursor:pointer;min-height:38px}
-#lsActSi{background:#10B981;color:#0E3B36;border:none}
-#lsActNo{background:transparent;color:#fff;border:1.5px solid rgba(255,255,255,.55)}
+#lsAct{position:fixed;inset:0;z-index:2147483000;display:none;align-items:center;justify-content:center;
+  background:rgba(14,59,54,.78);padding:16px;font-family:Calibri,Arial,sans-serif}
+#lsAct .lsActCaja{background:#fff;border-radius:12px;border-top:4px solid #10B981;box-shadow:0 10px 30px rgba(0,0,0,.25);
+  max-width:440px;width:100%;padding:26px 24px 22px;text-align:center;color:#1a1a1a}
+#lsAct .lsActIco{width:56px;height:56px;margin:0 auto 12px;border-radius:50%;background:#E7F6EF;color:#0F7A5A;
+  display:flex;align-items:center;justify-content:center;font-size:30px;line-height:1}
+#lsAct h2{margin:0 0 8px;font-size:21px;color:#0E3B36}
+#lsAct p{margin:0 0 18px;font-size:15.5px;line-height:1.45;color:#3d4f4b}
+#lsActSi{display:block;width:100%;background:#0F7A5A;color:#fff;border:none;border-radius:10px;font-family:inherit;
+  font-size:17px;font-weight:700;padding:14px 16px;min-height:52px;cursor:pointer}
+#lsActSi:hover{background:#0B6349}
+#lsActSi:focus{outline:3px solid #10B981;outline-offset:2px}
+@media (max-width:640px){
+  #lsAct{padding:0;background:#fff}
+  #lsAct .lsActCaja{max-width:none;height:100%;border-radius:0;box-shadow:none;border-top:6px solid #10B981;
+    display:flex;flex-direction:column;justify-content:center;padding:32px 22px}
+  #lsAct h2{font-size:24px}
+  #lsAct p{font-size:17px}
+  #lsActSi{font-size:19px;min-height:58px}
+}
 @media print{#lsAct{display:none!important}}
 </style>
 <script id="lsActJs">(function(){
   'use strict';
   if (window.__lsAct) return; window.__lsAct = true;
   if (!/^https?:$/.test(location.protocol)) return;
-  var url = location.origin + location.pathname, base = null, hasta = 0, mostrado = false;
+  var url = location.origin + location.pathname, base = null, pendiente = false, ultimaTecla = 0;
+  /* Mientras la persona escribe no se interrumpe: se espera a que pasen 20 s sin teclear. */
+  ['input','keydown','change'].forEach(function(ev){
+    document.addEventListener(ev, function(e){ if (!e.target || !e.target.closest || !e.target.closest('#lsAct')) ultimaTecla = Date.now(); }, true);
+  });
   function firma(){
     return fetch(url, { method: 'HEAD', cache: 'no-store' }).then(function(r){
       if (!r.ok) return null;
       return r.headers.get('etag') || r.headers.get('last-modified') || null;
     }, function(){ return null; });
   }
+  function recargar(){
+    /* Si la herramienta guarda borrador (p. ej. el formulario de auditoría), se guarda antes de recargar. */
+    if (ultimaTecla){
+      ['guardarBorradorAhora','guardarBorradorPeriodico','guardarBorrador'].some(function(n){
+        try { if (typeof window[n] === 'function'){ window[n](); return true; } } catch(e){}
+        return false;
+      });
+    }
+    setTimeout(function(){ location.reload(); }, 150);
+  }
   function aviso(){
-    if (mostrado || Date.now() < hasta) return;
+    if (document.getElementById('lsAct') && document.getElementById('lsAct').style.display === 'flex') return;
+    if (Date.now() - ultimaTecla < 20000){ setTimeout(aviso, 5000); return; }
     var d = document.getElementById('lsAct');
     if (!d){
-      d = document.createElement('div'); d.id = 'lsAct'; d.setAttribute('role', 'status');
-      d.innerHTML = '<span><b>Hay una versión nueva de esta herramienta.</b> Guarda lo que estés haciendo y toca Actualizar.</span>' +
-                    '<button id="lsActSi" type="button">Actualizar</button><button id="lsActNo" type="button">Después</button>';
-      document.body.appendChild(d);
-      document.getElementById('lsActSi').onclick = function(){ location.reload(); };
-      document.getElementById('lsActNo').onclick = function(){ d.style.display = 'none'; mostrado = false; hasta = Date.now() + 10 * 60000; };
+      d = document.createElement('div'); d.id = 'lsAct';
+      d.setAttribute('role', 'alertdialog'); d.setAttribute('aria-modal', 'true'); d.setAttribute('aria-labelledby', 'lsActT');
+      d.innerHTML = '<div class="lsActCaja"><div class="lsActIco" aria-hidden="true">&#8635;</div>' +
+        '<h2 id="lsActT">Hay una versión nueva</h2>' +
+        '<p>Esta herramienta se actualizó. Toca <b>Actualizar</b> para seguir trabajando con la versión nueva.</p>' +
+        '<button id="lsActSi" type="button">Actualizar</button></div>';
+      (document.body || document.documentElement).appendChild(d);
+      document.getElementById('lsActSi').onclick = recargar;
     }
-    d.style.display = 'flex'; mostrado = true;
+    d.style.display = 'flex';
+    document.documentElement.style.overflow = 'hidden';
+    var b = document.getElementById('lsActSi'); if (b) b.focus();
   }
+  /* No se puede cerrar: Escape no hace nada, el foco no sale del aviso y si algo lo quita vuelve a salir. */
+  document.addEventListener('keydown', function(e){
+    var d = document.getElementById('lsAct'); if (!d || d.style.display !== 'flex') return;
+    if (e.key === 'Escape'){ e.preventDefault(); e.stopPropagation(); }
+    if (e.key === 'Tab'){ e.preventDefault(); var b = document.getElementById('lsActSi'); if (b) b.focus(); }
+  }, true);
+  setInterval(function(){
+    if (!pendiente) return;
+    var d = document.getElementById('lsAct');
+    if (!d || d.style.display !== 'flex') aviso();
+  }, 1500);
   function revisar(){
-    if (document.hidden) return;
+    if (document.hidden || pendiente) return;
     firma().then(function(f){
       if (!f) return;
       if (base === null){ base = f; return; }
-      if (f !== base) aviso();
+      if (f !== base){ pendiente = true; aviso(); }
     });
   }
   revisar();
   setInterval(revisar, 3 * 60000);
   document.addEventListener('visibilitychange', function(){ if (!document.hidden) revisar(); });
 })();</script>
-<!-- ===== fin lives-actualizar v1 ===== -->
+<!-- ===== fin lives-actualizar v2 ===== -->
 
 
 
