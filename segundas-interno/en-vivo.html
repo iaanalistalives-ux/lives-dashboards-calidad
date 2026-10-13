@@ -1984,8 +1984,10 @@ function renderPeriod(mode,valueOrArr){
     const dTW=despWeeksOf(tw),tden=dTW.length?despSum(dTW,"tela",null):null,tseg={};
     if(dTW.length){const ws=new Set(dTW);STATE.telas26.forEach(r=>{if(ws.has(r.sem))tseg[r.cod]=(tseg[r.cod]||0)+(r.cant||0);});}
     phDesp("telasRank",dTW.length?("% sobre sus despachadas = segundas ÷ prendas despachadas de esa misma tela, en "+despWeeksTxt(dTW)+"."):"");
-    let th="<thead><tr><th>Cód. Tela</th><th>Nombre</th><th style='text-align:right'>Cantidad</th>"+(tden?"<th style='text-align:right'>Despachadas</th><th style='text-align:right'>% sobre sus despachadas</th>":"")+"<th></th></tr></thead><tbody>";
-    tl.forEach(x=>{const tex=tden?(`<td style="text-align:right">${tden[x.k]?nf(tden[x.k]):"—"}</td>`+celdaPct(pctDesp(tseg[x.k]||0,tden[x.k]||0))):"";
+    const tlbl=dTW.length?despSemLbl(dTW,tw):"";
+    let th="<thead><tr><th>Cód. Tela</th><th>Nombre</th><th style='text-align:right'>Cantidad</th>"+(tden?"<th style='text-align:right'>Despachadas"+tlbl+"</th><th style='text-align:right'>% sobre sus despachadas"+tlbl+"</th>":"")+"<th></th></tr></thead><tbody>";
+    tl.forEach(x=>{const tdd=tden?(tden[x.k]||0):0,tss=tden?(tseg[x.k]||0):0;
+      const tex=tden?(`<td style="text-align:right">${tdd?nf(tdd):"—"}</td>`+(tss||tdd?celdaPct(pctDesp(tss,tdd)):`<td style="text-align:right;color:var(--stone)">—</td>`)):"";
       th+=`<tr><td style="color:#333;font-weight:700">${x.k}</td><td style="font-size:11px">${x.nom||"—"}</td><td style="text-align:right">${x.v}</td>${tex}<td style="text-align:center"><button class="fbtn" onclick="openFicha('tela','${String(x.k).replace(/'/g,"\\'")}',curTok())">DETALLE</button></td></tr>`;});
     if(!tl.length)th+=`<tr><td colspan="${tden?6:4}" style="text-align:center;color:var(--stone)">Sin telas registradas en el período</td></tr>`;
     document.getElementById("telasRank").innerHTML=th+"</tbody>";
