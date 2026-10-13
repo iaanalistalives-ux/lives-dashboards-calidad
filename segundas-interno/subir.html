@@ -636,7 +636,7 @@ input[type=file]{display:none}
   <div class="card" id="cardUpload">
     <div class="drop" id="drop">
       <div><b>Arrastra aquí el reporte del sistema</b><br>o haz clic para elegirlo</div>
-      <div class="sm">Archivo "Rpt Segundas x Despacho" (.xlsx) — tal cual lo exporta el sistema, sin editar</div>
+      <div class="sm">Archivo "Rpt Segundas x Despacho" (.xlsx) — tal cual lo exporta el sistema, sin editar. Desde la semana 41 de 2026 debe traer sus tres pestañas: "Por Area", "EP-COLOR-GRUPO-MOTIVO" y "Detalle Desp."</div>
       <input type="file" id="file" accept=".xlsx,.xls">
     </div>
     <div class="hint">No hace falta acomodar nada del archivo. Solo se procesa en tu navegador — no se sube a ningún otro lugar hasta que confirmes.</div>
@@ -652,6 +652,8 @@ input[type=file]{display:none}
       <div class="kpi"><div class="n" id="pvDesp"></div><div class="l">Despachadas</div></div>
       <div class="kpi"><div class="n" id="pvSeg"></div><div class="l">Segundas (cant.)</div></div>
     </div>
+    <div id="pvDesDet" class="hide" style="font-size:12.5px;color:var(--salvia);background:#e9f9f2;border-radius:9px;padding:10px 13px;margin:0 0 14px"></div>
+    <div id="pvAvisos" class="warn hide"></div>
     <div id="pvWarn" class="warn hide">⚠ Ya existe una subida para esta semana. Si continúas, se <b>reemplaza</b> por estos datos nuevos.</div>
     <button class="btn prim" id="btnConfirmar">Confirmar y subir</button>
     <button class="btn sec" id="btnOtro" style="width:100%;margin-top:8px">Elegir otro archivo</button>
@@ -700,6 +702,10 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
    ve desde este script. */
 const SB_RPC = 'https://xxfufpddgoyhbotjmaiy.supabase.co/rest/v1/rpc/sync_segundas_semana';
 const META = 0.02; // 2% — meta vigente confirmada por Calidad. Cambiar aquí si Calidad la actualiza.
+/* 13/10 (SI01): desde esta semana el reporte trae la pestaña "Detalle Desp." (lo despachado
+   por OP, estilo, grupo, color y tela). Es obligatoria desde aquí; las semanas anteriores se
+   pueden seguir subiendo con el formato de dos pestañas. La base aplica la misma regla. */
+const DESPACHO_DESDE = 202641; // año*100 + semana
 const MESES_ES = {ene:0,feb:1,mar:2,abr:3,may:4,jun:5,jul:6,ago:7,sep:8,set:8,oct:9,nov:10,dic:11};
 
 let PENDIENTE = null; // {anio, semana, reporte, detalle}
@@ -820,7 +826,73 @@ function parseArchivo(wb){
   }
   if(!detalle.length) throw new Error('No encontré filas de detalle válidas en la hoja "EP-COLOR-GRUPO-MOTIVO".');
 
-  return { anio: iso.year, semana: iso.week, fecha:{y:fy,m:fm,d:fd}, reporte, detalle };
+  // ---- detalle de lo despachado (hoja "Detalle Desp.") ----
+  // Encabezado real: [_, OP, Estado, Grupo Textil, Color, Descripcion Color, Tela, Descripcion Tela, Despachado]
+  // "Estado" trae en realidad el ESTILO (verificado contra la base de OPs). "Color" es el código
+  // interno y "Descripcion Color" el nombre, que es el que se cruza con las segundas.
+  const despacho = [];
+  const avisos = [];
+  const f = n => Number(n).toLocaleString('es-PE');
+  const obligatorio = iso.year*100 + iso.week >= DESPACHO_DESDE;
+  const wsDes = findSheet(wb, 'detalledesp');
+  if(!wsDes){
+    if(obligatorio) throw new Error('No encontré la hoja "Detalle Desp." en el archivo. Desde la semana '+(DESPACHO_DESDE%100)+' de '+Math.floor(DESPACHO_DESDE/100)+' el reporte debe traer sus tres pestañas.');
+  } else {
+    const des = XLSX.utils.sheet_to_json(wsDes, {header:1, raw:true, defval:null});
+    const norm = v => String(v==null?'':v).trim().toUpperCase();
+    const hIdx = des.findIndex(row => row.some(v=>norm(v)==='OP') && row.some(v=>norm(v)==='DESPACHADO'));
+    if(hIdx<0) throw new Error('No encontré el encabezado (fila con "OP" y "Despachado") en la hoja "Detalle Desp.".');
+    const H = des[hIdx].map(norm);
+    const col = (...nombres) => { for(const n of nombres){ const i=H.indexOf(n); if(i>=0) return i; } return -1; };
+    const jOp=col('OP'), jEst=col('ESTILO','ESTADO'), jGrp=col('GRUPO TEXTIL','GRUPO'), jColC=col('COLOR'),
+          jColD=col('DESCRIPCION COLOR','DESCRIPCIÓN COLOR'), jTela=col('TELA','COD TELA','COD.TELA'),
+          jTelaD=col('DESCRIPCION TELA','DESCRIPCIÓN TELA'), jDes=col('DESPACHADO');
+    if(jOp<0||jEst<0||jGrp<0||jColD<0||jDes<0) throw new Error('A la hoja "Detalle Desp." le faltan columnas (OP, Estado/Estilo, Grupo Textil, Descripcion Color o Despachado).');
+    const txt = v => String(v==null?'':v).trim();
+    let totalHoja = null;
+    for(let i=hIdx+1;i<des.length;i++){
+      const row = des[i]; if(!row) continue;
+      const op = txt(row[jOp]);
+      const cant = Number(row[jDes])||0;
+      if(row.some(v=>norm(v)==='TOTAL')){ totalHoja = cant; continue; }
+      if(!op || !cant) continue;
+      despacho.push({
+        OP: op, ESTILO: txt(row[jEst]), GRUPO: txt(row[jGrp]),
+        "COLOR COD": jColC>=0 ? txt(row[jColC]) : '', COLOR: txt(row[jColD]),
+        "COD TELA": jTela>=0 ? txt(row[jTela]) : '', "NOMBRE TELA": jTelaD>=0 ? txt(row[jTelaD]) : '',
+        DESPACHADO: cant
+      });
+    }
+    if(!despacho.length && obligatorio) throw new Error('La hoja "Detalle Desp." no trae filas con lo despachado.');
+    const suma = despacho.reduce((s,r)=>s+r.DESPACHADO,0);
+    if(totalHoja!=null && Math.abs(suma-totalHoja)>0.001)
+      throw new Error('Las filas de "Detalle Desp." suman '+f(suma)+' prendas y su fila TOTAL dice '+f(totalHoja)+'. Revisa el archivo: no se subió nada.');
+    if(despacho.length && Math.abs(suma-desp)>0.001)
+      throw new Error('"Detalle Desp." suma '+f(suma)+' prendas despachadas y "Por Area" dice '+f(desp)+'. Deben ser iguales: no se subió nada.');
+    // Cruce segundas ↔ despacho por grupo + estilo + color: se avisa, no se bloquea
+    // (puede haber segundas de algo despachado otra semana).
+    if(despacho.length){
+      const K = (g,e,c) => norm(g)+' · '+norm(e)+' · '+norm(c);
+      const conDesp = new Set(despacho.map(r=>K(r.GRUPO,r.ESTILO,r.COLOR)));
+      const sinD = {};
+      detalle.forEach(r=>{const k=K(r.GRUPO,r.ESTILO,r.COLOR); if(!conDesp.has(k)) sinD[k]=(sinD[k]||0)+r.CANTIDAD;});
+      const ks = Object.keys(sinD);
+      if(ks.length) avisos.push('Tienen segundas pero no figuran en "Detalle Desp." (grupo · estilo · color): '+ks.map(k=>k+' ('+f(sinD[k])+')').join('; ')+'. Se subirán igual; en el tablero saldrán como "sin despacho".');
+    }
+  }
+  // Controles del resumen contra el detalle (avisos, no bloquean)
+  const segDet = detalle.reduce((s,r)=>s+r.CANTIDAD,0);
+  if(Math.abs(segDet-segCant)>0.001) avisos.push('"Por Area" dice '+f(segCant)+' segundas y el detalle por motivo suma '+f(segDet)+'.');
+  const precioAreas = (()=>{ let t=0,hay=false,iP=headerArea?headerArea.findIndex(v=>typeof v==='string'&&v.trim().toUpperCase().startsWith('PRECIO')):-1; let enBloque=false;
+    for(const row of area){ const lab=row.map(v=>typeof v==='string'?v.trim().toUpperCase():'');
+      if(lab.includes('AREA GENERADORA')){enBloque=true;continue;}
+      if(lab.includes('RESUMEN DE SEGUNDAS')) enBloque=false;
+      if(!enBloque) continue;
+      const iT=lab.indexOf('TOTAL'); if(iT>=0){ const v=row.slice(iT+1).filter(x=>typeof x==='number'); if(v.length){ t+=v[v.length-1]; hay=true; } } }
+    return hay?Math.round(t*100)/100:null; })();
+  if(precioAreas!=null && Math.abs(precioAreas-segPrecio)>0.01) avisos.push('El precio total de segundas en "Por Area" es $'+segPrecio.toLocaleString('es-PE')+' pero la suma por área da $'+precioAreas.toLocaleString('es-PE')+'. Se guardará $'+segPrecio.toLocaleString('es-PE')+' (el del resumen).');
+
+  return { anio: iso.year, semana: iso.week, fecha:{y:fy,m:fm,d:fd}, reporte, detalle, despacho, avisos };
 }
 
 const drop = document.getElementById('drop');
@@ -856,6 +928,16 @@ function mostrarPreview(r){
   document.getElementById('pvConf').textContent = r.reporte["PRENDAS CONFECCIONADAS"].toLocaleString('es-PE');
   document.getElementById('pvDesp').textContent = r.reporte["PRENDAS DESPACHADAS"].toLocaleString('es-PE');
   document.getElementById('pvSeg').textContent = r.reporte.CANTIDAD.toLocaleString('es-PE');
+  const dd = document.getElementById('pvDesDet');
+  if(r.despacho && r.despacho.length){
+    const sumaD = r.despacho.reduce((s,x)=>s+x.DESPACHADO,0);
+    const ops = new Set(r.despacho.map(x=>x.OP)).size, grps = new Set(r.despacho.map(x=>x.GRUPO)).size;
+    dd.textContent = '✓ Detalle de despacho: '+ops+' OP de '+grps+' grupos, '+sumaD.toLocaleString('es-PE')+' prendas. Cuadra con Despachadas.';
+    dd.classList.remove('hide');
+  } else { dd.textContent=''; dd.classList.add('hide'); }
+  const av = document.getElementById('pvAvisos');
+  if(r.avisos && r.avisos.length){ av.innerHTML = r.avisos.map(t=>'⚠ '+t.replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))).join('<br>'); av.classList.remove('hide'); }
+  else { av.innerHTML=''; av.classList.add('hide'); }
   document.getElementById('pvWarn').classList.add('hide'); // no sabemos de antemano si ya existe; el backend igual reemplaza de forma segura
   document.getElementById('sendErr').innerHTML = '';
 }
@@ -877,6 +959,7 @@ document.getElementById('btnConfirmar').onclick = async ()=>{
     const cuerpo = JSON.stringify({
       p_anio: PENDIENTE.anio, p_semana: PENDIENTE.semana,
       p_reporte: PENDIENTE.reporte, p_detalle: PENDIENTE.detalle,
+      p_despacho: (PENDIENTE.despacho && PENDIENTE.despacho.length) ? PENDIENTE.despacho : null,
       p_usuario: (window.LIVES_SESION && LIVES_SESION.actual() ? (LIVES_SESION.actual().nombre || LIVES_SESION.actual().usuario) : '')
     });
     async function mandar(){
@@ -896,6 +979,7 @@ document.getElementById('btnConfirmar').onclick = async ()=>{
     document.getElementById('okSub').textContent = j.filas_reemplazadas_reportes>0
       ? 'Se reemplazaron los datos que ya existían para esta semana. '+j.filas_detalle_insertadas+' filas de detalle.'
       : j.filas_detalle_insertadas+' filas de detalle guardadas.';
+    if(j.filas_despacho_insertadas) document.getElementById('okSub').textContent += ' '+j.filas_despacho_insertadas+' filas de despacho por OP.';
   }catch(err){
     document.getElementById('sendErr').innerHTML = '<div class="err">No se pudo subir: '+err.message+'</div>';
   }finally{

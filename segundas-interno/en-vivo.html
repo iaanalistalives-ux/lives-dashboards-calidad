@@ -1151,6 +1151,11 @@ html.lsPoOn body>*:not(#lsPo){visibility:hidden!important}
             <div id="telasCoverage" style="font-size:11px;color:var(--stone);margin-bottom:6px;"></div>
             <div style="overflow-x:auto;"><table id="telasRank"></table></div>
           </div>
+          <div class="panel col12" id="colPanel" style="display:none">
+            <span class="tira volumen"></span>
+            <div class="pt">Por grupo, estilo y color</div><div class="ph">Segundas del período y cuánto representan sobre las prendas despachadas de ese mismo grupo, estilo y color.</div>
+            <div style="overflow-x:auto;"><table id="colRank"></table></div>
+          </div>
         </div>
       </div>
 
@@ -1554,10 +1559,12 @@ async function sbLeerVista(vista,cols){
   return [].concat.apply([],partes);
 }
 async function cargarDesdeSupabase(){
-  const [det,rep,est]=await Promise.all([
+  const [det,rep,est,des]=await Promise.all([
     sbLeerVista("publico_segundas_detalle","id,fecha,cliente,estilo,color,grupo,area_generadora,motivo,cantidad,cod_tela,nombre_tela,semana,anio"),
     sbLeerVista("publico_segundas_reportes","id,fecha,prendas_despachadas,cantidad,precio,semana"),
-    sbGet("publico_segundas_estado?select=tabla,ultima_copia,resultado")]);
+    sbGet("publico_segundas_estado?select=tabla,ultima_copia,resultado"),
+    /* SI01 (13/10): lo despachado por estilo, grupo, color y tela. Existe desde 2026 S41. */
+    sbLeerVista("publico_segundas_despacho","id,fecha,anio,semana,estilo,grupo,cliente,color,cod_tela,despachado")]);
   if(!det.length||!rep.length)throw new Error("Supabase respondió sin filas");
   // Mismos nombres de columna de siempre: el resto del tablero no cambia.
   // El área se normaliza a MAYÚSCULAS: desde la S38 llega así y antes llegaba "Costura".
@@ -1567,7 +1574,9 @@ async function cargarDesdeSupabase(){
   const repRows=rep.map(r=>({fecha:r.fecha,conf:num(r.prendas_despachadas),seg:num(r.cantidad),precio:num(r.precio),week:num(r.semana)}));
   let sello=null;
   (est||[]).forEach(e=>{if(e.ultima_copia&&(!sello||e.ultima_copia<sello))sello=e.ultima_copia;});
-  return {data,repRows,sello};
+  const U=v=>String(v==null?"":v).trim().toUpperCase();
+  const desp=(des||[]).map(r=>({year:num(r.anio),sem:num(r.semana),est:U(r.estilo),grp:U(r.grupo),cli:U(r.cliente),col:U(r.color),tela:U(r.cod_tela),desp:num(r.despachado)}));
+  return {data,repRows,sello,desp};
 }
 function textoSello(iso){
   if(!iso)return "Datos al —";
@@ -1590,7 +1599,7 @@ async function cargarDatos(manual){
     try{ sb=await cargarDesdeSupabase(); }
     catch(e1){ console.warn("Supabase no respondió, se reintenta una vez:",e1); await esperarMs(2500); sb=await cargarDesdeSupabase(); }
     document.getElementById("err").style.display="none";
-    buildState({data:sb.data,telas:[],repRows:sb.repRows},"Datos en vivo — Segundas",false);
+    buildState({data:sb.data,telas:[],repRows:sb.repRows,desp:sb.desp},"Datos en vivo — Segundas",false);
     document.getElementById("drop").style.display="none";
     document.getElementById("lastLoad").textContent=textoSello(sb.sello);
   }catch(err){
@@ -1665,7 +1674,7 @@ function num(v){if(v==null)return 0;if(typeof v==="number")return isFinite(v)?v:
 
 
 function buildState(S,fname,frozen){
-  const dataAll=S.data.filter(r=>yearOf(r["FECHA"])).map(r=>({cli:r["CLIENTE"],est:String(r["ESTILO"]),grp:r["GRUPO"],area:(r["AREA GENERADORA"]==null?r["AREA GENERADORA"]:String(r["AREA GENERADORA"]).trim().toUpperCase()),mot:r["MOTIVO DE 2DA"],cant:num(r["CANTIDAD"]),sem:num(r["SEMANA"]),mcal:monthOf(r["FECHA"]),year:yearOf(r["FECHA"])}));
+  const dataAll=S.data.filter(r=>yearOf(r["FECHA"])).map(r=>({col:String(r["COLOR"]==null?"":r["COLOR"]).trim().toUpperCase(),cli:r["CLIENTE"],est:String(r["ESTILO"]),grp:r["GRUPO"],area:(r["AREA GENERADORA"]==null?r["AREA GENERADORA"]:String(r["AREA GENERADORA"]).trim().toUpperCase()),mot:r["MOTIVO DE 2DA"],cant:num(r["CANTIDAD"]),sem:num(r["SEMANA"]),mcal:monthOf(r["FECHA"]),year:yearOf(r["FECHA"])}));
   const rep=S.repRows.map(r=>({year:yearOf(r.fecha),week:r.week,mcal:monthOf(r.fecha),conf:r.conf,seg:r.seg,precio:r.precio}));
   // Telas: antes venían de una hoja aparte (REPORTE DE TELAS) y solo se podía contar incidencias
   // (no había cantidad). Ahora el reporte crudo del sistema trae Cod./Nombre de tela en cada fila
@@ -1674,7 +1683,7 @@ function buildState(S,fname,frozen){
   // traen tela, así que simplemente no aportan al ranking — no rompen nada, solo no suman ahí.
   const telas26=S.data.filter(r=>yearOf(r["FECHA"])===2026&&r["COD TELA"]).map(r=>({sem:num(r["SEMANA"]),mcal:monthOf(r["FECHA"]),cod:String(r["COD TELA"]||"").toUpperCase().trim(),nom:String(r["NOMBRE TELA"]||"").trim(),est:String(r["ESTILO"]||"").trim(),grp:String(r["GRUPO"]||"").trim(),color:String(r["COLOR"]||"").trim(),cant:num(r["CANTIDAD"])}));
   const years=[...new Set(rep.map(r=>r.year).filter(Boolean))].sort((a,b)=>a-b);
-  STATE={dataAll,rep,telas26,years,maxYear:Math.max(...years),fname};
+  STATE={dataAll,rep,telas26,years,maxYear:Math.max(...years),fname,desp:S.desp||[]};
   CURYEAR=STATE.maxYear;
   FIX=computeFix(rep,STATE.maxYear);
   initDash(frozen,fname);
@@ -1705,6 +1714,40 @@ function pc(seg,conf){return conf?+(seg/conf*100).toFixed(2):0;}
 function monthsOfYear(){const ms=latest()?yrep().map(r=>FIX[r.week]):yrep().map(r=>r.mcal);return [...new Set(ms.filter(m=>m!=null))].sort((a,b)=>a-b);}
 function weeksOfYear(){return [...new Set(yrep().map(r=>r.week).filter(w=>w>0))].sort((a,b)=>a-b);}
 function dataPeriod(mode,valueOrArr){if(mode==="year")return ydata();const vals=Array.isArray(valueOrArr)?valueOrArr:[valueOrArr];const set=new Set(vals);const d=ydata();return mode==="week"?d.filter(r=>set.has(r.sem)):(latest()?d.filter(r=>set.has(FIX[r.sem])):d.filter(r=>set.has(r.mcal)));}
+/* ===== Despachadas al detalle (SI01, desde 2026 S41) =====================================
+   Se AGREGA a cada detalle (cliente, grupo, estilo, color, tela) cuánto representan sus
+   segundas sobre sus propias prendas despachadas, sin quitar lo que ya mostraba. Numerador
+   y denominador salen de las mismas semanas: solo las que traen detalle de despacho. */
+function periodWeeks(mode,values){const all=weeksOfYear();if(mode==="year")return all;if(mode==="week")return values.slice();return latest()?all.filter(w=>values.includes(FIX[w])):[];}
+function despWeeksOf(weeks){const set=new Set((STATE.desp||[]).filter(r=>r.year===CURYEAR).map(r=>r.sem));return weeks.filter(w=>set.has(w));}
+function despSum(weeks,key,cli){const ws=new Set(weeks),m={};(STATE.desp||[]).forEach(r=>{if(r.year!==CURYEAR||!ws.has(r.sem)||(cli&&r.cli!==cli))return;const k=r[key];if(!k)return;m[k]=(m[k]||0)+r.desp;});return m;}
+function segSum(rows,weeks,key){const ws=new Set(weeks),m={};rows.forEach(r=>{if(!ws.has(r.sem))return;const k=String(r[key]==null?"":r[key]).trim().toUpperCase();if(!k)return;m[k]=(m[k]||0)+(r.cant||0);});return m;}
+function despSemLbl(dW,pW){const v=dW.slice().sort((a,b)=>a-b);return (pW&&dW.length===pW.length)?"":(" · S"+v.join(", S"));}
+function despWeeksTxt(dW){const v=dW.slice().sort((a,b)=>a-b);return v.length===1?("la semana "+v[0]):("las semanas "+v.join(", "));}
+function pctDesp(seg,den){return den?+(seg/den*100).toFixed(2):null;}
+function celdaPct(p){return p==null?`<td style="text-align:right;color:var(--stone);font-size:11.5px">sin despacho</td>`:`<td style="text-align:right" class="${p<=META?'under':'over'}">${p.toFixed(2)}%</td>`;}
+function phDesp(id,extra){const el=document.getElementById(id);if(!el)return;const pn=el.closest(".panel");const ph=pn&&pn.querySelector(".ph");if(!ph)return;if(ph.dataset.orig==null)ph.dataset.orig=ph.textContent;ph.textContent=ph.dataset.orig+(extra?" "+extra:"");}
+function fichaDesp(fld,key,period,rowsAll){
+  const all=weeksOfYear();
+  const pW=period&&period.startsWith("w:")?[+period.slice(2)]:(period&&period.startsWith("m:")?all.filter(w=>(latest()?FIX[w]:null)===+period.slice(2)):all);
+  const dW=despWeeksOf(pW);if(!dW.length)return "";
+  const K=String(key).trim().toUpperCase();
+  const sg=(segSum(rowsAll,dW,fld)[K])||0,dn=(despSum(dW,fld==="cod"?"tela":fld,null)[K])||0,p=pctDesp(sg,dn);
+  const txt=p==null?(nf(sg)+" segundas y nada despachado en "+despWeeksTxt(dW)):("Sobre sus despachadas: "+nf(sg)+" segundas de "+nf(dn)+" prendas despachadas en "+despWeeksTxt(dW));
+  return `<div class="fc-kpis" style="grid-template-columns:1fr"><div class="k"><div class="v" style="font-size:18px">${p==null?"Sin despacho":p.toFixed(2)+"%"}</div><div class="l">${txt}</div></div></div>`;
+}
+function rankColor(segRows,dW){
+  const el=document.getElementById("colRank");if(!el)return;
+  const ws=new Set(dW),m={},K=(g,e,c)=>g+"|"+e+"|"+c;let tot=0;
+  segRows.forEach(r=>{if(!ws.has(r.sem))return;const g=String(r.grp||"").toUpperCase(),e=String(r.est||"").toUpperCase(),c=r.col||"";if(!g)return;const k=K(g,e,c);(m[k]=m[k]||{g,e,c,s:0,d:0}).s+=r.cant;tot+=r.cant;});
+  (STATE.desp||[]).forEach(r=>{if(r.year!==CURYEAR||!ws.has(r.sem)||(CURCLI&&r.cli!==CURCLI))return;const k=K(r.grp,r.est,r.col);(m[k]=m[k]||{g:r.grp,e:r.est,c:r.col,s:0,d:0}).d+=r.desp;});
+  const L=Object.values(m).filter(x=>x.s>0).sort((a,b)=>b.s-a.s).slice(0,10);
+  verPanel("colRank",L.length);
+  if(!L.length){el.innerHTML="";return;}
+  let h="<thead><tr><th>Grupo</th><th>Estilo</th><th>Color</th><th style='text-align:right'>Segundas del período</th><th style='text-align:right'>% del período</th><th style='text-align:right'>Despachadas</th><th style='text-align:right'>% sobre sus despachadas</th></tr></thead><tbody>";
+  L.forEach(x=>{h+=`<tr><td style="color:#333;font-weight:700">${x.g}</td><td>${x.e||"—"}</td><td>${x.c||"—"}</td><td style="text-align:right">${nf(x.s)} de ${nf(tot)}</td><td style="text-align:right">${(x.s/(tot||1)*100).toFixed(1)}%</td><td style="text-align:right">${x.d?nf(x.d):"—"}</td>${celdaPct(pctDesp(x.s,x.d))}</tr>`;});
+  el.innerHTML=h+"</tbody>";
+}
 function groupSum(rows,key){const m={};rows.forEach(r=>{const k=r[key];if(k==null||k==="")return;m[k]=(m[k]||0)+r.cant;});return Object.keys(m).map(k=>({k,v:m[k]})).sort((a,b)=>b.v-a.v);}
 
 /* ----- control de año / comparativo ----- */
@@ -1908,9 +1951,15 @@ function renderPeriod(mode,valueOrArr){
 
   // ----- cliente / grupo / estilo: rankings con ficha (ambos) -----
   const ptot=drows.reduce((s,r)=>s+r.cant,0)||1;
-  rankTable("cliRank",groupSum(drows,"cli").slice(0,6),"Cliente","cliente",ptot);
-  rankTable("grpRank",groupSum(drows,"grp").slice(0,8),"Grupo","grupo",ptot);
-  rankTable("estRank",groupSum(drows,"est").slice(0,8),"Estilo","estilo",ptot);
+  const pW=periodWeeks(mode,values),dW=despWeeksOf(pW);
+  const exOf=f=>dW.length?{den:despSum(dW,f,CURCLI),seg:segSum(drows,dW,f),lbl:despSemLbl(dW,pW)}:null;
+  rankTable("cliRank",groupSum(drows,"cli").slice(0,6),"Cliente","cliente",ptot,exOf("cli"));
+  rankTable("grpRank",groupSum(drows,"grp").slice(0,8),"Grupo","grupo",ptot,exOf("grp"));
+  rankTable("estRank",groupSum(drows,"est").slice(0,8),"Estilo","estilo",ptot,exOf("est"));
+  const phx=n=>dW.length?("% sobre sus despachadas = segundas ÷ prendas despachadas de ese mismo "+n+", en "+despWeeksTxt(dW)+(dW.length<pW.length?" (el detalle de despacho existe desde la semana 41 de 2026)":"")+"."):"";
+  phDesp("cliRank",phx("cliente"));phDesp("grpRank",phx("grupo"));phDesp("estRank",phx("estilo"));
+  if(dW.length){rankColor(drows,dW);phDesp("colRank",dW.length<pW.length?("Semanas con detalle de despacho: "+despWeeksTxt(dW)+"."):"");}
+  else{verPanel("colRank",0);const ce=document.getElementById("colRank");if(ce)ce.innerHTML="";}
 
   // ----- telas (solo interno, año con seguimiento de telas) -----
   if(KIND==="interno"&&latest()){
@@ -1932,9 +1981,13 @@ function renderPeriod(mode,valueOrArr){
     // Ahora sí viene la cantidad real en cada fila de detalle (r.cant) — se suma en vez de contar.
     const tm={};tr.forEach(r=>{(tm[r.cod]=tm[r.cod]||{v:0,nom:""});tm[r.cod].v+=(r.cant||0);if(!tm[r.cod].nom&&r.nom)tm[r.cod].nom=r.nom;});
     let tl=Object.keys(tm).map(k=>({k,v:tm[k].v,nom:tm[k].nom})).sort((a,b)=>b.v-a.v).slice(0,8);
-    let th="<thead><tr><th>Cód. Tela</th><th>Nombre</th><th style='text-align:right'>Cantidad</th><th></th></tr></thead><tbody>";
-    tl.forEach(x=>{th+=`<tr><td style="color:#333;font-weight:700">${x.k}</td><td style="font-size:11px">${x.nom||"—"}</td><td style="text-align:right">${x.v}</td><td style="text-align:center"><button class="fbtn" onclick="openFicha('tela','${String(x.k).replace(/'/g,"\\'")}',curTok())">DETALLE</button></td></tr>`;});
-    if(!tl.length)th+=`<tr><td colspan="4" style="text-align:center;color:var(--stone)">Sin telas registradas en el período</td></tr>`;
+    const dTW=despWeeksOf(tw),tden=dTW.length?despSum(dTW,"tela",null):null,tseg={};
+    if(dTW.length){const ws=new Set(dTW);STATE.telas26.forEach(r=>{if(ws.has(r.sem))tseg[r.cod]=(tseg[r.cod]||0)+(r.cant||0);});}
+    phDesp("telasRank",dTW.length?("% sobre sus despachadas = segundas ÷ prendas despachadas de esa misma tela, en "+despWeeksTxt(dTW)+"."):"");
+    let th="<thead><tr><th>Cód. Tela</th><th>Nombre</th><th style='text-align:right'>Cantidad</th>"+(tden?"<th style='text-align:right'>Despachadas</th><th style='text-align:right'>% sobre sus despachadas</th>":"")+"<th></th></tr></thead><tbody>";
+    tl.forEach(x=>{const tex=tden?(`<td style="text-align:right">${tden[x.k]?nf(tden[x.k]):"—"}</td>`+celdaPct(pctDesp(tseg[x.k]||0,tden[x.k]||0))):"";
+      th+=`<tr><td style="color:#333;font-weight:700">${x.k}</td><td style="font-size:11px">${x.nom||"—"}</td><td style="text-align:right">${x.v}</td>${tex}<td style="text-align:center"><button class="fbtn" onclick="openFicha('tela','${String(x.k).replace(/'/g,"\\'")}',curTok())">DETALLE</button></td></tr>`;});
+    if(!tl.length)th+=`<tr><td colspan="${tden?6:4}" style="text-align:center;color:var(--stone)">Sin telas registradas en el período</td></tr>`;
     document.getElementById("telasRank").innerHTML=th+"</tbody>";
   } else if(KIND==="interno"){
     document.getElementById("telasCoverage").textContent = "";
@@ -2112,15 +2165,17 @@ function renderHstate(plabel,conf){
   el.textContent=plabel+(conf.conf?" · "+nf(conf.seg)+" segundas de "+nf(conf.conf)+" despachadas":" · sin registros");
 }
 
-function rankTable(id,items,head,kind,tot){
+function rankTable(id,items,head,kind,tot,ex){
   const el=document.getElementById(id);if(!el)return;
   // Sin filas no se deja una tabla con la leyenda "Sin datos": se oculta el panel.
   verPanel(id,items.length);
   if(!items.length){el.innerHTML="";return;}
-  let h="<thead><tr><th>"+head+"</th><th style='text-align:right'>Segundas del período</th><th style='text-align:right'>% del período</th><th></th></tr></thead><tbody>";
+  let h="<thead><tr><th>"+head+"</th><th style='text-align:right'>Segundas del período</th><th style='text-align:right'>% del período</th>"+(ex?"<th style='text-align:right'>Despachadas"+ex.lbl+"</th><th style='text-align:right'>% sobre sus despachadas"+ex.lbl+"</th>":"")+"<th></th></tr></thead><tbody>";
   if(!items.length)h+="<tr><td colspan='4' style='text-align:center;color:var(--stone)'>Sin datos en el período</td></tr>";
   items.forEach(x=>{const pct=(x.v/tot*100).toFixed(1);const nm=kind==="estilo"?("Estilo "+x.k):x.k;
-    h+=`<tr><td style="color:#333;font-weight:700">${nm}</td><td style="text-align:right">${nf(x.v)} de ${nf(tot)}</td><td style="text-align:right">${pct}%</td><td style="text-align:center"><button class="fbtn" onclick="openFicha('${kind}','${String(x.k).replace(/'/g,"\\'")}',curTok())">DETALLE</button></td></tr>`;});
+    const K=String(x.k).trim().toUpperCase(),dd=ex?(ex.den[K]||0):0,ss=ex?(ex.seg[K]||0):0;
+    const exc=ex?(`<td style="text-align:right">${dd?nf(dd):"—"}</td>`+(ss||dd?celdaPct(pctDesp(ss,dd)):`<td style="text-align:right;color:var(--stone)">—</td>`)):"";
+    h+=`<tr><td style="color:#333;font-weight:700">${nm}</td><td style="text-align:right">${nf(x.v)} de ${nf(tot)}</td><td style="text-align:right">${pct}%</td>${exc}<td style="text-align:center"><button class="fbtn" onclick="openFicha('${kind}','${String(x.k).replace(/'/g,"\\'")}',curTok())">DETALLE</button></td></tr>`;});
   el.innerHTML=h+"</tbody>";
 }
 
@@ -2214,6 +2269,7 @@ function renderFicha(kind,key,period){
       <div class="fc-kpis">
         <div class="k"><div class="v">${nf(tot)}</div><div class="l">Segundas</div></div>
         ${kpis.map(c=>`<div class="k"><div class="v" style="font-size:13px">${c[1]}</div><div class="l">${c[0]}</div></div>`).join("")}</div>
+      ${(kind==="grupo"||kind==="estilo"||kind==="cliente")?fichaDesp(f,key,period,ydata()):""}
       <div class="fc-sec">Pareto de motivos — ${plabel}</div>
       ${pareto}
       <div class="fc-sec">${evoTitle} · Tendencia (${trWord} vs. previo): ${lfsBadgeInv(trendV)}</div>
@@ -2252,6 +2308,7 @@ function renderFichaTela(key,period){
         <div class="k"><div class="v" style="font-size:13px">${estG[0]?"Estilo "+estG[0].k:"—"}</div><div class="l">Estilo más</div></div>
         <div class="k"><div class="v" style="font-size:13px">${top(grpG)}</div><div class="l">Grupo más</div></div>
         <div class="k"><div class="v" style="font-size:13px">${top(colG)}</div><div class="l">Color más</div></div></div>
+      ${CURYEAR===2026?fichaDesp("cod",key,period,STATE.telas26):""}
       <div class="fc-sec">Estilos donde aparece — ${plabel}</div>
       ${pareto}
       <div class="fc-sec">${evoTitle} · Tendencia (${trWord} vs. previo): ${lfsBadgeInv(trendV)}</div>
@@ -2328,7 +2385,7 @@ function renderCompare(){
 /* exportar */
 function exportFrozen(){
   if(!STATE)return;
-  const embed={dataAll:STATE.dataAll,rep:STATE.rep,telas26:STATE.telas26,years:STATE.years,maxYear:STATE.maxYear,fname:STATE.fname};
+  const embed={dataAll:STATE.dataAll,rep:STATE.rep,telas26:STATE.telas26,years:STATE.years,maxYear:STATE.maxYear,fname:STATE.fname,desp:STATE.desp||[]};
   const clone=document.documentElement.cloneNode(true);
   const sj=clone.querySelector("#sheetjs");if(sj)sj.remove();
   const es=document.createElement("script");es.textContent="window.__EMBEDSTATE__="+JSON.stringify(embed).replace(/<\//g,"<\\/")+";";
