@@ -2528,11 +2528,10 @@ if(window.__EMBEDSTATE__){try{
     if(area2.length>=2)ins.push('<b>'+area2[0].k+'</b> y <b>'+area2[1].k+'</b> concentran el <b>'+area2sum.toFixed(0)+'%</b> de las segundas de '+latest+'.');
     if(KIND==="gerencia"&&cliT&&cliT[0])ins.push('<b>'+cliT[0].k+'</b> concentra el <b>'+cliT[0].p+'%</b>: cualquier mejora ah\u00ED mueve el total de la empresa.');
 
-    host.innerHTML='<div class="elead"><div class="eltx">'+ins[0]+' En '+ys.length+' a\u00F1os, el valor FOB de las segundas suma <b>'+fmtM(totM)+'</b>.</div></div>'
-      +'<div class="esec"><div class="est">\u00BFVamos mejor o peor? \u2014 % de segundas por a\u00F1o</div><div class="echips">'+chips+'</div><div class="ecard"><div class="ecw"><canvas id="cePct"></canvas></div></div></div>'
+    /* 14/10/2026: sin veredicto arriba ni "En resumen" (regla: nada de veredictos ni insights; la gente saca sus conclusiones) */
+    host.innerHTML='<div class="esec"><div class="est">\u00BFVamos mejor o peor? \u2014 % de segundas por a\u00F1o</div><div class="echips">'+chips+'</div><div class="ecard"><div class="ecw"><canvas id="cePct"></canvas></div></div></div>'
       +'<div class="esec"><div class="est">\u00BFCu\u00E1nto vale? \u2014 valor FOB de las segundas (US$)</div><div class="emoney">'+mcards+'</div><div class="ecard"><div class="ecw"><canvas id="ceMoney"></canvas></div></div></div>'
-      +'<div class="esec"><div class="est">\u00BFD\u00F3nde y en qu\u00E9 se concentra?</div><div class="egrid">'+concBlocks+'</div></div>'
-      +'<div class="esec"><div class="est">En resumen</div><ul class="eins">'+ins.map(function(t){return '<li>'+t+'</li>';}).join("")+'</ul></div>';
+      +'<div class="esec"><div class="est">\u00BFD\u00F3nde y en qu\u00E9 se concentra?</div><div class="egrid">'+concBlocks+'</div></div>';
 
     var SAGE="#0F7A5A",TAUPE="#B45309",ROSE="#DC2626",RED="#DC2626",TAN2="#F59E0B",WARML="#F1F6F4";
     var pcts=ys.map(pctYear);
